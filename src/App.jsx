@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Plus, Trash2, Package, FileText, Ship, LayoutGrid, X, 
   AlertCircle, Loader2, CheckCircle2, Boxes, BookOpen, 
-  Upload, Download, FileSpreadsheet, Edit3, FileCode, Globe,
-  Search, ArrowUpRight, AlertTriangle, Check
+  Upload, Download, FileSpreadsheet, Edit3, Globe,
+  Search, AlertTriangle
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -124,6 +124,7 @@ export default function StockLedger() {
 
   const save = (next, msg) => {
     setData(next);
+    localStorage.setItem(STORE_KEY, JSON.stringify(next));
     fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -133,7 +134,7 @@ export default function StockLedger() {
         if (!res.ok) throw new Error("Failed to save");
         if (msg) showToast(msg, "success");
       })
-      .catch((e) => {
+      .catch(() => {
         showToast("Could not save to central database.", "error");
       });
   };
@@ -253,13 +254,13 @@ export default function StockLedger() {
           {tab === "ledger" && <LedgerTab data={data} ledger={ledger} supplierName={supplierName} productInfo={productInfo} />}
           {tab === "pis" && <PIsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} piStatus={piStatus} />}
           {tab === "shipments" && <ShipmentsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} closingQtyFor={closingQtyFor} />}
-          {tab === "setup" && <SetupTab data={data} save={save} />}
+          {tab === "setup" && <SetupTab data={data} save={save} showToast={showToast} />}
         </main>
       </div>
 
       {/* Floating Toast Notification */}
       {toast && (
-        <div className={`fixed bottom-5 right-5 px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl flex items-center gap-2 border animate-in fade-in slide-in-from-bottom-2 ${
+        <div className={`fixed bottom-5 right-5 px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl flex items-center gap-2 border animate-in fade-in slide-in-from-bottom-2 z-50 ${
           toast.type === "error" ? "bg-rose-900 text-white border-rose-800" : "bg-[#1B2430] text-white border-slate-700"
         }`}>
           {toast.type === "error" ? <AlertCircle className="w-4 h-4 text-rose-400" /> : <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
@@ -323,7 +324,7 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#7A7568]" />
           <input 
             type="text" 
-            placeholder="Search item, SKU, supplier..." 
+            placeholder="Search Item Name, Item Code, supplier..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={inputCls + " pl-9 w-full bg-white"}
@@ -426,7 +427,7 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
                         <tr key={i} className="border-b border-[#EFEAE0] last:border-0 hover:bg-white/60 transition-colors">
                           <td className="py-2">
                             <span className="font-medium text-[#1B2430]">{p.name}</span>
-                            <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>
+                            {p.sku && <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>}
                           </td>
                           <td className="text-right py-2 text-[#8A6420]">{r.pipeline > 0 ? fmt(r.pipeline) + " " + p.unit : "—"}</td>
                           <td className="text-right py-2">
@@ -564,6 +565,31 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
     return events.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   }, [data, selectedSupplier]);
 
+  const exportLedgerExcel = () => {
+    const supName = supplierName(selectedSupplier);
+    const rows = filteredLedger.map((r) => {
+      const p = productInfo(r.productId);
+      return {
+        "Supplier": supName,
+        "Item Name": p.name,
+        "Item Code": p.sku,
+        "Unit": p.unit,
+        "Ordered Qty": r.ordered,
+        "Received Qty": r.received,
+        "Shipped Qty": r.shipped,
+        "Pipeline Qty": r.pipeline,
+        "Closing Sellable Qty": r.closingQty,
+        "Avg Unit Cost (AED)": r.avgCost,
+        "Closing Value (AED)": Math.max(0, r.closingQty) * r.avgCost,
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Ledger");
+    XLSX.writeFile(workbook, `Stock_Ledger_${supName.replace(/\s+/g, "_")}.xlsx`);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -572,35 +598,43 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
           <p className="text-sm text-[#7A7568] mt-0.5">Audit item stock balances and complete transaction movement history.</p>
         </div>
 
-        <div className="flex items-center gap-3 bg-white p-2 border border-[#E4DFD3] rounded-xl shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Country:</span>
-            <select 
-              className={inputCls + " font-medium py-1 text-xs"} 
-              value={selectedCountry} 
-              onChange={(e) => setSelectedCountry(e.target.value)}
-            >
-              <option value="all">All Countries</option>
-              {countriesList.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center gap-3">
+          {selectedSupplier && (
+            <button onClick={exportLedgerExcel} className={btnGhost}>
+              <Download className="w-4 h-4 text-emerald-600" /> Export Excel
+            </button>
+          )}
 
-          <div className="h-4 w-[1px] bg-[#E4DFD3]" />
+          <div className="flex items-center gap-3 bg-white p-2 border border-[#E4DFD3] rounded-xl shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Country:</span>
+              <select 
+                className={inputCls + " font-medium py-1 text-xs"} 
+                value={selectedCountry} 
+                onChange={(e) => setSelectedCountry(e.target.value)}
+              >
+                <option value="all">All Countries</option>
+                {countriesList.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Supplier:</span>
-            <select 
-              className={inputCls + " font-medium py-1 text-xs"} 
-              value={selectedSupplier} 
-              onChange={(e) => setSelectedSupplier(e.target.value)}
-            >
-              {filteredSuppliers.length === 0 && <option value="">No suppliers</option>}
-              {filteredSuppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name} ({s.country || "General"})</option>
-              ))}
-            </select>
+            <div className="h-4 w-[1px] bg-[#E4DFD3]" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Supplier:</span>
+              <select 
+                className={inputCls + " font-medium py-1 text-xs"} 
+                value={selectedSupplier} 
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+              >
+                {filteredSuppliers.length === 0 && <option value="">No suppliers</option>}
+                {filteredSuppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.country || "General"})</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -618,7 +652,7 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                      <th className="text-left py-2 font-semibold">Item &amp; SKU</th>
+                      <th className="text-left py-2 font-semibold">Item Name &amp; Item Code</th>
                       <th className="text-right py-2 font-semibold">Ordered</th>
                       <th className="text-right py-2 font-semibold">Received</th>
                       <th className="text-right py-2 font-semibold">Shipped</th>
@@ -633,7 +667,7 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
                         <tr key={i} className="hover:bg-[#FAF8F5] transition-colors">
                           <td className="py-2.5">
                             <span className="font-medium text-[#1B2430]">{p.name}</span>
-                            <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>
+                            {p.sku && <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>}
                           </td>
                           <td className="text-right py-2.5">{fmt(r.ordered)} {p.unit}</td>
                           <td className="text-right py-2.5">{fmt(r.received)} {p.unit}</td>
@@ -663,7 +697,7 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
                       <th className="text-left py-2 font-semibold">Date</th>
                       <th className="text-left py-2 font-semibold">Type</th>
                       <th className="text-left py-2 font-semibold">Reference</th>
-                      <th className="text-left py-2 font-semibold">Item</th>
+                      <th className="text-left py-2 font-semibold">Item Name</th>
                       <th className="text-right py-2 font-semibold">Ordered</th>
                       <th className="text-right py-2 font-semibold">Received</th>
                       <th className="text-right py-2 font-semibold">Shipped Out</th>
@@ -774,7 +808,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
-                      <th className="text-left py-1 font-medium">Product</th>
+                      <th className="text-left py-1 font-medium">Item Name</th>
                       <th className="text-right py-1 font-medium">Ordered Qty</th>
                       <th className="text-right py-1 font-medium">Unit Price</th>
                       <th className="text-right py-1 font-medium">Received Qty</th>
@@ -785,7 +819,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
                       const p = productInfo(it.productId);
                       return (
                         <tr key={idx}>
-                          <td className="py-2 font-medium">{p.name} <span className="text-xs font-mono text-[#7A7568]">({p.sku})</span></td>
+                          <td className="py-2 font-medium">{p.name} {p.sku && <span className="text-xs font-mono text-[#7A7568]">({p.sku})</span>}</td>
                           <td className="text-right py-2">{fmt(it.qty)} {p.unit}</td>
                           <td className="text-right py-2">AED {money(it.unitPrice)}</td>
                           <td className="text-right py-2">
@@ -903,6 +937,34 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     save({ ...data, shipments: data.shipments.filter((s) => s.id !== id) }, "Shipment deleted");
   };
 
+  const exportPackingListPDF = (sh) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("OUTBOUND SHIPMENT PACKING LIST", 14, 20);
+
+    doc.setFontSize(10);
+    doc.text(`Shipment Ref: ${sh.shipmentNumber}`, 14, 28);
+    doc.text(`Destination: ${sh.destinationBranch || "Branch"}`, 14, 34);
+    doc.text(`Supplier: ${supplierName(sh.supplierId)}`, 14, 40);
+    doc.text(`Dispatch Date: ${sh.date}`, 14, 46);
+
+    const tableRows = sh.items.map((it) => {
+      const p = productInfo(it.productId);
+      const totalWeight = num(it.qty) * num(p.weightKg);
+      const totalCbm = num(it.qty) * num(p.cbm);
+      return [p.name, p.sku || "—", fmt(it.qty) + " " + p.unit, p.packingSize || "—", totalWeight > 0 ? totalWeight.toFixed(2) + " kg" : "—", totalCbm > 0 ? totalCbm.toFixed(3) + " m³" : "—"];
+    });
+
+    autoTable(doc, {
+      startY: 52,
+      head: [["Item Name", "Item Code", "Shipped Qty", "Packing Size", "Est. Weight", "Est. CBM"]],
+      body: tableRows,
+      headStyles: { fillColor: [27, 36, 48] },
+    });
+
+    doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
+  };
+
   const availableProducts = useMemo(() => {
     return data.products.filter((p) => p.supplierId === supplierId);
   }, [data.products, supplierId]);
@@ -912,7 +974,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Shipments &amp; Dispatches</h1>
-          <p className="text-sm text-[#7A7568] mt-0.5">Record outbound goods movement to branches and sales points.</p>
+          <p className="text-sm text-[#7A7568] mt-0.5">Record outbound goods movement and export PDF packing lists.</p>
         </div>
         <button onClick={() => setShowModal(true)} className={btnPrimary}>
           <Plus className="w-4 h-4" /> Record New Shipment
@@ -932,15 +994,20 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                   <span className="text-xs text-[#7A7568] font-medium">• {supplierName(sh.supplierId)}</span>
                   <span className="text-xs text-[#9C9788] font-mono">• {sh.date}</span>
                 </div>
-                <button onClick={() => deleteShipment(sh.id)} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => exportPackingListPDF(sh)} className={btnGhost + " py-1 text-xs"}>
+                    <Download className="w-3.5 h-3.5 text-rose-600" /> PDF Packing List
+                  </button>
+                  <button onClick={() => deleteShipment(sh.id)} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
-                    <th className="text-left py-1 font-medium">Product</th>
+                    <th className="text-left py-1 font-medium">Item Name</th>
                     <th className="text-right py-1 font-medium">Shipped Quantity</th>
                   </tr>
                 </thead>
@@ -949,7 +1016,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                     const p = productInfo(it.productId);
                     return (
                       <tr key={idx}>
-                        <td className="py-1.5 font-medium">{p.name} <span className="text-xs font-mono text-[#7A7568]">({p.sku})</span></td>
+                        <td className="py-1.5 font-medium">{p.name} {p.sku && <span className="text-xs font-mono text-[#7A7568]">({p.sku})</span>}</td>
                         <td className="text-right py-1.5 font-semibold text-[#B5453A]">{fmt(it.qty)} {p.unit}</td>
                       </tr>
                     );
@@ -1021,7 +1088,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
   );
 }
 
-function SetupTab({ data, save }) {
+function SetupTab({ data, save, showToast }) {
   const [sName, setSName] = useState("");
   const [sCountry, setSCountry] = useState("");
   
@@ -1029,6 +1096,11 @@ function SetupTab({ data, save }) {
   const [pName, setPName] = useState("");
   const [pSku, setPSku] = useState("");
   const [pUnit, setPUnit] = useState("pcs");
+  const [pWeight, setPWeight] = useState("");
+  const [pCbm, setPCbm] = useState("");
+  const [pPackingSize, setPPackingSize] = useState("");
+
+  const fileInputRef = useRef(null);
 
   const addSupplier = () => {
     if (!sName.trim()) return;
@@ -1040,17 +1112,102 @@ function SetupTab({ data, save }) {
 
   const addProduct = () => {
     if (!pSupplierId || !pName.trim()) return;
-    const prod = { id: uid(), supplierId: pSupplierId, name: pName.trim(), sku: pSku.trim(), unit: pUnit };
-    save({ ...data, products: [...data.products, prod] }, "Product catalog updated");
+    const prod = { 
+      id: uid(), 
+      supplierId: pSupplierId, 
+      name: pName.trim(), 
+      sku: pSku.trim(), 
+      unit: pUnit,
+      weightKg: num(pWeight),
+      cbm: num(pCbm),
+      packingSize: pPackingSize.trim(),
+    };
+    save({ ...data, products: [...data.products, prod] }, "Item master catalog updated");
     setPName("");
     setPSku("");
+    setPWeight("");
+    setPCbm("");
+    setPPackingSize("");
+  };
+
+  const handleBulkExcelUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsName = wb.SheetNames[0];
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wsName]);
+
+        if (rows.length === 0) {
+          showToast("Uploaded Excel file contains no valid rows", "error");
+          return;
+        }
+
+        const newSuppliers = [...data.suppliers];
+        const newProducts = [...data.products];
+
+        rows.forEach((row) => {
+          const sNameRaw = String(row["Supplier Name"] || row["Supplier"] || "").trim();
+          const sCountryRaw = String(row["Country"] || "").trim();
+          const pNameRaw = String(row["Item Name"] || row["Product Name"] || "").trim();
+          const pCodeRaw = String(row["Item Code"] || row["SKU"] || "").trim();
+          const pUnitRaw = String(row["Unit"] || "pcs").trim();
+
+          if (sNameRaw) {
+            let supplier = newSuppliers.find((s) => s.name.toLowerCase() === sNameRaw.toLowerCase());
+            if (!supplier) {
+              supplier = { id: uid(), name: sNameRaw, country: sCountryRaw };
+              newSuppliers.push(supplier);
+            }
+
+            if (pNameRaw) {
+              newProducts.push({
+                id: uid(),
+                supplierId: supplier.id,
+                name: pNameRaw,
+                sku: pCodeRaw,
+                unit: pUnitRaw,
+                weightKg: num(row["Weight (Kg)"]),
+                cbm: num(row["CBM"]),
+                packingSize: String(row["Packing Size"] || "").trim(),
+              });
+            }
+          }
+        });
+
+        save({ ...data, suppliers: newSuppliers, products: newProducts }, `Bulk imported ${rows.length} records successfully!`);
+      } catch (err) {
+        console.error("Bulk upload parse error:", err);
+        showToast("Error parsing Excel file. Ensure headers match required schema.", "error");
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Suppliers &amp; Items Setup</h1>
-        <p className="text-sm text-[#7A7568] mt-0.5">Manage master database of suppliers and product catalog.</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Suppliers &amp; Items Setup</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Manage master database of suppliers and item master catalog.</p>
+        </div>
+
+        <div>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleBulkExcelUpload} 
+            accept=".xlsx, .xls, .csv" 
+            className="hidden" 
+          />
+          <button onClick={() => fileInputRef.current.click()} className={btnGhost}>
+            <FileSpreadsheet className="w-4 h-4 text-emerald-700" /> Excel Bulk Import
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -1064,7 +1221,7 @@ function SetupTab({ data, save }) {
           </div>
 
           <div className={sectionLabel}>Active Suppliers ({data.suppliers.length})</div>
-          <ul className="divide-y divide-[#F3F0E7]">
+          <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
             {data.suppliers.map((s) => (
               <li key={s.id} className="py-2 flex items-center justify-between text-sm">
                 <span className="font-medium">{s.name}</span>
@@ -1086,19 +1243,24 @@ function SetupTab({ data, save }) {
             </Field>
             <Field label="Item Name"><input type="text" value={pName} onChange={(e) => setPName(e.target.value)} placeholder="e.g. Perfume 100ml" className={inputCls} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="SKU / Code"><input type="text" value={pSku} onChange={(e) => setPSku(e.target.value)} placeholder="e.g. PRF-001" className={inputCls} /></Field>
+              <Field label="Item Code"><input type="text" value={pSku} onChange={(e) => setPSku(e.target.value)} placeholder="e.g. PRF-001" className={inputCls} /></Field>
               <Field label="Unit"><input type="text" value={pUnit} onChange={(e) => setPUnit(e.target.value)} className={inputCls} /></Field>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Weight (Kg)"><input type="number" value={pWeight} onChange={(e) => setPWeight(e.target.value)} placeholder="0.00" className={inputCls} /></Field>
+              <Field label="CBM"><input type="number" value={pCbm} onChange={(e) => setPCbm(e.target.value)} placeholder="0.000" className={inputCls} /></Field>
+              <Field label="Packing Size"><input type="text" value={pPackingSize} onChange={(e) => setPPackingSize(e.target.value)} placeholder="e.g. 24 pcs/ctn" className={inputCls} /></Field>
             </div>
             <button onClick={addProduct} className={btnPrimary + " w-full justify-center"}>Add Item to Catalog</button>
           </div>
 
-          <div className={sectionLabel}>Item Catalog ({data.products.length})</div>
+          <div className={sectionLabel}>Item Master Catalog ({data.products.length})</div>
           <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
             {data.products.map((p) => (
               <li key={p.id} className="py-2 flex items-center justify-between text-sm">
                 <div>
                   <div className="font-medium">{p.name}</div>
-                  <div className="text-xs text-[#7A7568] font-mono">{p.sku}</div>
+                  <div className="text-xs text-[#7A7568] font-mono">{p.sku || "No Code"}</div>
                 </div>
                 <span className="text-xs text-[#7A7568]">{p.unit}</span>
               </li>
