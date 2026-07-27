@@ -1318,7 +1318,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
   };
 
-  // Filtered Shipments
+// Filtered Shipments
   const filteredShipments = useMemo(() => {
     return data.shipments.filter(sh => {
       const matchCountry = filterCountry === "all" || sh.country === filterCountry;
@@ -1428,8 +1428,12 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                   </tbody>
                 </table>
               </div>
-            </div>
-
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
       {/* Modern Multi-Supplier & Multi-Item Shipment Builder Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
