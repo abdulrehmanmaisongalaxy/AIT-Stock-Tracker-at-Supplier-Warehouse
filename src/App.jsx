@@ -733,21 +733,44 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
 
 function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
   const [showModal, setShowModal] = useState(false);
+  const [editingPiId, setEditingPiId] = useState(null);
+  
   const [supplierId, setSupplierId] = useState("");
   const [piNumber, setPiNumber] = useState("");
   const [date, setDate] = useState(todayStr());
-  // Line items structure: [{ productId: "", qty: "", unitPrice: "" }]
-  const [items, setItems] = useState([{ productId: "", qty: "", unitPrice: "" }]);
+  const [items, setItems] = useState([{ productId: "", qty: "", unitPrice: "", receivedQty: 0 }]);
 
-  // Filter products for selected supplier, fallback to ALL products if none matched
   const catalogProducts = useMemo(() => {
     if (!supplierId) return data.products;
     const filtered = data.products.filter((p) => p.supplierId === supplierId);
     return filtered.length > 0 ? filtered : data.products;
   }, [data.products, supplierId]);
 
+  const handleOpenCreateModal = () => {
+    setEditingPiId(null);
+    setSupplierId("");
+    setPiNumber("");
+    setDate(todayStr());
+    setItems([{ productId: "", qty: "", unitPrice: "", receivedQty: 0 }]);
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (pi) => {
+    setEditingPiId(pi.id);
+    setSupplierId(pi.supplierId);
+    setPiNumber(pi.piNumber);
+    setDate(pi.date || todayStr());
+    setItems(pi.items.map(it => ({
+      productId: it.productId,
+      qty: String(it.qty),
+      unitPrice: String(it.unitPrice),
+      receivedQty: it.receivedQty || 0
+    })));
+    setShowModal(true);
+  };
+
   const handleAddLine = () => {
-    setItems((prev) => [...prev, { productId: "", qty: "", unitPrice: "" }]);
+    setItems((prev) => [...prev, { productId: "", qty: "", unitPrice: "", receivedQty: 0 }]);
   };
 
   const handleRemoveLine = (index) => {
@@ -762,33 +785,43 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
     });
   };
 
-  const addPI = () => {
+  const savePI = () => {
     if (!supplierId || !piNumber.trim()) return;
 
     const validItems = items
       .filter((i) => i.productId && num(i.qty) > 0)
-      .map((i) => ({ productId: i.productId, qty: num(i.qty), unitPrice: num(i.unitPrice), receivedQty: 0 }));
+      .map((i) => ({ 
+        productId: i.productId, 
+        qty: num(i.qty), 
+        unitPrice: num(i.unitPrice), 
+        receivedQty: num(i.receivedQty) 
+      }));
 
     if (validItems.length === 0) {
       alert("Please select at least one item and enter a valid quantity.");
       return;
     }
 
-    const newPI = {
-      id: uid(),
-      supplierId,
-      piNumber: piNumber.trim(),
-      date,
-      items: validItems,
-    };
+    if (editingPiId) {
+      const updatedPis = data.pis.map(p => {
+        if (p.id === editingPiId) {
+          return { ...p, supplierId, piNumber: piNumber.trim(), date, items: validItems };
+        }
+        return p;
+      });
+      save({ ...data, pis: updatedPis }, "Proforma Invoice updated");
+    } else {
+      const newPI = {
+        id: uid(),
+        supplierId,
+        piNumber: piNumber.trim(),
+        date,
+        items: validItems,
+      };
+      save({ ...data, pis: [...data.pis, newPI] }, "Proforma Invoice saved successfully");
+    }
 
-    save({ ...data, pis: [...data.pis, newPI] }, "Proforma Invoice saved successfully");
-    
-    // Reset modal form
     setShowModal(false);
-    setPiNumber("");
-    setSupplierId("");
-    setItems([{ productId: "", qty: "", unitPrice: "" }]);
   };
 
   const updateReceived = (piId, productId, val) => {
@@ -804,7 +837,9 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
   };
 
   const deletePI = (id) => {
-    save({ ...data, pis: data.pis.filter((p) => p.id !== id) }, "PI removed");
+    if (confirm("Are you sure you want to delete this PI?")) {
+      save({ ...data, pis: data.pis.filter((p) => p.id !== id) }, "PI removed");
+    }
   };
 
   return (
@@ -814,13 +849,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
           <h1 className="text-2xl font-bold tracking-tight">Proforma Invoices (PIs)</h1>
           <p className="text-sm text-[#7A7568] mt-0.5">Log signed purchase orders and record physical warehouse receipts.</p>
         </div>
-        <button 
-          onClick={() => {
-            setItems([{ productId: "", qty: "", unitPrice: "" }]);
-            setShowModal(true);
-          }} 
-          className={btnPrimary}
-        >
+        <button onClick={handleOpenCreateModal} className={btnPrimary}>
           <Plus className="w-4 h-4" /> Log New PI
         </button>
       </div>
@@ -840,9 +869,14 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
                     <span className="text-xs text-[#7A7568] font-medium">• {supplierName(pi.supplierId)}</span>
                     <span className="text-xs text-[#9C9788] font-mono">• {pi.date}</span>
                   </div>
-                  <button onClick={() => deletePI(pi.id)} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleOpenEditModal(pi)} className="text-slate-400 hover:text-[#C98A3E] transition-colors p-1">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => deletePI(pi.id)} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <table className="w-full text-sm">
@@ -887,7 +921,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E4DFD3] max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
-              <h2 className="text-lg font-bold">Log Proforma Invoice</h2>
+              <h2 className="text-lg font-bold">{editingPiId ? "Edit Proforma Invoice" : "Log Proforma Invoice"}</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-black" /></button>
             </div>
             
@@ -908,7 +942,6 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
                 </Field>
               </div>
 
-              {/* Dynamic Line Items Section */}
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold">Items in PI</span>
@@ -917,63 +950,57 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
                   </button>
                 </div>
 
-                {data.products.length === 0 ? (
-                  <div className="p-3 text-xs text-[#7A7568] bg-amber-50 border border-amber-200 rounded-lg">
-                    No items in catalog yet. Please add items in <b>Suppliers &amp; Items</b> tab first.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0]">
-                        <div className="flex-1 min-w-0">
-                          <select
-                            value={item.productId}
-                            onChange={(e) => handleItemChange(idx, "productId", e.target.value)}
-                            className={inputCls + " w-full text-xs py-1.5"}
-                          >
-                            <option value="">Select Item...</option>
-                            {catalogProducts.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} {p.sku ? `(${p.sku})` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="Qty"
-                          value={item.qty}
-                          onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
-                          className={inputCls + " w-20 text-xs py-1.5 text-right"}
-                        />
-
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Price"
-                          value={item.unitPrice}
-                          onChange={(e) => handleItemChange(idx, "unitPrice", e.target.value)}
-                          className={inputCls + " w-24 text-xs py-1.5 text-right"}
-                        />
-
-                        {items.length > 1 && (
-                          <button onClick={() => handleRemoveLine(idx)} className="text-slate-400 hover:text-rose-600 p-1">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                <div className="space-y-2">
+                  {items.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0]">
+                      <div className="flex-1 min-w-0">
+                        <select
+                          value={item.productId}
+                          onChange={(e) => handleItemChange(idx, "productId", e.target.value)}
+                          className={inputCls + " w-full text-xs py-1.5"}
+                        >
+                          <option value="">Select Item...</option>
+                          {catalogProducts.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} {p.sku ? `(${p.sku})` : ""}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Qty"
+                        value={item.qty}
+                        onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
+                        className={inputCls + " w-20 text-xs py-1.5 text-right"}
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Price"
+                        value={item.unitPrice}
+                        onChange={(e) => handleItemChange(idx, "unitPrice", e.target.value)}
+                        className={inputCls + " w-24 text-xs py-1.5 text-right"}
+                      />
+
+                      {items.length > 1 && (
+                        <button onClick={() => handleRemoveLine(idx)} className="text-slate-400 hover:text-rose-600 p-1">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t border-[#EFEAE0] mt-2">
               <button onClick={() => setShowModal(false)} className={btnGhost}>Cancel</button>
-              <button onClick={addPI} className={btnPrimary}>Save PI</button>
+              <button onClick={savePI} className={btnPrimary}>{editingPiId ? "Update PI" : "Save PI"}</button>
             </div>
           </div>
         </div>
@@ -984,19 +1011,39 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
 
 function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) {
   const [showModal, setShowModal] = useState(false);
+  const [editingShipmentId, setEditingShipmentId] = useState(null);
+
   const [supplierId, setSupplierId] = useState("");
   const [shipmentNumber, setShipmentNumber] = useState("");
   const [destinationBranch, setDestinationBranch] = useState("");
   const [date, setDate] = useState(todayStr());
-  // Line items structure: [{ productId: "", qty: "" }]
   const [items, setItems] = useState([{ productId: "", qty: "" }]);
 
-  // Filter products for selected supplier, fallback to ALL products if none matched
   const catalogProducts = useMemo(() => {
     if (!supplierId) return data.products;
     const filtered = data.products.filter((p) => p.supplierId === supplierId);
     return filtered.length > 0 ? filtered : data.products;
   }, [data.products, supplierId]);
+
+  const handleOpenCreateModal = () => {
+    setEditingShipmentId(null);
+    setSupplierId("");
+    setShipmentNumber("");
+    setDestinationBranch("");
+    setDate(todayStr());
+    setItems([{ productId: "", qty: "" }]);
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (sh) => {
+    setEditingShipmentId(sh.id);
+    setSupplierId(sh.supplierId);
+    setShipmentNumber(sh.shipmentNumber);
+    setDestinationBranch(sh.destinationBranch || "");
+    setDate(sh.date || todayStr());
+    setItems(sh.items.map(it => ({ productId: it.productId, qty: String(it.qty) })));
+    setShowModal(true);
+  };
 
   const handleAddLine = () => {
     setItems((prev) => [...prev, { productId: "", qty: "" }]);
@@ -1014,7 +1061,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     });
   };
 
-  const addShipment = () => {
+  const saveShipment = () => {
     if (!supplierId || !shipmentNumber.trim()) return;
 
     const validItems = items
@@ -1026,27 +1073,40 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
       return;
     }
 
-    const newShipment = {
-      id: uid(),
-      supplierId,
-      shipmentNumber: shipmentNumber.trim(),
-      destinationBranch: destinationBranch.trim(),
-      date,
-      items: validItems,
-    };
+    if (editingShipmentId) {
+      const updatedShipments = data.shipments.map(s => {
+        if (s.id === editingShipmentId) {
+          return {
+            ...s,
+            supplierId,
+            shipmentNumber: shipmentNumber.trim(),
+            destinationBranch: destinationBranch.trim(),
+            date,
+            items: validItems
+          };
+        }
+        return s;
+      });
+      save({ ...data, shipments: updatedShipments }, "Shipment updated");
+    } else {
+      const newShipment = {
+        id: uid(),
+        supplierId,
+        shipmentNumber: shipmentNumber.trim(),
+        destinationBranch: destinationBranch.trim(),
+        date,
+        items: validItems,
+      };
+      save({ ...data, shipments: [...data.shipments, newShipment] }, "Shipment recorded successfully");
+    }
 
-    save({ ...data, shipments: [...data.shipments, newShipment] }, "Shipment recorded successfully");
-    
-    // Reset modal form
     setShowModal(false);
-    setShipmentNumber("");
-    setDestinationBranch("");
-    setSupplierId("");
-    setItems([{ productId: "", qty: "" }]);
   };
 
   const deleteShipment = (id) => {
-    save({ ...data, shipments: data.shipments.filter((s) => s.id !== id) }, "Shipment deleted");
+    if (confirm("Are you sure you want to delete this shipment?")) {
+      save({ ...data, shipments: data.shipments.filter((s) => s.id !== id) }, "Shipment deleted");
+    }
   };
 
   const exportPackingListPDF = (sh) => {
@@ -1091,13 +1151,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
           <h1 className="text-2xl font-bold tracking-tight">Shipments &amp; Dispatches</h1>
           <p className="text-sm text-[#7A7568] mt-0.5">Record outbound goods movement and export PDF packing lists.</p>
         </div>
-        <button 
-          onClick={() => {
-            setItems([{ productId: "", qty: "" }]);
-            setShowModal(true);
-          }} 
-          className={btnPrimary}
-        >
+        <button onClick={handleOpenCreateModal} className={btnPrimary}>
           <Plus className="w-4 h-4" /> Record New Shipment
         </button>
       </div>
@@ -1118,6 +1172,9 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                 <div className="flex items-center gap-2">
                   <button onClick={() => exportPackingListPDF(sh)} className={btnGhost + " py-1 text-xs"}>
                     <Download className="w-3.5 h-3.5 text-rose-600" /> PDF Packing List
+                  </button>
+                  <button onClick={() => handleOpenEditModal(sh)} className="text-slate-400 hover:text-[#C98A3E] transition-colors p-1">
+                    <Edit3 className="w-4 h-4" />
                   </button>
                   <button onClick={() => deleteShipment(sh.id)} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
                     <Trash2 className="w-4 h-4" />
@@ -1153,7 +1210,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E4DFD3] max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
-              <h2 className="text-lg font-bold">Record Outbound Shipment</h2>
+              <h2 className="text-lg font-bold">{editingShipmentId ? "Edit Outbound Shipment" : "Record Outbound Shipment"}</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-black" /></button>
             </div>
             
@@ -1178,7 +1235,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
               </Field>
 
-              {/* Dynamic Line Items Section */}
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold">Items Dispatched</span>
@@ -1187,61 +1243,55 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                   </button>
                 </div>
 
-                {data.products.length === 0 ? (
-                  <div className="p-3 text-xs text-[#7A7568] bg-amber-50 border border-amber-200 rounded-lg">
-                    No items in catalog yet. Please add items in <b>Suppliers &amp; Items</b> tab first.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {items.map((item, idx) => {
-                      const avail = item.productId && supplierId ? closingQtyFor(supplierId, item.productId) : null;
-                      return (
-                        <div key={idx} className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0]">
-                          <div className="flex-1 min-w-0">
-                            <select
-                              value={item.productId}
-                              onChange={(e) => handleItemChange(idx, "productId", e.target.value)}
-                              className={inputCls + " w-full text-xs py-1.5"}
-                            >
-                              <option value="">Select Item...</option>
-                              {catalogProducts.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} {p.sku ? `(${p.sku})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                            {avail !== null && (
-                              <div className="text-[10px] text-[#7A7568] mt-1 pl-1">
-                                In Stock: <span className="font-semibold text-[#1B2430]">{avail}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="Qty"
-                            value={item.qty}
-                            onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
-                            className={inputCls + " w-24 text-xs py-1.5 text-right"}
-                          />
-
-                          {items.length > 1 && (
-                            <button onClick={() => handleRemoveLine(idx)} className="text-slate-400 hover:text-rose-600 p-1">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                <div className="space-y-2">
+                  {items.map((item, idx) => {
+                    const avail = item.productId && supplierId ? closingQtyFor(supplierId, item.productId) : null;
+                    return (
+                      <div key={idx} className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0]">
+                        <div className="flex-1 min-w-0">
+                          <select
+                            value={item.productId}
+                            onChange={(e) => handleItemChange(idx, "productId", e.target.value)}
+                            className={inputCls + " w-full text-xs py-1.5"}
+                          >
+                            <option value="">Select Item...</option>
+                            {catalogProducts.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} {p.sku ? `(${p.sku})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          {avail !== null && (
+                            <div className="text-[10px] text-[#7A7568] mt-1 pl-1">
+                              In Stock: <span className="font-semibold text-[#1B2430]">{avail}</span>
+                            </div>
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty"
+                          value={item.qty}
+                          onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
+                          className={inputCls + " w-24 text-xs py-1.5 text-right"}
+                        />
+
+                        {items.length > 1 && (
+                          <button onClick={() => handleRemoveLine(idx)} className="text-slate-400 hover:text-rose-600 p-1">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t border-[#EFEAE0] mt-2">
               <button onClick={() => setShowModal(false)} className={btnGhost}>Cancel</button>
-              <button onClick={addShipment} className={btnPrimary}>Save Shipment</button>
+              <button onClick={saveShipment} className={btnPrimary}>{editingShipmentId ? "Update Shipment" : "Save Shipment"}</button>
             </div>
           </div>
         </div>
@@ -1251,9 +1301,13 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
 }
 
 function SetupTab({ data, save, showToast }) {
+  // Supplier State
+  const [editingSupplierId, setEditingSupplierId] = useState(null);
   const [sName, setSName] = useState("");
   const [sCountry, setSCountry] = useState("");
-  
+
+  // Product State
+  const [editingProductId, setEditingProductId] = useState(null);
   const [pSupplierId, setPSupplierId] = useState("");
   const [pName, setPName] = useState("");
   const [pSku, setPSku] = useState("");
@@ -1264,32 +1318,103 @@ function SetupTab({ data, save, showToast }) {
 
   const fileInputRef = useRef(null);
 
-  const addSupplier = () => {
+  // --- Supplier CRUD ---
+  const handleSaveSupplier = () => {
     if (!sName.trim()) return;
-    const sup = { id: uid(), name: sName.trim(), country: sCountry.trim() };
-    save({ ...data, suppliers: [...data.suppliers, sup] }, "Supplier added");
+
+    if (editingSupplierId) {
+      const updated = data.suppliers.map(s => s.id === editingSupplierId ? { ...s, name: sName.trim(), country: sCountry.trim() } : s);
+      save({ ...data, suppliers: updated }, "Supplier updated");
+      setEditingSupplierId(null);
+    } else {
+      const sup = { id: uid(), name: sName.trim(), country: sCountry.trim() };
+      save({ ...data, suppliers: [...data.suppliers, sup] }, "Supplier added");
+    }
     setSName("");
     setSCountry("");
   };
 
-  const addProduct = () => {
+  const handleEditSupplier = (sup) => {
+    setEditingSupplierId(sup.id);
+    setSName(sup.name);
+    setSCountry(sup.country || "");
+  };
+
+  const handleDeleteSupplier = (id) => {
+    const hasProducts = data.products.some(p => p.supplierId === id);
+    if (hasProducts) {
+      if (!confirm("This supplier has products linked in the catalog. Deleting it will remove the supplier association. Proceed?")) return;
+    } else if (!confirm("Are you sure you want to delete this supplier?")) return;
+
+    save({ ...data, suppliers: data.suppliers.filter(s => s.id !== id) }, "Supplier removed");
+    if (editingSupplierId === id) {
+      setEditingSupplierId(null);
+      setSName("");
+      setSCountry("");
+    }
+  };
+
+  // --- Product CRUD ---
+  const handleSaveProduct = () => {
     if (!pSupplierId || !pName.trim()) return;
-    const prod = { 
-      id: uid(), 
-      supplierId: pSupplierId, 
-      name: pName.trim(), 
-      sku: pSku.trim(), 
-      unit: pUnit,
-      weightKg: num(pWeight),
-      cbm: num(pCbm),
-      packingSize: pPackingSize.trim(),
-    };
-    save({ ...data, products: [...data.products, prod] }, "Item master catalog updated");
+
+    if (editingProductId) {
+      const updated = data.products.map(p => p.id === editingProductId ? {
+        ...p,
+        supplierId: pSupplierId,
+        name: pName.trim(),
+        sku: pSku.trim(),
+        unit: pUnit,
+        weightKg: num(pWeight),
+        cbm: num(pCbm),
+        packingSize: pPackingSize.trim(),
+      } : p);
+      save({ ...data, products: updated }, "Item catalog updated");
+      setEditingProductId(null);
+    } else {
+      const prod = { 
+        id: uid(), 
+        supplierId: pSupplierId, 
+        name: pName.trim(), 
+        sku: pSku.trim(), 
+        unit: pUnit,
+        weightKg: num(pWeight),
+        cbm: num(pCbm),
+        packingSize: pPackingSize.trim(),
+      };
+      save({ ...data, products: [...data.products, prod] }, "Item added to catalog");
+    }
+
     setPName("");
     setPSku("");
     setPWeight("");
     setPCbm("");
     setPPackingSize("");
+  };
+
+  const handleEditProduct = (prod) => {
+    setEditingProductId(prod.id);
+    setPSupplierId(prod.supplierId);
+    setPName(prod.name);
+    setPSku(prod.sku || "");
+    setPUnit(prod.unit || "pcs");
+    setPWeight(prod.weightKg ? String(prod.weightKg) : "");
+    setPCbm(prod.cbm ? String(prod.cbm) : "");
+    setPPackingSize(prod.packingSize || "");
+  };
+
+  const handleDeleteProduct = (id) => {
+    if (confirm("Are you sure you want to delete this item from master catalog?")) {
+      save({ ...data, products: data.products.filter(p => p.id !== id) }, "Item removed from catalog");
+      if (editingProductId === id) {
+        setEditingProductId(null);
+        setPName("");
+        setPSku("");
+        setPWeight("");
+        setPCbm("");
+        setPPackingSize("");
+      }
+    }
   };
 
   const downloadExcelTemplate = () => {
@@ -1409,19 +1534,38 @@ function SetupTab({ data, save, showToast }) {
       <div className="grid grid-cols-2 gap-6">
         {/* Suppliers Setup */}
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>Register New Supplier</div>
+          <div className={sectionLabel}>{editingSupplierId ? "Edit Supplier" : "Register New Supplier"}</div>
           <div className="space-y-3 mb-6">
             <Field label="Supplier Name"><input type="text" value={sName} onChange={(e) => setSName(e.target.value)} placeholder="e.g. Guangzhou Trade Co." className={inputCls} /></Field>
             <Field label="Country"><input type="text" value={sCountry} onChange={(e) => setSCountry(e.target.value)} placeholder="e.g. China" className={inputCls} /></Field>
-            <button onClick={addSupplier} className={btnPrimary + " w-full justify-center"}>Add Supplier</button>
+            <div className="flex gap-2">
+              {editingSupplierId && (
+                <button onClick={() => { setEditingSupplierId(null); setSName(""); setSCountry(""); }} className={btnGhost + " w-1/3 justify-center"}>
+                  Cancel
+                </button>
+              )}
+              <button onClick={handleSaveSupplier} className={btnPrimary + " flex-1 justify-center"}>
+                {editingSupplierId ? "Update Supplier" : "Add Supplier"}
+              </button>
+            </div>
           </div>
 
           <div className={sectionLabel}>Active Suppliers ({data.suppliers.length})</div>
           <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
             {data.suppliers.map((s) => (
-              <li key={s.id} className="py-2 flex items-center justify-between text-sm">
-                <span className="font-medium">{s.name}</span>
-                <span className="text-xs text-[#7A7568] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E4DFD3]">{s.country || "—"}</span>
+              <li key={s.id} className="py-2 flex items-center justify-between text-sm group">
+                <div>
+                  <span className="font-medium">{s.name}</span>
+                  <span className="text-xs text-[#7A7568] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E4DFD3] ml-2">{s.country || "—"}</span>
+                </div>
+                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleEditSupplier(s)} className="text-slate-400 hover:text-[#C98A3E] p-1">
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDeleteSupplier(s.id)} className="text-slate-400 hover:text-rose-600 p-1">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -1429,7 +1573,7 @@ function SetupTab({ data, save, showToast }) {
 
         {/* Product Catalog Setup */}
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>Register New Item</div>
+          <div className={sectionLabel}>{editingProductId ? "Edit Master Item" : "Register New Item"}</div>
           <div className="space-y-3 mb-6">
             <Field label="Supplier">
               <select value={pSupplierId} onChange={(e) => setPSupplierId(e.target.value)} className={inputCls}>
@@ -1447,18 +1591,34 @@ function SetupTab({ data, save, showToast }) {
               <Field label="CBM"><input type="number" value={pCbm} onChange={(e) => setPCbm(e.target.value)} placeholder="0.000" className={inputCls} /></Field>
               <Field label="Packing Size"><input type="text" value={pPackingSize} onChange={(e) => setPPackingSize(e.target.value)} placeholder="e.g. 24 pcs/ctn" className={inputCls} /></Field>
             </div>
-            <button onClick={addProduct} className={btnPrimary + " w-full justify-center"}>Add Item to Catalog</button>
+            <div className="flex gap-2">
+              {editingProductId && (
+                <button onClick={() => { setEditingProductId(null); setPName(""); setPSku(""); setPWeight(""); setPCbm(""); setPPackingSize(""); }} className={btnGhost + " w-1/3 justify-center"}>
+                  Cancel
+                </button>
+              )}
+              <button onClick={handleSaveProduct} className={btnPrimary + " flex-1 justify-center"}>
+                {editingProductId ? "Update Item" : "Add Item to Catalog"}
+              </button>
+            </div>
           </div>
 
           <div className={sectionLabel}>Item Master Catalog ({data.products.length})</div>
           <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
             {data.products.map((p) => (
-              <li key={p.id} className="py-2 flex items-center justify-between text-sm">
+              <li key={p.id} className="py-2 flex items-center justify-between text-sm group">
                 <div>
                   <div className="font-medium">{p.name}</div>
-                  <div className="text-xs text-[#7A7568] font-mono">{p.sku || "No Code"}</div>
+                  <div className="text-xs text-[#7A7568] font-mono">{p.sku || "No Code"} • {p.unit}</div>
                 </div>
-                <span className="text-xs text-[#7A7568]">{p.unit}</span>
+                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleEditProduct(p)} className="text-slate-400 hover:text-[#C98A3E] p-1">
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDeleteProduct(p.id)} className="text-slate-400 hover:text-rose-600 p-1">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
