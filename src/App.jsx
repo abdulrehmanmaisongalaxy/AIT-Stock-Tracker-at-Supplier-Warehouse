@@ -53,7 +53,7 @@ const NAV = [
   ["ledger", "Stock Ledger", BookOpen],
   ["pis", "Proforma Invoices", FileText],
   ["shipments", "Shipments", Ship],
-  ["setup", "Suppliers & Products", Package],
+  ["setup", "Suppliers & Items", Package],
 ];
 
 export default function StockLedger() {
@@ -232,7 +232,7 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                      <th className="text-left py-1.5 font-medium">Product</th>
+                      <th className="text-left py-1.5 font-medium">Item</th>
                       <th className="text-right py-1.5 font-medium">Pipeline</th>
                       <th className="text-right py-1.5 font-medium">Closing qty</th>
                       <th className="text-right py-1.5 font-medium">Avg cost</th>
@@ -369,12 +369,12 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
           <div className={card + " p-5 mb-6"}>
             <div className={sectionLabel}>Current Stock Balance — {supplierName(selectedSupplier)}</div>
             {filteredLedger.length === 0 ? (
-              <EmptyState text="No products recorded for this supplier yet." />
+              <EmptyState text="No items recorded for this supplier yet." />
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                    <th className="text-left py-2 font-medium">Product SKU &amp; Name</th>
+                    <th className="text-left py-2 font-medium">Item Code &amp; Name</th>
                     <th className="text-right py-2 font-medium">Total Ordered</th>
                     <th className="text-right py-2 font-medium">Total Received</th>
                     <th className="text-right py-2 font-medium">Total Shipped</th>
@@ -414,7 +414,7 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
                     <th className="text-left py-2 font-medium">Date</th>
                     <th className="text-left py-2 font-medium">Type</th>
                     <th className="text-left py-2 font-medium">Reference</th>
-                    <th className="text-left py-2 font-medium">Product</th>
+                    <th className="text-left py-2 font-medium">Item</th>
                     <th className="text-right py-2 font-medium">Ordered</th>
                     <th className="text-right py-2 font-medium">Received</th>
                     <th className="text-right py-2 font-medium">Shipped Out</th>
@@ -524,8 +524,8 @@ function SetupTab({ data, save }) {
         "Supplier Name": "Perfume France Ltd",
         "Country": "France",
         "Contact": "jean@perfume.fr",
-        "SKU": "PRF-001",
-        "Product Name": "Oud Royal 100ml",
+        "Item Code": "PRF-001",
+        "Item Name": "Oud Royal 100ml",
         "Unit": "pcs",
         "Weight (kg)": 0.45,
         "CBM": 0.0012,
@@ -535,7 +535,7 @@ function SetupTab({ data, save }) {
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Bulk Import");
-    XLSX.writeFile(wb, "Supplier_Product_Import_Template.xlsx");
+    XLSX.writeFile(wb, "Supplier_Item_Import_Template.xlsx");
   };
 
   const handleExcelUpload = (e) => {
@@ -567,11 +567,11 @@ function SetupTab({ data, save }) {
             }
           }
 
-          const prodName = row["Product Name"] || row["Product"];
+          const prodName = row["Item Name"] || row["Product Name"] || row["Product"];
           if (prodName) {
             newProducts.push({
               id: uid(),
-              sku: (row["SKU"] || "").toString().trim(),
+              sku: (row["Item Code"] || row["SKU"] || "").toString().trim(),
               name: prodName.toString().trim(),
               unit: (row["Unit"] || "pcs").toString().trim(),
               weightKg: num(row["Weight (kg)"] || row["Weight"]),
@@ -594,8 +594,8 @@ function SetupTab({ data, save }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-bold mb-1">Suppliers &amp; Products</h1>
-          <p className="text-sm text-[#7A7568]">Set up master suppliers and SKUs, edit existing ones, or bulk import via Excel.</p>
+          <h1 className="text-xl font-bold mb-1">Suppliers &amp; Items</h1>
+          <p className="text-sm text-[#7A7568]">Set up master suppliers and items, edit existing ones, or bulk import via Excel.</p>
         </div>
         <div className="flex gap-2">
           <button className={btnGhost} onClick={downloadTemplate}>
@@ -635,18 +635,18 @@ function SetupTab({ data, save }) {
         </div>
 
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>Products (SKUs)</div>
+          <div className={sectionLabel}>Items (Master Catalog)</div>
           <div className="grid grid-cols-3 gap-2 mb-3">
-            <input className={inputCls} placeholder="SKU" value={prodForm.sku} onChange={(e) => setProdForm({ ...prodForm, sku: e.target.value })} />
-            <input className={inputCls + " col-span-2"} placeholder="Product name" value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} />
-            <input className={inputCls} placeholder="Unit (pcs/ctn)" value={prodForm.unit} onChange={(e) => setProdForm({ ...prodForm, unit: e.target.value })} />
+            <input className={inputCls} placeholder="Item Code" value={prodForm.sku} onChange={(e) => setProdForm({ ...prodForm, sku: e.target.value })} />
+            <input className={inputCls + " col-span-2"} placeholder="Item Name" value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} />
+            <input className={inputCls} placeholder="pcs" value={prodForm.unit} onChange={(e) => setProdForm({ ...prodForm, unit: e.target.value })} />
             <input className={inputCls} placeholder="Weight (kg)" type="number" value={prodForm.weightKg} onChange={(e) => setProdForm({ ...prodForm, weightKg: e.target.value })} />
             <input className={inputCls} placeholder="CBM" type="number" value={prodForm.cbm} onChange={(e) => setProdForm({ ...prodForm, cbm: e.target.value })} />
             <input className={inputCls + " col-span-2"} placeholder="Packing size (e.g. 12 pcs/ctn)" value={prodForm.packingSize} onChange={(e) => setProdForm({ ...prodForm, packingSize: e.target.value })} />
-            <button className={btnPrimary + " h-[38px] justify-center"} onClick={addProduct}><Plus className="w-4 h-4" />Add SKU</button>
+            <button className={btnPrimary + " h-[38px] justify-center"} onClick={addProduct}><Plus className="w-4 h-4" />Add Item</button>
           </div>
           <ul className="divide-y divide-[#F3F0E7]">
-            {data.products.length === 0 && <li className="py-3 text-sm text-[#9C9788]">No products yet.</li>}
+            {data.products.length === 0 && <li className="py-3 text-sm text-[#9C9788]">No items yet.</li>}
             {data.products.map((p) => (
               <li key={p.id} className="py-2 flex items-center justify-between text-sm">
                 <div>
@@ -693,18 +693,18 @@ function SetupTab({ data, save }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className={card + " p-6 max-w-md w-full space-y-4 shadow-xl"}>
             <div className="flex justify-between items-center">
-              <h2 className="font-bold text-lg">Edit Product / SKU</h2>
+              <h2 className="font-bold text-lg">Edit Item</h2>
               <button onClick={() => setEditingProd(null)}><X className="w-5 h-5 text-[#7A7568]" /></button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="SKU">
+              <Field label="Item Code">
                 <input className={inputCls} value={editingProd.sku} onChange={(e) => setEditingProd({ ...editingProd, sku: e.target.value })} />
               </Field>
               <Field label="Unit">
                 <input className={inputCls} value={editingProd.unit} onChange={(e) => setEditingProd({ ...editingProd, unit: e.target.value })} />
               </Field>
             </div>
-            <Field label="Product Name">
+            <Field label="Item Name">
               <input className={inputCls} value={editingProd.name} onChange={(e) => setEditingProd({ ...editingProd, name: e.target.value })} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
@@ -821,7 +821,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
       {showForm && (
         <div className={card + " p-5 mb-6"}>
           {data.suppliers.length === 0 || data.products.length === 0 ? (
-            <div className="text-sm text-[#B5453A]">Add at least one supplier and product first (Suppliers &amp; Products tab).</div>
+            <div className="text-sm text-[#B5453A]">Add at least one supplier and item first (Suppliers &amp; Items tab).</div>
           ) : (
             <>
               <div className="grid grid-cols-3 gap-3 mb-3">
@@ -894,7 +894,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
               <table className="w-full text-sm mb-3">
                 <thead>
                   <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                    <th className="text-left py-1 font-medium">Product</th>
+                    <th className="text-left py-1 font-medium">Item</th>
                     <th className="text-right py-1 font-medium">Ordered</th>
                     <th className="text-right py-1 font-medium">Unit cost</th>
                     <th className="text-right py-1 font-medium">Received Qty at Warehouse</th>
@@ -986,7 +986,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
       ["Destination Branch:", sh.destinationBranch || "—"],
       ["Date Shipped:", sh.date],
       [],
-      ["SKU", "Product Name", "Shipped Qty", "Unit", "Packing Config", "Unit Wt (kg)", "Total Wt (kg)", "Unit CBM", "Total CBM"]
+      ["Item Code", "Item Name", "Shipped Qty", "Unit", "Packing Config", "Unit Wt (kg)", "Total Wt (kg)", "Unit CBM", "Total CBM"]
     ];
 
     let totalQty = 0;
@@ -1079,7 +1079,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
 
     autoTable(doc, {
       startY: 52,
-      head: [["SKU", "Product Name", "Qty", "Packing", "Unit Wt", "Total Wt", "Unit CBM", "Total CBM"]],
+      head: [["Item Code", "Item Name", "Qty", "Packing", "Unit Wt", "Total Wt", "Unit CBM", "Total CBM"]],
       body: tableRows,
       theme: "striped",
       headStyles: { fillColor: [27, 36, 48] },
@@ -1177,7 +1177,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                  <th className="text-left py-1 font-medium">Product</th>
+                  <th className="text-left py-1 font-medium">Item</th>
                   <th className="text-right py-1 font-medium">Qty Shipped</th>
                   <th className="text-right py-1 font-medium">Est. Total Wt</th>
                   <th className="text-right py-1 font-medium">Est. Total CBM</th>
