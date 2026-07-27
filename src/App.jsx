@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { 
   Plus, Trash2, Package, FileText, Ship, LayoutGrid, X, 
   AlertCircle, Loader2, CheckCircle2, Boxes, BookOpen, 
-  Upload, Download, FileSpreadsheet, Edit3, FileCode, Globe
+  Upload, Download, FileSpreadsheet, Edit3, FileCode, Globe,
+  Search, ArrowUpRight, AlertTriangle, Check
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -19,14 +20,14 @@ const emptyData = { suppliers: [], products: [], pis: [], shipments: [] };
 
 function Stamp({ children, tone = "neutral" }) {
   const tones = {
-    neutral: "bg-[#EFEAE0] text-[#7A7568]",
-    pipeline: "bg-[#F4E4C8] text-[#8A6420]",
-    partial: "bg-[#F4E4C8] text-[#8A6420]",
-    stock: "bg-[#E1EAE3] text-[#2F5A41]",
-    low: "bg-[#F3DEDA] text-[#A13B2F]",
+    neutral: "bg-slate-100 text-slate-600 border border-slate-200",
+    pipeline: "bg-amber-50 text-amber-800 border border-amber-200/60",
+    partial: "bg-amber-50 text-amber-800 border border-amber-200/60",
+    stock: "bg-emerald-50 text-emerald-800 border border-emerald-200/60",
+    low: "bg-rose-50 text-rose-700 border border-rose-200/60",
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] tracking-[0.08em] uppercase font-semibold whitespace-nowrap ${tones[tone]}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] tracking-wider uppercase font-semibold whitespace-nowrap ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -35,18 +36,18 @@ function Stamp({ children, tone = "neutral" }) {
 function Field({ label, children, hint }) {
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-medium">{label}</span>
+      <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-semibold">{label}</span>
       {children}
       {hint && <span className="text-[11px] text-[#9C9788]">{hint}</span>}
     </label>
   );
 }
 
-const inputCls = "border border-[#DDD7C7] bg-white rounded-lg px-3 py-2 text-sm text-[#1B2430] focus:outline-none focus:ring-2 focus:ring-[#C98A3E]/30 focus:border-[#C98A3E] transition-shadow";
-const btnPrimary = "inline-flex items-center gap-1.5 bg-[#1B2430] text-white px-3.5 py-2 rounded-lg text-sm font-medium hover:bg-[#2E3A48] transition-colors shadow-sm";
-const btnGhost = "inline-flex items-center gap-1.5 border border-[#DDD7C7] bg-white text-[#1B2430] px-3.5 py-2 rounded-lg text-sm hover:bg-[#F6F3EC] transition-colors";
-const card = "bg-white border border-[#E4DFD3] rounded-xl shadow-[0_1px_2px_rgba(27,36,48,0.04)]";
-const sectionLabel = "text-[12px] uppercase tracking-[0.1em] text-[#7A7568] font-semibold mb-3";
+const inputCls = "border border-[#DDD7C7] bg-white rounded-lg px-3 py-2 text-sm text-[#1B2430] focus:outline-none focus:ring-2 focus:ring-[#C98A3E]/30 focus:border-[#C98A3E] transition-all shadow-sm";
+const btnPrimary = "inline-flex items-center gap-1.5 bg-[#1B2430] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#2E3A48] active:scale-[0.99] transition-all shadow-sm cursor-pointer";
+const btnGhost = "inline-flex items-center gap-1.5 border border-[#DDD7C7] bg-white text-[#1B2430] px-3.5 py-2 rounded-lg text-sm font-medium hover:bg-[#F6F3EC] active:scale-[0.99] transition-all cursor-pointer";
+const card = "bg-white border border-[#E4DFD3] rounded-xl shadow-[0_1px_3px_rgba(27,36,48,0.04)] hover:shadow-md transition-shadow duration-200";
+const sectionLabel = "text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold mb-3";
 
 const NAV = [
   ["dashboard", "Dashboard", LayoutGrid],
@@ -62,6 +63,11 @@ export default function StockLedger() {
   const [tab, setTab] = useState("dashboard");
   const [toast, setToast] = useState(null);
 
+  const showToast = (msg, type = "info") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORE_KEY);
@@ -73,13 +79,13 @@ export default function StockLedger() {
     }
   }, []);
 
-  const save = (next) => {
+  const save = (next, msg) => {
     setData(next);
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(next));
+      if (msg) showToast(msg, "success");
     } catch (e) {
-      setToast("Could not save — check your storage.");
-      setTimeout(() => setToast(null), 3000);
+      showToast("Could not save — check browser storage limits.", "error");
     }
   };
 
@@ -138,39 +144,53 @@ export default function StockLedger() {
   if (loading) {
     return (
       <div className="w-full h-full min-h-[500px] flex items-center justify-center bg-[#F6F3EC] text-[#7A7568]">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading ledger…
+        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading inventory portal…
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-[640px] bg-[#F6F3EC] text-[#1B2430]" style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
-      <div className="flex max-w-[1200px] mx-auto">
-        <aside className="w-[210px] shrink-0 border-r border-[#E4DFD3] min-h-[640px] px-4 py-6">
-          <div className="mb-8 px-1">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-[#C98A3E] font-bold mb-0.5">Manifest &amp; Ledger</div>
-            <div className="text-[15px] font-bold leading-tight">Stock Tracker</div>
+    <div className="w-full min-h-screen bg-[#F6F3EC] text-[#1B2430]" style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
+      <div className="flex max-w-[1280px] mx-auto min-h-screen">
+        {/* Sidebar */}
+        <aside className="w-[220px] shrink-0 border-r border-[#E4DFD3] min-h-screen px-4 py-6 bg-[#F6F3EC]/50 backdrop-blur-sm sticky top-0 h-screen">
+          <div className="mb-8 px-2">
+            <div className="inline-block px-2 py-0.5 rounded bg-[#C98A3E]/10 text-[10px] uppercase tracking-[0.18em] text-[#C98A3E] font-bold mb-1">
+              Enterprise Hub
+            </div>
+            <div className="text-[16px] font-bold tracking-tight text-[#1B2430]">Stock &amp; Ledger</div>
           </div>
           <nav className="space-y-1">
             {NAV.map(([key, label, Icon]) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13.5px] text-left transition-colors ${
-                  tab === key ? "bg-[#1B2430] text-white font-medium" : "text-[#4A4638] hover:bg-[#EFEAE0]"
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-left transition-all ${
+                  tab === key ? "bg-[#1B2430] text-white shadow-sm" : "text-[#4A4638] hover:bg-[#EFEAE0] hover:text-[#1B2430]"
                 }`}
               >
-                <Icon className="w-4 h-4 shrink-0" /> {label}
+                <Icon className={`w-4 h-4 shrink-0 ${tab === key ? "text-[#C98A3E]" : "text-[#7A7568]"}`} /> {label}
               </button>
             ))}
           </nav>
-          <div className="mt-8 px-1 space-y-2 text-[11px] text-[#9C9788]">
-            <div>{data.suppliers.length} suppliers</div>
-            <div>{data.pis.length} PIs signed</div>
-            <div>{data.shipments.length} shipments</div>
+
+          <div className="mt-10 px-2 pt-4 border-t border-[#E4DFD3]/80 space-y-2 text-[11px] text-[#7A7568]">
+            <div className="flex justify-between items-center">
+              <span>Suppliers</span>
+              <span className="font-semibold text-[#1B2430]">{data.suppliers.length}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>PIs Logged</span>
+              <span className="font-semibold text-[#1B2430]">{data.pis.length}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Shipments</span>
+              <span className="font-semibold text-[#1B2430]">{data.shipments.length}</span>
+            </div>
           </div>
         </aside>
 
+        {/* Main Content Area */}
         <main className="flex-1 px-8 py-6 min-w-0">
           {tab === "dashboard" && <Dashboard data={data} ledger={ledger} totals={totals} supplierName={supplierName} productInfo={productInfo} piStatus={piStatus} />}
           {tab === "ledger" && <LedgerTab data={data} ledger={ledger} supplierName={supplierName} productInfo={productInfo} />}
@@ -180,9 +200,13 @@ export default function StockLedger() {
         </main>
       </div>
 
+      {/* Floating Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-[#B5453A] text-white px-4 py-2 rounded-lg text-sm shadow-lg flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" /> {toast}
+        <div className={`fixed bottom-5 right-5 px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl flex items-center gap-2 border animate-in fade-in slide-in-from-bottom-2 ${
+          toast.type === "error" ? "bg-rose-900 text-white border-rose-800" : "bg-[#1B2430] text-white border-slate-700"
+        }`}>
+          {toast.type === "error" ? <AlertCircle className="w-4 h-4 text-rose-400" /> : <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+          {toast.msg}
         </div>
       )}
     </div>
@@ -190,15 +214,26 @@ export default function StockLedger() {
 }
 
 function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }) {
+  const [search, setSearch] = useState("");
+
   const bySupplier = useMemo(() => {
     const m = {};
     for (const r of ledger) {
       if (r.pipeline <= 0 && r.closingQty <= 0) continue;
+      const p = productInfo(r.productId);
+      const sup = supplierName(r.supplierId);
+      const matchesSearch = !search || 
+        p.name.toLowerCase().includes(search.toLowerCase()) || 
+        p.sku.toLowerCase().includes(search.toLowerCase()) ||
+        sup.toLowerCase().includes(search.toLowerCase());
+
+      if (!matchesSearch) continue;
+
       m[r.supplierId] = m[r.supplierId] || [];
       m[r.supplierId].push(r);
     }
     return m;
-  }, [ledger]);
+  }, [ledger, search, productInfo, supplierName]);
 
   const byCountry = useMemo(() => {
     const m = {};
@@ -220,94 +255,134 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1">Dashboard</h1>
-      <p className="text-sm text-[#7A7568] mb-6">Live view of what's ordered, what's ready to sell, and what's already shipped.</p>
-      
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Executive Dashboard</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Real-time inventory valuation, pipeline shipments, and country breakdown.</p>
+        </div>
+        
+        {/* Global Search Bar */}
+        <div className="relative w-72">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#7A7568]" />
+          <input 
+            type="text" 
+            placeholder="Search item, SKU, supplier..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={inputCls + " pl-9 w-full bg-white"}
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-2.5 top-2.5 text-[#7A7568] hover:text-black">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Metric Cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard label="Closing stock value" value={"AED " + money(totals.closingValue)} icon={Boxes} tone="stock" />
-        <StatCard label="Closing stock qty (sellable now)" value={fmt(totals.closingQty)} icon={CheckCircle2} tone="stock" />
-        <StatCard label="In pipeline (ordered, not received)" value={fmt(totals.pipelineQty)} icon={FileText} tone="pipeline" />
+        <StatCard label="Total Closing Stock Value" value={"AED " + money(totals.closingValue)} icon={Boxes} tone="stock" hint="Current Sellable Valuation" />
+        <StatCard label="Total Sellable Quantity" value={fmt(totals.closingQty)} icon={CheckCircle2} tone="stock" hint="In Warehouse Right Now" />
+        <StatCard label="Pipeline Quantity" value={fmt(totals.pipelineQty)} icon={FileText} tone="pipeline" hint="Ordered & In Transit" />
       </div>
 
       {/* Country Wise Summary Card */}
       <div className={card + " p-5 mb-6"}>
-        <div className="flex items-center gap-2 mb-3">
-          <Globe className="w-4 h-4 text-[#C98A3E]" />
-          <div className={sectionLabel + " mb-0"}>Closing Stock by Country Summary</div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-[#C98A3E]" />
+            <div className={sectionLabel + " mb-0"}>Closing Stock Summary by Country</div>
+          </div>
+          <span className="text-xs text-[#7A7568]">{byCountry.length} Regions Active</span>
         </div>
         {byCountry.length === 0 ? (
-          <EmptyState text="No country data available." />
+          <EmptyState text="No regional data available yet." />
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                <th className="text-left py-1.5 font-medium">Country</th>
-                <th className="text-center py-1.5 font-medium">Suppliers</th>
-                <th className="text-right py-1.5 font-medium">Pipeline Qty</th>
-                <th className="text-right py-1.5 font-medium">Closing Stock Qty</th>
-                <th className="text-right py-1.5 font-medium">Total Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {byCountry.map((c, i) => (
-                <tr key={i} className="border-b border-[#F3F0E7] last:border-0 font-medium">
-                  <td className="py-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#C98A3E]" />
-                    {c.country}
-                  </td>
-                  <td className="text-center py-2 text-[#7A7568]">{c.suppliersCount.size}</td>
-                  <td className="text-right py-2 text-[#8A6420]">{c.pipelineQty > 0 ? fmt(c.pipelineQty) : "—"}</td>
-                  <td className="text-right py-2 text-[#2F5A41]">{fmt(c.closingQty)}</td>
-                  <td className="text-right py-2 font-bold text-[#1B2430]">AED {money(c.closingValue)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                  <th className="text-left py-2 font-semibold">Country</th>
+                  <th className="text-center py-2 font-semibold">Suppliers</th>
+                  <th className="text-right py-2 font-semibold">Pipeline Qty</th>
+                  <th className="text-right py-2 font-semibold">Closing Stock Qty</th>
+                  <th className="text-right py-2 font-semibold">Total Stock Valuation</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#F3F0E7]">
+                {byCountry.map((c, i) => (
+                  <tr key={i} className="hover:bg-[#FDFBF7] transition-colors font-medium">
+                    <td className="py-2.5 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#C98A3E]" />
+                      {c.country}
+                    </td>
+                    <td className="text-center py-2.5 text-[#7A7568]">{c.suppliersCount.size}</td>
+                    <td className="text-right py-2.5 text-[#8A6420]">{c.pipelineQty > 0 ? fmt(c.pipelineQty) : "—"}</td>
+                    <td className="text-right py-2.5 text-[#2F5A41]">{fmt(c.closingQty)}</td>
+                    <td className="text-right py-2.5 font-bold text-[#1B2430]">AED {money(c.closingValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Detailed Stock by Supplier */}
+      {/* Stock by Supplier Detailed Breakdown */}
       <div className={card + " p-5 mb-6"}>
-        <div className={sectionLabel}>Closing stock by supplier — sellable inventory, right now</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className={sectionLabel + " mb-0"}>Closing Stock by Supplier &amp; Item</div>
+          {search && <span className="text-xs text-[#C98A3E] font-medium">Filtered by: "{search}"</span>}
+        </div>
         {Object.keys(bySupplier).length === 0 ? (
-          <EmptyState text="No stock yet. Sign a PI, then mark it received once goods are ready at the warehouse." />
+          <EmptyState text={search ? "No stock items match your search." : "No active stock recorded yet."} />
         ) : (
           Object.entries(bySupplier).map(([supplierId, rows]) => {
             const supplierClosingValue = rows.reduce((s, r) => s + Math.max(0, r.closingQty) * r.avgCost, 0);
             const sup = data.suppliers.find(s => s.id === supplierId);
             return (
-              <div key={supplierId} className="mb-6 last:mb-0">
-                <div className="flex items-baseline justify-between mb-2 pb-1 border-b border-[#DDD7C7]">
-                  <div className="font-bold text-[14px] flex items-center gap-2">
+              <div key={supplierId} className="mb-6 last:mb-0 border border-[#EFEAE0] rounded-xl p-4 bg-[#FAF8F5]">
+                <div className="flex items-baseline justify-between mb-3 pb-2 border-b border-[#E4DFD3]">
+                  <div className="font-bold text-[14.5px] flex items-center gap-2">
                     {supplierName(supplierId)}
-                    {sup?.country && <span className="text-xs font-normal px-2 py-0.5 rounded bg-[#EFEAE0] text-[#7A7568]">{sup.country}</span>}
+                    {sup?.country && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white border border-[#DDD7C7] text-[#7A7568]">{sup.country}</span>}
                   </div>
-                  <div className="text-[12px] text-[#7A7568]">
-                    Closing value: <span className="font-semibold text-[#1B2430]">AED {money(supplierClosingValue)}</span>
+                  <div className="text-xs text-[#7A7568]">
+                    Supplier Stock Value: <span className="font-bold text-[#1B2430] text-sm ml-1">AED {money(supplierClosingValue)}</span>
                   </div>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
-                      <th className="text-left py-1.5 font-medium">Item</th>
+                      <th className="text-left py-1.5 font-medium">Item Details</th>
                       <th className="text-right py-1.5 font-medium">Pipeline</th>
-                      <th className="text-right py-1.5 font-medium">Closing qty</th>
-                      <th className="text-right py-1.5 font-medium">Avg cost</th>
-                      <th className="text-right py-1.5 font-medium">Closing value</th>
+                      <th className="text-right py-1.5 font-medium">Closing Sellable Qty</th>
+                      <th className="text-right py-1.5 font-medium">Avg Unit Cost</th>
+                      <th className="text-right py-1.5 font-medium">Closing Value</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r, i) => {
                       const p = productInfo(r.productId);
+                      const isLowStock = r.closingQty <= 0;
                       return (
-                        <tr key={i} className="border-b border-[#F3F0E7] last:border-0">
-                          <td className="py-1.5">{p.name} <span className="text-[#9C9788]">({p.sku})</span></td>
-                          <td className="text-right py-1.5 text-[#8A6420]">{r.pipeline > 0 ? fmt(r.pipeline) + " " + p.unit : "—"}</td>
-                          <td className={`text-right py-1.5 font-semibold ${r.closingQty <= 0 ? "text-[#A13B2F]" : "text-[#2F5A41]"}`}>
-                            {fmt(r.closingQty)} {p.unit}
+                        <tr key={i} className="border-b border-[#EFEAE0] last:border-0 hover:bg-white/60 transition-colors">
+                          <td className="py-2">
+                            <span className="font-medium text-[#1B2430]">{p.name}</span>
+                            <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>
                           </td>
-                          <td className="text-right py-1.5 text-[#7A7568]">{r.avgCost > 0 ? money(r.avgCost) : "—"}</td>
-                          <td className="text-right py-1.5 font-medium">{r.avgCost > 0 ? money(Math.max(0, r.closingQty) * r.avgCost) : "—"}</td>
+                          <td className="text-right py-2 text-[#8A6420]">{r.pipeline > 0 ? fmt(r.pipeline) + " " + p.unit : "—"}</td>
+                          <td className="text-right py-2">
+                            {isLowStock ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-medium border border-rose-200">
+                                <AlertTriangle className="w-3 h-3" /> 0 {p.unit}
+                              </span>
+                            ) : (
+                              <span className="font-bold text-[#2F5A41]">{fmt(r.closingQty)} {p.unit}</span>
+                            )}
+                          </td>
+                          <td className="text-right py-2 text-[#7A7568]">{r.avgCost > 0 ? "AED " + money(r.avgCost) : "—"}</td>
+                          <td className="text-right py-2 font-bold text-[#1B2430]">{r.avgCost > 0 ? "AED " + money(Math.max(0, r.closingQty) * r.avgCost) : "—"}</td>
                         </tr>
                       );
                     })}
@@ -321,16 +396,19 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
 
       <div className="grid grid-cols-2 gap-6">
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>PIs awaiting receipt at warehouse</div>
+          <div className={sectionLabel}>PIs Pending Warehouse Receipt</div>
           {openPIs.length === 0 ? (
-            <EmptyState text="Nothing pending — all signed PIs are fully received." />
+            <EmptyState text="All signed PIs have been fully received." />
           ) : (
             <ul className="divide-y divide-[#F3F0E7]">
               {openPIs.map((pi) => {
                 const st = piStatus(pi);
                 return (
-                  <li key={pi.id} className="py-2 flex items-center justify-between text-sm">
-                    <span><span className="font-semibold">{pi.piNumber}</span> — {supplierName(pi.supplierId)}</span>
+                  <li key={pi.id} className="py-2.5 flex items-center justify-between text-sm hover:bg-[#FAF8F5] px-2 rounded-lg transition-colors">
+                    <div>
+                      <span className="font-semibold">{pi.piNumber}</span>
+                      <span className="text-[#7A7568] text-xs ml-2">({supplierName(pi.supplierId)})</span>
+                    </div>
                     <Stamp tone={st.tone}>{st.label}</Stamp>
                   </li>
                 );
@@ -340,15 +418,18 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
         </div>
 
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>Recent shipments</div>
+          <div className={sectionLabel}>Recent Dispatches &amp; Shipments</div>
           {recentShipments.length === 0 ? (
-            <EmptyState text="No shipments logged yet." />
+            <EmptyState text="No outbound shipments logged yet." />
           ) : (
             <ul className="divide-y divide-[#F3F0E7]">
               {recentShipments.map((sh) => (
-                <li key={sh.id} className="py-2 flex items-center justify-between text-sm">
-                  <span><span className="font-semibold">{sh.shipmentNumber}</span> — {supplierName(sh.supplierId)} → {sh.destinationBranch || "—"}</span>
-                  <span className="text-[#9C9788] text-xs">{sh.date}</span>
+                <li key={sh.id} className="py-2.5 flex items-center justify-between text-sm hover:bg-[#FAF8F5] px-2 rounded-lg transition-colors">
+                  <div>
+                    <span className="font-semibold text-[#1B2430]">{sh.shipmentNumber}</span>
+                    <span className="text-[#7A7568] text-xs ml-2">→ {sh.destinationBranch || "Branch"}</span>
+                  </div>
+                  <span className="text-[#9C9788] text-xs font-mono">{sh.date}</span>
                 </li>
               ))}
             </ul>
@@ -428,17 +509,18 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold">Stock Ledger</h1>
-          <p className="text-sm text-[#7A7568]">Detailed balance and transaction logs per country &amp; supplier.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Stock Ledger</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Audit item stock balances and complete transaction movement history.</p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-3 bg-white p-2 border border-[#E4DFD3] rounded-xl shadow-sm">
           {/* Country Selection Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#7A7568] font-medium uppercase tracking-wider">Country:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Country:</span>
             <select 
-              className={inputCls + " font-medium py-1.5"} 
+              className={inputCls + " font-medium py-1 text-xs"} 
               value={selectedCountry} 
               onChange={(e) => setSelectedCountry(e.target.value)}
             >
@@ -449,11 +531,13 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
             </select>
           </div>
 
+          <div className="h-4 w-[1px] bg-[#E4DFD3]" />
+
           {/* Supplier Selection Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#7A7568] font-medium uppercase tracking-wider">Supplier:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Supplier:</span>
             <select 
-              className={inputCls + " font-medium py-1.5"} 
+              className={inputCls + " font-medium py-1 text-xs"} 
               value={selectedSupplier} 
               onChange={(e) => setSelectedSupplier(e.target.value)}
             >
@@ -467,82 +551,89 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
       </div>
 
       {!selectedSupplier ? (
-        <EmptyState text="Please select a supplier to view their stock ledger." />
+        <EmptyState text="Select a supplier above to view their item stock balance and movement logs." />
       ) : (
         <>
           <div className={card + " p-5 mb-6"}>
-            <div className={sectionLabel}>Current Stock Balance — {supplierName(selectedSupplier)}</div>
+            <div className={sectionLabel}>Current Item Balances — {supplierName(selectedSupplier)}</div>
             {filteredLedger.length === 0 ? (
-              <EmptyState text="No items recorded for this supplier yet." />
+              <EmptyState text="No active items or balances registered for this supplier." />
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                    <th className="text-left py-2 font-medium">Item Code &amp; Name</th>
-                    <th className="text-right py-2 font-medium">Total Ordered</th>
-                    <th className="text-right py-2 font-medium">Total Received</th>
-                    <th className="text-right py-2 font-medium">Total Shipped</th>
-                    <th className="text-right py-2 font-medium">Pipeline Qty</th>
-                    <th className="text-right py-2 font-medium">Closing Sellable Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLedger.map((r, i) => {
-                    const p = productInfo(r.productId);
-                    return (
-                      <tr key={i} className="border-b border-[#F3F0E7] last:border-0">
-                        <td className="py-2.5 font-medium">{p.name} <span className="text-[#9C9788] font-normal">({p.sku})</span></td>
-                        <td className="text-right py-2.5">{fmt(r.ordered)} {p.unit}</td>
-                        <td className="text-right py-2.5">{fmt(r.received)} {p.unit}</td>
-                        <td className="text-right py-2.5 text-[#B5453A]">{fmt(r.shipped)} {p.unit}</td>
-                        <td className="text-right py-2.5 text-[#8A6420]">{fmt(r.pipeline)} {p.unit}</td>
-                        <td className={`text-right py-2.5 font-bold ${r.closingQty <= 0 ? "text-[#A13B2F]" : "text-[#2F5A41]"}`}>
-                          {fmt(r.closingQty)} {p.unit}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                      <th className="text-left py-2 font-semibold">Item &amp; SKU</th>
+                      <th className="text-right py-2 font-semibold">Ordered</th>
+                      <th className="text-right py-2 font-semibold">Received</th>
+                      <th className="text-right py-2 font-semibold">Shipped</th>
+                      <th className="text-right py-2 font-semibold">Pipeline Qty</th>
+                      <th className="text-right py-2 font-semibold">Closing Sellable Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F0E7]">
+                    {filteredLedger.map((r, i) => {
+                      const p = productInfo(r.productId);
+                      return (
+                        <tr key={i} className="hover:bg-[#FAF8F5] transition-colors">
+                          <td className="py-2.5">
+                            <span className="font-medium text-[#1B2430]">{p.name}</span>
+                            <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>
+                          </td>
+                          <td className="text-right py-2.5">{fmt(r.ordered)} {p.unit}</td>
+                          <td className="text-right py-2.5">{fmt(r.received)} {p.unit}</td>
+                          <td className="text-right py-2.5 text-[#B5453A]">{fmt(r.shipped)} {p.unit}</td>
+                          <td className="text-right py-2.5 text-[#8A6420]">{fmt(r.pipeline)} {p.unit}</td>
+                          <td className={`text-right py-2.5 font-bold ${r.closingQty <= 0 ? "text-rose-600" : "text-[#2F5A41]"}`}>
+                            {fmt(r.closingQty)} {p.unit}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
           <div className={card + " p-5"}>
-            <div className={sectionLabel}>Transaction &amp; Movement Log</div>
+            <div className={sectionLabel}>Item Movement &amp; Audit Log</div>
             {supplierMovements.length === 0 ? (
-              <EmptyState text="No transaction logs recorded for this supplier." />
+              <EmptyState text="No logs or movements recorded for this supplier." />
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                    <th className="text-left py-2 font-medium">Date</th>
-                    <th className="text-left py-2 font-medium">Type</th>
-                    <th className="text-left py-2 font-medium">Reference</th>
-                    <th className="text-left py-2 font-medium">Item</th>
-                    <th className="text-right py-2 font-medium">Ordered</th>
-                    <th className="text-right py-2 font-medium">Received</th>
-                    <th className="text-right py-2 font-medium">Shipped Out</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {supplierMovements.map((m, i) => {
-                    const p = productInfo(m.productId);
-                    return (
-                      <tr key={i} className="border-b border-[#F3F0E7] last:border-0">
-                        <td className="py-2 text-[#7A7568]">{m.date}</td>
-                        <td className="py-2 font-medium">
-                          <Stamp tone={m.type.includes("PI") ? "pipeline" : "stock"}>{m.type}</Stamp>
-                        </td>
-                        <td className="py-2">{m.ref}</td>
-                        <td className="py-2">{p.name}</td>
-                        <td className="text-right py-2">{m.ordered > 0 ? fmt(m.ordered) : "—"}</td>
-                        <td className="text-right py-2 text-[#2F5A41]">{m.received > 0 ? fmt(m.received) : "—"}</td>
-                        <td className="text-right py-2 text-[#B5453A]">{m.shipped > 0 ? fmt(m.shipped) : "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                      <th className="text-left py-2 font-semibold">Date</th>
+                      <th className="text-left py-2 font-semibold">Type</th>
+                      <th className="text-left py-2 font-semibold">Reference</th>
+                      <th className="text-left py-2 font-semibold">Item</th>
+                      <th className="text-right py-2 font-semibold">Ordered</th>
+                      <th className="text-right py-2 font-semibold">Received</th>
+                      <th className="text-right py-2 font-semibold">Shipped Out</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F0E7]">
+                    {supplierMovements.map((m, i) => {
+                      const p = productInfo(m.productId);
+                      return (
+                        <tr key={i} className="hover:bg-[#FAF8F5] transition-colors">
+                          <td className="py-2.5 text-[#7A7568] font-mono text-xs">{m.date}</td>
+                          <td className="py-2.5 font-medium">
+                            <Stamp tone={m.type.includes("PI") ? "pipeline" : "stock"}>{m.type}</Stamp>
+                          </td>
+                          <td className="py-2.5 font-medium">{m.ref}</td>
+                          <td className="py-2.5">{p.name}</td>
+                          <td className="text-right py-2.5">{m.ordered > 0 ? fmt(m.ordered) : "—"}</td>
+                          <td className="text-right py-2.5 text-[#2F5A41] font-medium">{m.received > 0 ? fmt(m.received) : "—"}</td>
+                          <td className="text-right py-2.5 text-[#B5453A] font-medium">{m.shipped > 0 ? fmt(m.shipped) : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </>
@@ -551,23 +642,28 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
   );
 }
 
-function StatCard({ label, value, icon: Icon, tone }) {
-  const toneBg = tone === "stock" ? "bg-[#E1EAE3] text-[#2F5A41]" : "bg-[#F4E4C8] text-[#8A6420]";
+function StatCard({ label, value, icon: Icon, tone, hint }) {
+  const toneBg = tone === "stock" ? "bg-emerald-100/70 text-emerald-800" : "bg-amber-100/70 text-amber-800";
   return (
-    <div className={card + " p-4 flex items-center gap-3"}>
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${toneBg}`}>
-        <Icon className="w-4 h-4" />
+    <div className={card + " p-5 flex items-start gap-4"}>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${toneBg}`}>
+        <Icon className="w-5 h-5" />
       </div>
-      <div className="min-w-0">
-        <div className="text-[11px] text-[#7A7568] leading-tight">{label}</div>
-        <div className="text-[17px] font-bold leading-tight truncate">{value}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] uppercase tracking-wider text-[#7A7568] font-bold leading-tight">{label}</div>
+        <div className="text-xl font-bold tracking-tight text-[#1B2430] mt-1">{value}</div>
+        {hint && <div className="text-[11px] text-[#9C9788] mt-0.5">{hint}</div>}
       </div>
     </div>
   );
 }
 
 function EmptyState({ text }) {
-  return <div className="border border-dashed border-[#DDD7C7] rounded-lg px-4 py-6 text-center text-sm text-[#9C9788]">{text}</div>;
+  return (
+    <div className="border border-dashed border-[#DDD7C7] rounded-xl px-4 py-8 text-center text-sm text-[#9C9788] bg-[#FAF8F5]">
+      {text}
+    </div>
+  );
 }
 
 function SetupTab({ data, save }) {
@@ -579,7 +675,7 @@ function SetupTab({ data, save }) {
 
   const addSupplier = () => {
     if (!supForm.name.trim()) return;
-    save({ ...data, suppliers: [...data.suppliers, { id: uid(), ...supForm }] });
+    save({ ...data, suppliers: [...data.suppliers, { id: uid(), ...supForm }] }, "Supplier added successfully!");
     setSupForm({ name: "", country: "", contact: "" });
   };
 
@@ -597,14 +693,14 @@ function SetupTab({ data, save }) {
           cbm: num(prodForm.cbm),
         },
       ],
-    });
+    }, "Item added to catalog!");
     setProdForm({ sku: "", name: "", unit: "pcs", weightKg: "", cbm: "", packingSize: "" });
   };
 
   const saveEditedSupplier = () => {
     if (!editingSup.name.trim()) return;
     const updated = data.suppliers.map((s) => (s.id === editingSup.id ? editingSup : s));
-    save({ ...data, suppliers: updated });
+    save({ ...data, suppliers: updated }, "Supplier details updated!");
     setEditingSup(null);
   };
 
@@ -615,12 +711,12 @@ function SetupTab({ data, save }) {
         ? { ...editingProd, weightKg: num(editingProd.weightKg), cbm: num(editingProd.cbm) }
         : p
     );
-    save({ ...data, products: updated });
+    save({ ...data, products: updated }, "Item details updated!");
     setEditingProd(null);
   };
 
-  const removeSupplier = (id) => save({ ...data, suppliers: data.suppliers.filter((s) => s.id !== id) });
-  const removeProduct = (id) => save({ ...data, products: data.products.filter((p) => p.id !== id) });
+  const removeSupplier = (id) => save({ ...data, suppliers: data.suppliers.filter((s) => s.id !== id) }, "Supplier deleted.");
+  const removeProduct = (id) => save({ ...data, products: data.products.filter((p) => p.id !== id) }, "Item removed from catalog.");
 
   const downloadTemplate = () => {
     const templateData = [
@@ -685,8 +781,7 @@ function SetupTab({ data, save }) {
           }
         });
 
-        save({ ...data, suppliers: newSuppliers, products: newProducts });
-        alert("Excel data imported successfully!");
+        save({ ...data, suppliers: newSuppliers, products: newProducts }, "Excel catalog imported successfully!");
       } catch (err) {
         alert("Error parsing Excel file. Please use the downloaded template format.");
       }
@@ -696,17 +791,17 @@ function SetupTab({ data, save }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold mb-1">Suppliers &amp; Items</h1>
-          <p className="text-sm text-[#7A7568]">Set up master suppliers and items, edit existing ones, or bulk import via Excel.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Suppliers &amp; Master Catalog</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Manage registered suppliers, product catalog specifications, or import via Excel.</p>
         </div>
         <div className="flex gap-2">
           <button className={btnGhost} onClick={downloadTemplate}>
-            <Download className="w-4 h-4" /> Download Template
+            <Download className="w-4 h-4 text-[#7A7568]" /> Excel Template
           </button>
           <label className={btnPrimary + " cursor-pointer"}>
-            <Upload className="w-4 h-4" /> Import Excel
+            <Upload className="w-4 h-4 text-[#C98A3E]" /> Bulk Import
             <input type="file" accept=".xlsx, .xls, .csv" onChange={handleExcelUpload} className="hidden" />
           </label>
         </div>
@@ -714,24 +809,24 @@ function SetupTab({ data, save }) {
 
       <div className="grid grid-cols-2 gap-6">
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>Suppliers</div>
-          <div className="flex gap-2 mb-3 flex-wrap">
-            <input className={inputCls + " flex-1 min-w-[110px]"} placeholder="Name" value={supForm.name} onChange={(e) => setSupForm({ ...supForm, name: e.target.value })} />
-            <input className={inputCls + " w-24"} placeholder="Country" value={supForm.country} onChange={(e) => setSupForm({ ...supForm, country: e.target.value })} />
-            <input className={inputCls + " w-28"} placeholder="Contact" value={supForm.contact} onChange={(e) => setSupForm({ ...supForm, contact: e.target.value })} />
+          <div className={sectionLabel}>Suppliers Directory</div>
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <input className={inputCls + " flex-1 min-w-[110px]"} placeholder="Supplier Name" value={supForm.name} onChange={(e) => setSupForm({ ...supForm, name: e.target.value })} />
+            <input className={inputCls + " w-28"} placeholder="Country" value={supForm.country} onChange={(e) => setSupForm({ ...supForm, country: e.target.value })} />
+            <input className={inputCls + " w-28"} placeholder="Contact email/phone" value={supForm.contact} onChange={(e) => setSupForm({ ...supForm, contact: e.target.value })} />
             <button className={btnPrimary} onClick={addSupplier}><Plus className="w-4 h-4" />Add</button>
           </div>
           <ul className="divide-y divide-[#F3F0E7]">
-            {data.suppliers.length === 0 && <li className="py-3 text-sm text-[#9C9788]">No suppliers yet.</li>}
+            {data.suppliers.length === 0 && <li className="py-4 text-sm text-[#9C9788] text-center">No suppliers added yet.</li>}
             {data.suppliers.map((s) => (
-              <li key={s.id} className="py-2.5 flex items-center justify-between text-sm">
+              <li key={s.id} className="py-3 flex items-center justify-between text-sm hover:bg-[#FAF8F5] px-2 rounded-lg transition-colors">
                 <div>
-                  <div className="font-medium">{s.name} {s.country && <span className="text-[#9C9788] font-normal">({s.country})</span>}</div>
+                  <div className="font-semibold text-[#1B2430]">{s.name} {s.country && <span className="text-xs font-normal text-[#7A7568] ml-1">({s.country})</span>}</div>
                   {s.contact && <div className="text-xs text-[#7A7568]">{s.contact}</div>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setEditingSup(s)} className="text-[#4A4638] hover:text-[#C98A3E]"><Edit3 className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => removeSupplier(s.id)} className="text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setEditingSup(s)} className="p-1 text-[#7A7568] hover:text-[#C98A3E]"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => removeSupplier(s.id)} className="p-1 text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </li>
             ))}
@@ -739,29 +834,31 @@ function SetupTab({ data, save }) {
         </div>
 
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>Items (Master Catalog)</div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <input className={inputCls} placeholder="Item Code" value={prodForm.sku} onChange={(e) => setProdForm({ ...prodForm, sku: e.target.value })} />
-            <input className={inputCls + " col-span-2"} placeholder="Item Name" value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} />
-            <input className={inputCls} placeholder="pcs" value={prodForm.unit} onChange={(e) => setProdForm({ ...prodForm, unit: e.target.value })} />
-            <input className={inputCls} placeholder="Weight (kg)" type="number" value={prodForm.weightKg} onChange={(e) => setProdForm({ ...prodForm, weightKg: e.target.value })} />
-            <input className={inputCls} placeholder="CBM" type="number" value={prodForm.cbm} onChange={(e) => setProdForm({ ...prodForm, cbm: e.target.value })} />
-            <input className={inputCls + " col-span-2"} placeholder="Packing size (e.g. 12 pcs/ctn)" value={prodForm.packingSize} onChange={(e) => setProdForm({ ...prodForm, packingSize: e.target.value })} />
+          <div className={sectionLabel}>Master Items Catalog</div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <input className={inputCls} placeholder="Item Code / SKU" value={prodForm.sku} onChange={(e) => setProdForm({ ...prodForm, sku: e.target.value })} />
+            <input className={inputCls + " col-span-2"} placeholder="Full Item Name" value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} />
+            <input className={inputCls} placeholder="Unit (e.g. pcs)" value={prodForm.unit} onChange={(e) => setProdForm({ ...prodForm, unit: e.target.value })} />
+            <input className={inputCls} placeholder="Unit Wt (kg)" type="number" value={prodForm.weightKg} onChange={(e) => setProdForm({ ...prodForm, weightKg: e.target.value })} />
+            <input className={inputCls} placeholder="Unit CBM" type="number" value={prodForm.cbm} onChange={(e) => setProdForm({ ...prodForm, cbm: e.target.value })} />
+            <input className={inputCls + " col-span-2"} placeholder="Packing size (e.g. 24 pcs/ctn)" value={prodForm.packingSize} onChange={(e) => setProdForm({ ...prodForm, packingSize: e.target.value })} />
             <button className={btnPrimary + " h-[38px] justify-center"} onClick={addProduct}><Plus className="w-4 h-4" />Add Item</button>
           </div>
           <ul className="divide-y divide-[#F3F0E7]">
-            {data.products.length === 0 && <li className="py-3 text-sm text-[#9C9788]">No items yet.</li>}
+            {data.products.length === 0 && <li className="py-4 text-sm text-[#9C9788] text-center">No items added to catalog.</li>}
             {data.products.map((p) => (
-              <li key={p.id} className="py-2 flex items-center justify-between text-sm">
+              <li key={p.id} className="py-2.5 flex items-center justify-between text-sm hover:bg-[#FAF8F5] px-2 rounded-lg transition-colors">
                 <div>
-                  <div className="font-medium">{p.name} <span className="text-[#9C9788] font-normal">({p.sku})</span></div>
-                  <div className="text-[11px] text-[#7A7568]">
-                    Unit: {p.unit} | Wt: {p.weightKg || 0}kg | CBM: {p.cbm || 0} | Packing: {p.packingSize || "—"}
+                  <div className="font-semibold text-[#1B2430]">
+                    {p.name} <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 ml-1">{p.sku}</span>
+                  </div>
+                  <div className="text-[11px] text-[#7A7568] mt-0.5">
+                    Unit: {p.unit} | Wt: {p.weightKg || 0}kg | CBM: {p.cbm || 0} | Pack: {p.packingSize || "—"}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setEditingProd(p)} className="text-[#4A4638] hover:text-[#C98A3E]"><Edit3 className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => removeProduct(p.id)} className="text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setEditingProd(p)} className="p-1 text-[#7A7568] hover:text-[#C98A3E]"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => removeProduct(p.id)} className="p-1 text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </li>
             ))}
@@ -770,10 +867,10 @@ function SetupTab({ data, save }) {
       </div>
 
       {editingSup && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className={card + " p-6 max-w-md w-full space-y-4 shadow-xl"}>
-            <div className="flex justify-between items-center">
-              <h2 className="font-bold text-lg">Edit Supplier</h2>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className={card + " p-6 max-w-md w-full space-y-4 shadow-2xl"}>
+            <div className="flex justify-between items-center pb-2 border-b border-[#EFEAE0]">
+              <h2 className="font-bold text-lg">Edit Supplier Details</h2>
               <button onClick={() => setEditingSup(null)}><X className="w-5 h-5 text-[#7A7568]" /></button>
             </div>
             <Field label="Supplier Name">
@@ -782,7 +879,7 @@ function SetupTab({ data, save }) {
             <Field label="Country">
               <input className={inputCls} value={editingSup.country} onChange={(e) => setEditingSup({ ...editingSup, country: e.target.value })} />
             </Field>
-            <Field label="Contact Details">
+            <Field label="Contact Information">
               <input className={inputCls} value={editingSup.contact} onChange={(e) => setEditingSup({ ...editingSup, contact: e.target.value })} />
             </Field>
             <div className="flex justify-end gap-2 pt-2">
@@ -794,14 +891,14 @@ function SetupTab({ data, save }) {
       )}
 
       {editingProd && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className={card + " p-6 max-w-md w-full space-y-4 shadow-xl"}>
-            <div className="flex justify-between items-center">
-              <h2 className="font-bold text-lg">Edit Item</h2>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className={card + " p-6 max-w-md w-full space-y-4 shadow-2xl"}>
+            <div className="flex justify-between items-center pb-2 border-b border-[#EFEAE0]">
+              <h2 className="font-bold text-lg">Edit Master Item</h2>
               <button onClick={() => setEditingProd(null)}><X className="w-5 h-5 text-[#7A7568]" /></button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Item Code">
+              <Field label="Item Code / SKU">
                 <input className={inputCls} value={editingProd.sku} onChange={(e) => setEditingProd({ ...editingProd, sku: e.target.value })} />
               </Field>
               <Field label="Unit">
@@ -819,7 +916,7 @@ function SetupTab({ data, save }) {
                 <input className={inputCls} type="number" value={editingProd.cbm} onChange={(e) => setEditingProd({ ...editingProd, cbm: e.target.value })} />
               </Field>
             </div>
-            <Field label="Packing Size / Configuration">
+            <Field label="Packing Configuration">
               <input className={inputCls} value={editingProd.packingSize} onChange={(e) => setEditingProd({ ...editingProd, packingSize: e.target.value })} />
             </Field>
             <div className="flex justify-end gap-2 pt-2">
@@ -856,7 +953,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
     if (!form.piNumber.trim() || !form.supplierId) return;
     const items = form.items.filter((i) => i.productId && num(i.qty) > 0).map((i) => ({ ...i, receivedQty: 0 }));
     if (items.length === 0) return;
-    save({ ...data, pis: [...data.pis, { id: uid(), ...form, items }] });
+    save({ ...data, pis: [...data.pis, { id: uid(), ...form, items }] }, "Proforma Invoice signed & logged!");
     setForm(blankPI());
     setShowForm(false);
   };
@@ -868,10 +965,10 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
       items[itemIdx] = { ...items[itemIdx], receivedQty: num(val) };
       return { ...p, items };
     });
-    save({ ...data, pis: nextPis });
+    save({ ...data, pis: nextPis }, "Received quantity updated!");
   };
 
-  const deletePI = (id) => save({ ...data, pis: data.pis.filter((p) => p.id !== id) });
+  const deletePI = (id) => save({ ...data, pis: data.pis.filter((p) => p.id !== id) }, "Proforma invoice deleted.");
 
   const filteredPIs = useMemo(() => {
     return [...data.pis]
@@ -887,17 +984,17 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-xl font-bold">Proforma Invoices</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold tracking-tight">Proforma Invoices (PI)</h1>
         <button className={btnPrimary} onClick={() => setShowForm((v) => !v)}>
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {showForm ? "Cancel" : "New PI"}
+          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {showForm ? "Cancel" : "New Signed PI"}
         </button>
       </div>
-      <p className="text-sm text-[#7A7568] mb-5">Signing a PI puts stock into the pipeline. Mark received below when goods hit warehouse.</p>
+      <p className="text-sm text-[#7A7568] mb-6">Signing a PI reserves stock into the pipeline. Enter received quantities as goods arrive at the warehouse.</p>
 
-      <div className="flex items-center gap-3 mb-5 p-3 bg-white border border-[#E4DFD3] rounded-xl shadow-sm">
+      <div className="flex items-center gap-3 mb-6 p-3 bg-white border border-[#E4DFD3] rounded-xl shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-semibold">Filter Supplier:</span>
+          <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-bold">Supplier:</span>
           <select className={inputCls + " py-1 text-xs font-medium"} value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)}>
             <option value="all">All Suppliers ({data.suppliers.length})</option>
             {data.suppliers.map((s) => (
@@ -906,10 +1003,10 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
           </select>
         </div>
 
-        <div className="h-4 w-[1px] bg-[#E4DFD3] mx-1" />
+        <div className="h-4 w-[1px] bg-[#E4DFD3]" />
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-semibold">Status:</span>
+          <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-bold">Status:</span>
           <select className={inputCls + " py-1 text-xs font-medium"} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">All Statuses</option>
             <option value="pending">Pending / Pipeline</option>
@@ -923,48 +1020,48 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
       </div>
 
       {showForm && (
-        <div className={card + " p-5 mb-6"}>
+        <div className={card + " p-5 mb-6 animate-in fade-in slide-in-from-top-2"}>
           {data.suppliers.length === 0 || data.products.length === 0 ? (
             <div className="text-sm text-[#B5453A]">Add at least one supplier and item first (Suppliers &amp; Items tab).</div>
           ) : (
             <>
               <div className="grid grid-cols-3 gap-3 mb-3">
-                <Field label="PI Number">
-                  <input className={inputCls} value={form.piNumber} onChange={(e) => setForm({ ...form, piNumber: e.target.value })} />
+                <Field label="PI Number / Ref">
+                  <input className={inputCls} placeholder="e.g. PI-2026-001" value={form.piNumber} onChange={(e) => setForm({ ...form, piNumber: e.target.value })} />
                 </Field>
                 <Field label="Supplier">
                   <select className={inputCls} value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>
                     {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </Field>
-                <Field label="Date signed">
+                <Field label="Date Signed">
                   <input type="date" className={inputCls} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
                 </Field>
               </div>
 
-              <div className="mb-3">
-                <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-medium">Line items</span>
-                <div className="mt-1.5 space-y-2">
+              <div className="mb-4">
+                <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-bold">Line Items &amp; Agreed Pricing</span>
+                <div className="mt-2 space-y-2">
                   {form.items.map((it, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
                       <select className={inputCls + " flex-1"} value={it.productId} onChange={(e) => updateItem(idx, "productId", e.target.value)}>
                         {data.products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                       </select>
-                      <input className={inputCls + " w-24"} placeholder="Qty" type="number" value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
-                      <input className={inputCls + " w-28"} placeholder="Unit cost" type="number" value={it.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} />
-                      <button onClick={() => removeItemRow(idx)} className="text-[#B5453A]"><Trash2 className="w-4 h-4" /></button>
+                      <input className={inputCls + " w-28"} placeholder="Qty" type="number" value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
+                      <input className={inputCls + " w-32"} placeholder="Unit Cost (AED)" type="number" value={it.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} />
+                      <button onClick={() => removeItemRow(idx)} className="text-[#B5453A] p-2 hover:bg-rose-50 rounded"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   ))}
                 </div>
-                <button className={btnGhost + " mt-2"} onClick={addItemRow}><Plus className="w-3.5 h-3.5" />Add line</button>
+                <button className={btnGhost + " mt-2"} onClick={addItemRow}><Plus className="w-3.5 h-3.5" />Add Item Line</button>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-4">
-                <Field label="Document link (Drive/Dropbox)">
-                  <input className={inputCls} placeholder="https://…" value={form.docLink} onChange={(e) => setForm({ ...form, docLink: e.target.value })} />
+                <Field label="Document Link (Optional)">
+                  <input className={inputCls} placeholder="https://drive.google.com/..." value={form.docLink} onChange={(e) => setForm({ ...form, docLink: e.target.value })} />
                 </Field>
-                <Field label="Notes">
-                  <input className={inputCls} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <Field label="Notes / Payment Terms">
+                  <input className={inputCls} placeholder="e.g. 30% advance paid" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </Field>
               </div>
 
@@ -975,47 +1072,50 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
       )}
 
       <div className="space-y-4">
-        {filteredPIs.length === 0 && <EmptyState text="No Proforma Invoices matching your filters." />}
+        {filteredPIs.length === 0 && <EmptyState text="No Proforma Invoices found matching your filter criteria." />}
         {filteredPIs.map((pi) => {
           const st = piStatus(pi);
           return (
             <div key={pi.id} className={card + " p-5"}>
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start justify-between mb-4 pb-2 border-b border-[#EFEAE0]">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-base">{pi.piNumber}</span>
+                    <span className="font-bold text-base text-[#1B2430]">{pi.piNumber}</span>
                     <Stamp tone={st.tone}>{st.label}</Stamp>
                   </div>
-                  <div className="text-xs text-[#7A7568] mt-0.5">
-                    Supplier: <span className="font-medium text-[#1B2430]">{supplierName(pi.supplierId)}</span> · Signed: {pi.date}
+                  <div className="text-xs text-[#7A7568] mt-1">
+                    Supplier: <span className="font-semibold text-[#1B2430]">{supplierName(pi.supplierId)}</span> · Signed Date: {pi.date}
                   </div>
                 </div>
-                <button onClick={() => deletePI(pi.id)} className="text-[#B5453A] hover:opacity-70 text-xs flex items-center gap-1">
+                <button onClick={() => deletePI(pi.id)} className="text-[#B5453A] hover:opacity-70 text-xs flex items-center gap-1 font-medium">
                   <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
               </div>
 
               <table className="w-full text-sm mb-3">
                 <thead>
-                  <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                    <th className="text-left py-1 font-medium">Item</th>
-                    <th className="text-right py-1 font-medium">Ordered</th>
-                    <th className="text-right py-1 font-medium">Unit cost</th>
-                    <th className="text-right py-1 font-medium">Received Qty at Warehouse</th>
+                  <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
+                    <th className="text-left py-1 font-medium">Item Name &amp; Code</th>
+                    <th className="text-right py-1 font-medium">Ordered Qty</th>
+                    <th className="text-right py-1 font-medium">Agreed Cost</th>
+                    <th className="text-right py-1 font-medium">Received at Warehouse</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#F3F0E7]">
                   {pi.items.map((it, idx) => {
                     const p = productInfo(it.productId);
                     return (
-                      <tr key={idx} className="border-b border-[#F3F0E7] last:border-0">
-                        <td className="py-2">{p.name} <span className="text-[#9C9788]">({p.sku})</span></td>
-                        <td className="text-right py-2">{fmt(it.qty)} {p.unit}</td>
-                        <td className="text-right py-2">{money(it.unitPrice)}</td>
-                        <td className="text-right py-2">
+                      <tr key={idx}>
+                        <td className="py-2.5">
+                          <span className="font-medium text-[#1B2430]">{p.name}</span>
+                          <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>
+                        </td>
+                        <td className="text-right py-2.5 font-medium">{fmt(it.qty)} {p.unit}</td>
+                        <td className="text-right py-2.5 text-[#7A7568]">AED {money(it.unitPrice)}</td>
+                        <td className="text-right py-2.5">
                           <input
                             type="number"
-                            className={inputCls + " w-24 text-right py-1 px-2"}
+                            className={inputCls + " w-28 text-right py-1 px-2 font-bold text-[#2F5A41]"}
                             value={it.receivedQty || 0}
                             onChange={(e) => updateReceivedQty(pi.id, idx, e.target.value)}
                           />
@@ -1025,7 +1125,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
                   })}
                 </tbody>
               </table>
-              {pi.notes && <div className="text-xs text-[#7A7568]">Note: {pi.notes}</div>}
+              {pi.notes && <div className="text-xs text-[#7A7568] bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0] mt-2">Notes: {pi.notes}</div>}
             </div>
           );
         })}
@@ -1072,13 +1172,13 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     if (!form.shipmentNumber.trim() || !form.supplierId) return;
     const items = form.items.filter((i) => i.productId && num(i.qty) > 0);
     if (items.length === 0) return;
-    save({ ...data, shipments: [...data.shipments, { id: uid(), ...form, items }] });
+    save({ ...data, shipments: [...data.shipments, { id: uid(), ...form, items }] }, "Shipment logged & stock deducted!");
     setForm(blankShipment());
     setSelectedPI("");
     setShowForm(false);
   };
 
-  const deleteShipment = (id) => save({ ...data, shipments: data.shipments.filter((s) => s.id !== id) });
+  const deleteShipment = (id) => save({ ...data, shipments: data.shipments.filter((s) => s.id !== id) }, "Shipment record deleted.");
 
   const exportExcelPackingList = (sh) => {
     const sup = data.suppliers.find((s) => s.id === sh.supplierId);
@@ -1201,20 +1301,20 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-xl font-bold">Shipments Out</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold tracking-tight">Outbound Shipments &amp; Dispatches</h1>
         <button className={btnPrimary} onClick={() => setShowForm((v) => !v)}>
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {showForm ? "Cancel" : "New Shipment"}
+          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {showForm ? "Cancel" : "New Dispatch"}
         </button>
       </div>
-      <p className="text-sm text-[#7A7568] mb-6">Dispatching stock deducts from your closing sellable inventory.</p>
+      <p className="text-sm text-[#7A7568] mb-6">Logging an outbound shipment automatically deducts inventory from your sellable closing stock.</p>
 
       {showForm && (
-        <div className={card + " p-5 mb-6"}>
-          <div className="mb-4 p-3 bg-[#F6F3EC] rounded-lg border border-[#E4DFD3]">
-            <Field label="Autofill lines from PI (Optional)">
+        <div className={card + " p-5 mb-6 animate-in fade-in slide-in-from-top-2"}>
+          <div className="mb-4 p-3 bg-[#FAF8F5] rounded-lg border border-[#E4DFD3]">
+            <Field label="Autofill items from signed PI (Optional)">
               <select className={inputCls} value={selectedPI} onChange={(e) => handlePISelect(e.target.value)}>
-                <option value="">-- Select a PI to auto-import line items --</option>
+                <option value="">-- Import line items directly from a PI --</option>
                 {data.pis.map((p) => (
                   <option key={p.id} value={p.id}>{p.piNumber} ({supplierName(p.supplierId)})</option>
                 ))}
@@ -1223,8 +1323,8 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-3">
-            <Field label="Shipment / Reference #">
-              <input className={inputCls} value={form.shipmentNumber} onChange={(e) => setForm({ ...form, shipmentNumber: e.target.value })} />
+            <Field label="Shipment / Manifest Ref">
+              <input className={inputCls} placeholder="e.g. SH-2026-08" value={form.shipmentNumber} onChange={(e) => setForm({ ...form, shipmentNumber: e.target.value })} />
             </Field>
             <Field label="Supplier">
               <select className={inputCls} value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>
@@ -1232,13 +1332,13 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
               </select>
             </Field>
             <Field label="Destination Branch">
-              <input className={inputCls} placeholder="e.g. Dubai Main" value={form.destinationBranch} onChange={(e) => setForm({ ...form, destinationBranch: e.target.value })} />
+              <input className={inputCls} placeholder="e.g. Dubai Main Showroom" value={form.destinationBranch} onChange={(e) => setForm({ ...form, destinationBranch: e.target.value })} />
             </Field>
           </div>
 
-          <div className="mb-3">
-            <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-medium">Items Shipped</span>
-            <div className="mt-1.5 space-y-2">
+          <div className="mb-4">
+            <span className="text-[11px] uppercase tracking-[0.08em] text-[#7A7568] font-bold">Dispatched Quantities</span>
+            <div className="mt-2 space-y-2">
               {form.items.map((it, idx) => {
                 const avail = closingQtyFor(form.supplierId, it.productId);
                 return (
@@ -1247,60 +1347,63 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                       {data.products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                     </select>
                     <input className={inputCls + " w-28"} placeholder="Qty" type="number" value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
-                    <span className="text-xs text-[#7A7568] w-28">Available: {avail}</span>
-                    <button onClick={() => removeItemRow(idx)} className="text-[#B5453A]"><Trash2 className="w-4 h-4" /></button>
+                    <span className="text-xs text-[#7A7568] w-32 font-medium">Available: {avail} pcs</span>
+                    <button onClick={() => removeItemRow(idx)} className="text-[#B5453A] p-2 hover:bg-rose-50 rounded"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 );
               })}
             </div>
-            <button className={btnGhost + " mt-2"} onClick={addItemRow}><Plus className="w-3.5 h-3.5" />Add line</button>
+            <button className={btnGhost + " mt-2"} onClick={addItemRow}><Plus className="w-3.5 h-3.5" />Add Item Line</button>
           </div>
 
-          <button className={btnPrimary} onClick={submit}>Log Shipment</button>
+          <button className={btnPrimary} onClick={submit}>Log Shipment Out</button>
         </div>
       )}
 
       <div className="space-y-4">
-        {data.shipments.length === 0 && <EmptyState text="No shipments recorded yet." />}
+        {data.shipments.length === 0 && <EmptyState text="No outbound shipments logged yet." />}
         {data.shipments.map((sh) => (
           <div key={sh.id} className={card + " p-5"}>
-            <div className="flex items-start justify-between mb-3">
+            <div className="flex items-start justify-between mb-3 pb-2 border-b border-[#EFEAE0]">
               <div>
-                <div className="font-bold text-base">{sh.shipmentNumber}</div>
+                <div className="font-bold text-base text-[#1B2430]">{sh.shipmentNumber}</div>
                 <div className="text-xs text-[#7A7568] mt-0.5">
-                  Supplier: {supplierName(sh.supplierId)} → Branch: <span className="font-medium text-[#1B2430]">{sh.destinationBranch || "—"}</span> · Date: {sh.date}
+                  Supplier: <span className="font-semibold text-[#1B2430]">{supplierName(sh.supplierId)}</span> → Branch: <span className="font-semibold text-[#1B2430]">{sh.destinationBranch || "—"}</span> · Date: {sh.date}
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => exportPDFPackingList(sh)} className={btnGhost + " py-1 px-2.5 text-xs"}>
-                  <FileCode className="w-3.5 h-3.5 text-[#B5453A]" /> PDF Packing List
+                <button onClick={() => exportPDFPackingList(sh)} className={btnGhost + " py-1 px-2.5 text-xs font-medium"}>
+                  <FileCode className="w-3.5 h-3.5 text-rose-700" /> PDF Packing List
                 </button>
-                <button onClick={() => exportExcelPackingList(sh)} className={btnGhost + " py-1 px-2.5 text-xs"}>
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#2F5A41]" /> Excel Packing List
+                <button onClick={() => exportExcelPackingList(sh)} className={btnGhost + " py-1 px-2.5 text-xs font-medium"}>
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Excel Packing List
                 </button>
-                <button onClick={() => deleteShipment(sh.id)} className="text-[#B5453A] hover:opacity-70 text-xs flex items-center gap-1">
-                  <Trash2 className="w-3.5 h-3.5" />
+                <button onClick={() => deleteShipment(sh.id)} className="text-[#B5453A] hover:opacity-70 text-xs flex items-center p-1">
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                  <th className="text-left py-1 font-medium">Item</th>
+                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
+                  <th className="text-left py-1 font-medium">Item Details</th>
                   <th className="text-right py-1 font-medium">Qty Shipped</th>
                   <th className="text-right py-1 font-medium">Est. Total Wt</th>
-                  <th className="text-right py-1 font-medium">Est. Total CBM</th>
+                  <th className="text-right py-1 font-medium">Est. Total Volume</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-[#F3F0E7]">
                 {sh.items.map((it, idx) => {
                   const p = productInfo(it.productId);
                   const shippedQty = num(it.qty);
                   return (
-                    <tr key={idx} className="border-b border-[#F3F0E7] last:border-0">
-                      <td className="py-2">{p.name} <span className="text-[#9C9788]">({p.sku})</span></td>
-                      <td className="text-right py-2 font-medium">{fmt(shippedQty)} {p.unit}</td>
+                    <tr key={idx}>
+                      <td className="py-2">
+                        <span className="font-medium text-[#1B2430]">{p.name}</span>
+                        <span className="ml-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{p.sku}</span>
+                      </td>
+                      <td className="text-right py-2 font-bold text-[#1B2430]">{fmt(shippedQty)} {p.unit}</td>
                       <td className="text-right py-2 text-[#7A7568]">{(shippedQty * (p.weightKg || 0)).toFixed(2)} kg</td>
                       <td className="text-right py-2 text-[#7A7568]">{(shippedQty * (p.cbm || 0)).toFixed(3)} m³</td>
                     </tr>
