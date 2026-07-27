@@ -68,7 +68,7 @@ export default function StockLedger() {
       if (saved) setData({ ...emptyData, ...JSON.parse(saved) });
     } catch (e) {
       /* first run */
-    } fontally {
+    } finally {
       setLoading(false);
     }
   }, []);
