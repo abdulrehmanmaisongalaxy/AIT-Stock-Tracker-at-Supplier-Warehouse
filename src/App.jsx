@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { 
   Plus, Trash2, Package, FileText, Ship, LayoutGrid, X, 
   AlertCircle, Loader2, CheckCircle2, Boxes, BookOpen, 
-  Upload, Download, FileSpreadsheet, Edit3, FileCode
+  Upload, Download, FileSpreadsheet, Edit3, FileCode, Globe
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -129,7 +129,7 @@ export default function StockLedger() {
   };
 
   const totals = useMemo(() => {
-    const closingValue = ledger.reduce((s, r) => s + r.closingQty * r.avgCost, 0);
+    const closingValue = ledger.reduce((s, r) => s + Math.max(0, r.closingQty) * r.avgCost, 0);
     const pipelineQty = ledger.reduce((s, r) => s + r.pipeline, 0);
     const closingQty = ledger.reduce((s, r) => s + Math.max(0, r.closingQty), 0);
     return { closingValue, pipelineQty, closingQty };
@@ -200,6 +200,21 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
     return m;
   }, [ledger]);
 
+  const byCountry = useMemo(() => {
+    const m = {};
+    for (const r of ledger) {
+      const sup = data.suppliers.find((s) => s.id === r.supplierId);
+      const country = sup?.country?.trim() || "Unassigned";
+      if (!m[country]) m[country] = { country, suppliersCount: new Set(), closingValue: 0, closingQty: 0, pipelineQty: 0 };
+      
+      m[country].suppliersCount.add(r.supplierId);
+      m[country].closingQty += Math.max(0, r.closingQty);
+      m[country].closingValue += Math.max(0, r.closingQty) * r.avgCost;
+      m[country].pipelineQty += r.pipeline;
+    }
+    return Object.values(m);
+  }, [ledger, data.suppliers]);
+
   const openPIs = data.pis.filter((p) => piStatus(p).label !== "In Stock");
   const recentShipments = [...data.shipments].sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 5);
 
@@ -208,12 +223,50 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
       <h1 className="text-xl font-bold mb-1">Dashboard</h1>
       <p className="text-sm text-[#7A7568] mb-6">Live view of what's ordered, what's ready to sell, and what's already shipped.</p>
       
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard label="Closing stock value" value={"AED " + money(totals.closingValue)} icon={Boxes} tone="stock" />
         <StatCard label="Closing stock qty (sellable now)" value={fmt(totals.closingQty)} icon={CheckCircle2} tone="stock" />
         <StatCard label="In pipeline (ordered, not received)" value={fmt(totals.pipelineQty)} icon={FileText} tone="pipeline" />
       </div>
 
+      {/* Country Wise Summary Card */}
+      <div className={card + " p-5 mb-6"}>
+        <div className="flex items-center gap-2 mb-3">
+          <Globe className="w-4 h-4 text-[#C98A3E]" />
+          <div className={sectionLabel + " mb-0"}>Closing Stock by Country Summary</div>
+        </div>
+        {byCountry.length === 0 ? (
+          <EmptyState text="No country data available." />
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                <th className="text-left py-1.5 font-medium">Country</th>
+                <th className="text-center py-1.5 font-medium">Suppliers</th>
+                <th className="text-right py-1.5 font-medium">Pipeline Qty</th>
+                <th className="text-right py-1.5 font-medium">Closing Stock Qty</th>
+                <th className="text-right py-1.5 font-medium">Total Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byCountry.map((c, i) => (
+                <tr key={i} className="border-b border-[#F3F0E7] last:border-0 font-medium">
+                  <td className="py-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#C98A3E]" />
+                    {c.country}
+                  </td>
+                  <td className="text-center py-2 text-[#7A7568]">{c.suppliersCount.size}</td>
+                  <td className="text-right py-2 text-[#8A6420]">{c.pipelineQty > 0 ? fmt(c.pipelineQty) : "—"}</td>
+                  <td className="text-right py-2 text-[#2F5A41]">{fmt(c.closingQty)}</td>
+                  <td className="text-right py-2 font-bold text-[#1B2430]">AED {money(c.closingValue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Detailed Stock by Supplier */}
       <div className={card + " p-5 mb-6"}>
         <div className={sectionLabel}>Closing stock by supplier — sellable inventory, right now</div>
         {Object.keys(bySupplier).length === 0 ? (
@@ -221,17 +274,21 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
         ) : (
           Object.entries(bySupplier).map(([supplierId, rows]) => {
             const supplierClosingValue = rows.reduce((s, r) => s + Math.max(0, r.closingQty) * r.avgCost, 0);
+            const sup = data.suppliers.find(s => s.id === supplierId);
             return (
-              <div key={supplierId} className="mb-5 last:mb-0">
-                <div className="flex items-baseline justify-between mb-2">
-                  <div className="font-semibold text-[14px]">{supplierName(supplierId)}</div>
+              <div key={supplierId} className="mb-6 last:mb-0">
+                <div className="flex items-baseline justify-between mb-2 pb-1 border-b border-[#DDD7C7]">
+                  <div className="font-bold text-[14px] flex items-center gap-2">
+                    {supplierName(supplierId)}
+                    {sup?.country && <span className="text-xs font-normal px-2 py-0.5 rounded bg-[#EFEAE0] text-[#7A7568]">{sup.country}</span>}
+                  </div>
                   <div className="text-[12px] text-[#7A7568]">
                     Closing value: <span className="font-semibold text-[#1B2430]">AED {money(supplierClosingValue)}</span>
                   </div>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                    <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
                       <th className="text-left py-1.5 font-medium">Item</th>
                       <th className="text-right py-1.5 font-medium">Pipeline</th>
                       <th className="text-right py-1.5 font-medium">Closing qty</th>
@@ -303,7 +360,31 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
 }
 
 function LedgerTab({ data, ledger, supplierName, productInfo }) {
-  const [selectedSupplier, setSelectedSupplier] = useState(data.suppliers[0]?.id || "");
+  const [selectedCountry, setSelectedCountry] = useState("all");
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+
+  const countriesList = useMemo(() => {
+    const list = new Set();
+    data.suppliers.forEach((s) => {
+      if (s.country) list.add(s.country.trim());
+    });
+    return Array.from(list).sort();
+  }, [data.suppliers]);
+
+  const filteredSuppliers = useMemo(() => {
+    if (selectedCountry === "all") return data.suppliers;
+    return data.suppliers.filter((s) => (s.country || "").trim() === selectedCountry);
+  }, [data.suppliers, selectedCountry]);
+
+  useEffect(() => {
+    if (filteredSuppliers.length > 0) {
+      if (!filteredSuppliers.some((s) => s.id === selectedSupplier)) {
+        setSelectedSupplier(filteredSuppliers[0].id);
+      }
+    } else {
+      setSelectedSupplier("");
+    }
+  }, [selectedCountry, filteredSuppliers, selectedSupplier]);
 
   const filteredLedger = useMemo(() => {
     if (!selectedSupplier) return [];
@@ -347,23 +428,46 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold">Stock Ledger</h1>
-          <p className="text-sm text-[#7A7568]">Detailed balance and transaction logs per supplier.</p>
+          <p className="text-sm text-[#7A7568]">Detailed balance and transaction logs per country &amp; supplier.</p>
         </div>
-        <div>
-          <select className={inputCls + " font-medium"} value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)}>
-            {data.suppliers.length === 0 && <option value="">No suppliers available</option>}
-            {data.suppliers.map((s) => (
-              <option key={s.id} value={s.id}>{s.name} ({s.country || "General"})</option>
-            ))}
-          </select>
+        <div className="flex items-center gap-3">
+          {/* Country Selection Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[#7A7568] font-medium uppercase tracking-wider">Country:</span>
+            <select 
+              className={inputCls + " font-medium py-1.5"} 
+              value={selectedCountry} 
+              onChange={(e) => setSelectedCountry(e.target.value)}
+            >
+              <option value="all">All Countries</option>
+              {countriesList.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Supplier Selection Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[#7A7568] font-medium uppercase tracking-wider">Supplier:</span>
+            <select 
+              className={inputCls + " font-medium py-1.5"} 
+              value={selectedSupplier} 
+              onChange={(e) => setSelectedSupplier(e.target.value)}
+            >
+              {filteredSuppliers.length === 0 && <option value="">No suppliers</option>}
+              {filteredSuppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} ({s.country || "General"})</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {!selectedSupplier ? (
-        <EmptyState text="Please add and select a supplier to view their stock ledger." />
+        <EmptyState text="Please select a supplier to view their stock ledger." />
       ) : (
         <>
           <div className={card + " p-5 mb-6"}>
@@ -1026,67 +1130,73 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
   };
 
   const exportPDFPackingList = (sh) => {
-    const doc = new jsPDF();
-    const sup = data.suppliers.find((s) => s.id === sh.supplierId);
+    try {
+      const doc = new jsPDF();
+      const sup = data.suppliers.find((s) => s.id === sh.supplierId);
 
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("PACKING LIST / SHIPMENT MANIFEST", 14, 18);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("PACKING LIST / SHIPMENT MANIFEST", 14, 18);
 
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Shipment Ref: ${sh.shipmentNumber}`, 14, 28);
-    doc.text(`Supplier: ${sup?.name || "—"} (${sup?.country || "N/A"})`, 14, 34);
-    doc.text(`Destination: ${sh.destinationBranch || "—"}`, 14, 40);
-    doc.text(`Date Shipped: ${sh.date}`, 14, 46);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Shipment Ref: ${sh.shipmentNumber}`, 14, 28);
+      doc.text(`Supplier: ${sup?.name || "—"} (${sup?.country || "N/A"})`, 14, 34);
+      doc.text(`Destination: ${sh.destinationBranch || "—"}`, 14, 40);
+      doc.text(`Date Shipped: ${sh.date}`, 14, 46);
 
-    const tableRows = [];
-    let totalQty = 0;
-    let totalWeight = 0;
-    let totalCbm = 0;
+      const tableRows = [];
+      let totalQty = 0;
+      let totalWeight = 0;
+      let totalCbm = 0;
 
-    sh.items.forEach((it) => {
-      const p = productInfo(it.productId);
-      const shippedQty = num(it.qty);
-      const lineWt = shippedQty * (p.weightKg || 0);
-      const lineCbm = shippedQty * (p.cbm || 0);
+      sh.items.forEach((it) => {
+        const p = productInfo(it.productId);
+        const shippedQty = num(it.qty);
+        const lineWt = shippedQty * (p.weightKg || 0);
+        const lineCbm = shippedQty * (p.cbm || 0);
 
-      totalQty += shippedQty;
-      totalWeight += lineWt;
-      totalCbm += lineCbm;
+        totalQty += shippedQty;
+        totalWeight += lineWt;
+        totalCbm += lineCbm;
+
+        tableRows.push([
+          p.sku || "—",
+          p.name || "—",
+          `${fmt(shippedQty)} ${p.unit}`,
+          p.packingSize || "—",
+          `${p.weightKg || 0} kg`,
+          `${lineWt.toFixed(2)} kg`,
+          `${p.cbm || 0}`,
+          `${lineCbm.toFixed(3)} m³`
+        ]);
+      });
 
       tableRows.push([
-        p.sku,
-        p.name,
-        `${fmt(shippedQty)} ${p.unit}`,
-        p.packingSize || "—",
-        `${p.weightKg || 0} kg`,
-        `${lineWt.toFixed(2)} kg`,
-        `${p.cbm || 0}`,
-        `${lineCbm.toFixed(3)} m³`
+        "TOTALS",
+        "",
+        fmt(totalQty),
+        "",
+        "",
+        `${totalWeight.toFixed(2)} kg`,
+        "",
+        `${totalCbm.toFixed(3)} m³`
       ]);
-    });
 
-    tableRows.push([
-      { content: "TOTALS", colSpan: 2, styles: { fontStyle: "bold" } },
-      { content: fmt(totalQty), styles: { fontStyle: "bold" } },
-      "",
-      "",
-      { content: `${totalWeight.toFixed(2)} kg`, styles: { fontStyle: "bold" } },
-      "",
-      { content: `${totalCbm.toFixed(3)} m³`, styles: { fontStyle: "bold" } }
-    ]);
+      autoTable(doc, {
+        startY: 52,
+        head: [["Item Code", "Item Name", "Qty", "Packing", "Unit Wt", "Total Wt", "Unit CBM", "Total CBM"]],
+        body: tableRows,
+        theme: "striped",
+        headStyles: { fillColor: [27, 36, 48] },
+        styles: { fontSize: 8 }
+      });
 
-    autoTable(doc, {
-      startY: 52,
-      head: [["Item Code", "Item Name", "Qty", "Packing", "Unit Wt", "Total Wt", "Unit CBM", "Total CBM"]],
-      body: tableRows,
-      theme: "striped",
-      headStyles: { fillColor: [27, 36, 48] },
-      styles: { fontSize: 8 }
-    });
-
-    doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
+      doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Failed to generate PDF. Check browser console for details.");
+    }
   };
 
   return (
