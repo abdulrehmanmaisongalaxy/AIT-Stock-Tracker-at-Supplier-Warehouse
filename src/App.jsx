@@ -3,7 +3,7 @@ import {
   Plus, Trash2, Package, FileText, Ship, LayoutGrid, X, 
   AlertCircle, Loader2, CheckCircle2, Boxes, BookOpen, 
   Upload, Download, FileSpreadsheet, Edit3, Globe,
-  Search, AlertTriangle
+  Search, AlertTriangle, Building2, CheckSquare, Square, Box
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -16,8 +16,19 @@ const num = (n) => Number(n) || 0;
 const fmt = (n) => num(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const money = (n) => num(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const STORE_KEY = "trading-ledger-v2";
-const emptyData = { suppliers: [], products: [], pis: [], shipments: [] };
+const STORE_KEY = "trading-ledger-v3";
+const emptyData = { suppliers: [], products: [], pis: [], shipments: [], branches: [] };
+
+const CONTAINER_20FT = { cbm: 33, weight: 28000 };
+const CONTAINER_40FT = { cbm: 76, weight: 28000 };
+
+const SHIPMENT_STATUSES = [
+  "Draft",
+  "Container Checking",
+  "Loaded",
+  "Ready to Dispatch",
+  "Dispatched"
+];
 
 function Stamp({ children, tone = "neutral" }) {
   const tones = {
@@ -26,6 +37,7 @@ function Stamp({ children, tone = "neutral" }) {
     partial: "bg-amber-50 text-amber-800 border border-amber-200/60",
     stock: "bg-emerald-50 text-emerald-800 border border-emerald-200/60",
     low: "bg-rose-50 text-rose-700 border border-rose-200/60",
+    info: "bg-blue-50 text-blue-800 border border-blue-200/60"
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] tracking-wider uppercase font-semibold whitespace-nowrap ${tones[tone]}`}>
@@ -79,7 +91,7 @@ const NAV = [
   ["ledger", "Stock Ledger", BookOpen],
   ["pis", "Proforma Invoices", FileText],
   ["shipments", "Shipments", Ship],
-  ["setup", "Suppliers & Items", Package],
+  ["setup", "Master Setup", Package],
 ];
 
 export default function StockLedger() {
@@ -105,13 +117,12 @@ export default function StockLedger() {
             const parsed = JSON.parse(localSaved);
             const merged = { ...emptyData, ...parsed };
             setData(merged);
-            
             fetch(API_URL, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(merged),
             });
-            showToast("Local data successfully migrated to central database!", "success");
+            showToast("Local data synced with central database!", "success");
           }
         }
       })
@@ -146,7 +157,7 @@ export default function StockLedger() {
       if (!map[k]) map[k] = { supplierId, productId, ordered: 0, received: 0, shipped: 0, costWeightedQty: 0, costWeightedSum: 0 };
       return map[k];
     };
-    for (const pi of data.pis) {
+    for (const pi of data.pis || []) {
       for (const it of pi.items) {
         const row = touch(pi.supplierId, it.productId);
         row.ordered += num(it.qty);
@@ -158,9 +169,11 @@ export default function StockLedger() {
         }
       }
     }
-    for (const sh of data.shipments) {
+    for (const sh of data.shipments || []) {
       for (const it of sh.items) {
-        const row = touch(sh.supplierId, it.productId);
+        // Multi-supplier support on shipments
+        const supId = it.supplierId || sh.supplierId;
+        const row = touch(supId, it.productId);
         row.shipped += num(it.qty);
       }
     }
@@ -238,8 +251,8 @@ export default function StockLedger() {
               <span className="font-semibold text-[#1B2430]">{data.suppliers.length}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span>PIs Logged</span>
-              <span className="font-semibold text-[#1B2430]">{data.pis.length}</span>
+              <span>Branches / Clients</span>
+              <span className="font-semibold text-[#1B2430]">{(data.branches || []).length}</span>
             </div>
             <div className="flex justify-between items-center">
               <span>Shipments</span>
@@ -258,7 +271,6 @@ export default function StockLedger() {
         </main>
       </div>
 
-      {/* Floating Toast Notification */}
       {toast && (
         <div className={`fixed bottom-5 right-5 px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl flex items-center gap-2 border animate-in fade-in slide-in-from-bottom-2 z-50 ${
           toast.type === "error" ? "bg-rose-900 text-white border-rose-800" : "bg-[#1B2430] text-white border-slate-700"
@@ -286,7 +298,6 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
         sup.toLowerCase().includes(search.toLowerCase());
 
       if (!matchesSearch) continue;
-
       m[r.supplierId] = m[r.supplierId] || [];
       m[r.supplierId].push(r);
     }
@@ -319,12 +330,11 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
           <p className="text-sm text-[#7A7568] mt-0.5">Real-time inventory valuation, pipeline shipments, and country breakdown.</p>
         </div>
         
-        {/* Global Search Bar */}
         <div className="relative w-72">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#7A7568]" />
           <input 
             type="text" 
-            placeholder="Search Item Name, Item Code, supplier..." 
+            placeholder="Search Item, Code, Supplier..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={inputCls + " pl-9 w-full bg-white"}
@@ -337,14 +347,12 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
         </div>
       </div>
 
-      {/* Metric Cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard label="Total Closing Stock Value" value={"AED " + money(totals.closingValue)} icon={Boxes} tone="stock" hint="Current Sellable Valuation" />
         <StatCard label="Total Sellable Quantity" value={fmt(totals.closingQty)} icon={CheckCircle2} tone="stock" hint="In Warehouse Right Now" />
         <StatCard label="Pipeline Quantity" value={fmt(totals.pipelineQty)} icon={FileText} tone="pipeline" hint="Ordered & In Transit" />
       </div>
 
-      {/* Country Wise Summary Card */}
       <div className={card + " p-5 mb-6"}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -386,7 +394,6 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
         )}
       </div>
 
-      {/* Stock by Supplier Detailed Breakdown */}
       <div className={card + " p-5 mb-6"}>
         <div className="flex items-center justify-between mb-4">
           <div className={sectionLabel + " mb-0"}>Closing Stock by Supplier &amp; Item</div>
@@ -487,7 +494,10 @@ function Dashboard({ data, ledger, totals, supplierName, productInfo, piStatus }
                     <span className="font-semibold text-[#1B2430]">{sh.shipmentNumber}</span>
                     <span className="text-[#7A7568] text-xs ml-2">→ {sh.destinationBranch || "Branch"}</span>
                   </div>
-                  <span className="text-[#9C9788] text-xs font-mono">{sh.date}</span>
+                  <div className="flex items-center gap-2">
+                    <Stamp tone="info">{sh.status || "Dispatched"}</Stamp>
+                    <span className="text-[#9C9788] text-xs font-mono">{sh.date}</span>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -548,17 +558,19 @@ function LedgerTab({ data, ledger, supplierName, productInfo }) {
       });
     });
 
-    data.shipments.filter(s => s.supplierId === selectedSupplier).forEach(sh => {
+    data.shipments.forEach(sh => {
       sh.items.forEach(it => {
-        events.push({
-          date: sh.date,
-          type: "Shipment Out",
-          ref: sh.shipmentNumber + " → " + (sh.destinationBranch || "Branch"),
-          productId: it.productId,
-          ordered: 0,
-          received: 0,
-          shipped: num(it.qty),
-        });
+        if ((it.supplierId || sh.supplierId) === selectedSupplier) {
+          events.push({
+            date: sh.date,
+            type: "Shipment Out",
+            ref: sh.shipmentNumber + " → " + (sh.destinationBranch || "Branch"),
+            productId: it.productId,
+            ordered: 0,
+            received: 0,
+            shipped: num(it.qty),
+          });
+        }
       });
     });
 
@@ -1013,91 +1025,191 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
   const [showModal, setShowModal] = useState(false);
   const [editingShipmentId, setEditingShipmentId] = useState(null);
 
-  const [supplierId, setSupplierId] = useState("");
+  // Filters
+  const [filterCountry, setFilterCountry] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  // Form State
+  const [country, setCountry] = useState("");
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
   const [shipmentNumber, setShipmentNumber] = useState("");
   const [destinationBranch, setDestinationBranch] = useState("");
+  const [status, setStatus] = useState("Draft");
   const [date, setDate] = useState(todayStr());
-  const [items, setItems] = useState([{ productId: "", qty: "" }]);
+  
+  // Selected items with qty & unit price
+  const [itemSelections, setItemSelections] = useState({});
 
-  const catalogProducts = useMemo(() => {
-    if (!supplierId) return data.products;
-    const filtered = data.products.filter((p) => p.supplierId === supplierId);
-    return filtered.length > 0 ? filtered : data.products;
-  }, [data.products, supplierId]);
+  const countriesList = useMemo(() => {
+    const list = new Set();
+    data.suppliers.forEach((s) => { if (s.country) list.add(s.country.trim()); });
+    return Array.from(list).sort();
+  }, [data.suppliers]);
+
+  const suppliersInCountry = useMemo(() => {
+    if (!country) return [];
+    return data.suppliers.filter((s) => (s.country || "").trim() === country);
+  }, [data.suppliers, country]);
+
+  const availableProducts = useMemo(() => {
+    if (selectedSupplierIds.length === 0) return [];
+    return data.products.filter((p) => selectedSupplierIds.includes(p.supplierId));
+  }, [data.products, selectedSupplierIds]);
 
   const handleOpenCreateModal = () => {
     setEditingShipmentId(null);
-    setSupplierId("");
+    setCountry(countriesList[0] || "");
+    setSelectedSupplierIds([]);
     setShipmentNumber("");
     setDestinationBranch("");
+    setStatus("Draft");
     setDate(todayStr());
-    setItems([{ productId: "", qty: "" }]);
+    setItemSelections({});
     setShowModal(true);
   };
 
   const handleOpenEditModal = (sh) => {
     setEditingShipmentId(sh.id);
-    setSupplierId(sh.supplierId);
+    setCountry(sh.country || "");
+    setSelectedSupplierIds(sh.supplierIds || (sh.supplierId ? [sh.supplierId] : []));
     setShipmentNumber(sh.shipmentNumber);
     setDestinationBranch(sh.destinationBranch || "");
+    setStatus(sh.status || "Draft");
     setDate(sh.date || todayStr());
-    setItems(sh.items.map(it => ({ productId: it.productId, qty: String(it.qty) })));
+    
+    const initialMap = {};
+    (sh.items || []).forEach(it => {
+      initialMap[it.productId] = {
+        selected: true,
+        qty: String(it.qty),
+        unitPrice: String(it.unitPrice || 0)
+      };
+    });
+    setItemSelections(initialMap);
     setShowModal(true);
   };
 
-  const handleAddLine = () => {
-    setItems((prev) => [...prev, { productId: "", qty: "" }]);
+  const toggleSelectAllSuppliers = () => {
+    if (selectedSupplierIds.length === suppliersInCountry.length) {
+      setSelectedSupplierIds([]);
+    } else {
+      setSelectedSupplierIds(suppliersInCountry.map(s => s.id));
+    }
   };
 
-  const handleRemoveLine = (index) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+  const toggleSupplier = (supId) => {
+    setSelectedSupplierIds(prev => 
+      prev.includes(supId) ? prev.filter(id => id !== supId) : [...prev, supId]
+    );
   };
 
-  const handleItemChange = (index, field, value) => {
-    setItems((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
+  const toggleSelectAllProducts = () => {
+    const allSelected = availableProducts.every(p => itemSelections[p.id]?.selected);
+    const next = { ...itemSelections };
+    availableProducts.forEach(p => {
+      next[p.id] = {
+        selected: !allSelected,
+        qty: next[p.id]?.qty || "",
+        unitPrice: next[p.id]?.unitPrice || ""
+      };
     });
+    setItemSelections(next);
   };
+
+  const toggleProductSelection = (pId) => {
+    setItemSelections(prev => ({
+      ...prev,
+      [pId]: {
+        ...prev[pId],
+        selected: !prev[pId]?.selected,
+        qty: prev[pId]?.qty || "",
+        unitPrice: prev[pId]?.unitPrice || ""
+      }
+    }));
+  };
+
+  const handleItemValueChange = (pId, field, val) => {
+    setItemSelections(prev => ({
+      ...prev,
+      [pId]: {
+        ...prev[pId],
+        selected: true,
+        [field]: val
+      }
+    }));
+  };
+
+  // Container metrics calculation
+  const containerTotals = useMemo(() => {
+    let totalCbm = 0;
+    let totalWeight = 0;
+    let totalValue = 0;
+    let totalCtns = 0;
+
+    Object.entries(itemSelections).forEach(([pId, info]) => {
+      if (info.selected && num(info.qty) > 0) {
+        const p = productInfo(pId);
+        const q = num(info.qty);
+        totalCbm += q * num(p.cbm);
+        totalWeight += q * num(p.weightKg);
+        totalValue += q * num(info.unitPrice);
+
+        // Calculate Cartons based on pack size (e.g. "24 pcs/ctn")
+        let packSize = 1;
+        if (p.packingSize) {
+          const match = p.packingSize.match(/\d+/);
+          if (match) packSize = Number(match[0]) || 1;
+        }
+        totalCtns += Math.ceil(q / packSize);
+      }
+    });
+
+    return { totalCbm, totalWeight, totalValue, totalCtns };
+  }, [itemSelections, productInfo]);
 
   const saveShipment = () => {
-    if (!supplierId || !shipmentNumber.trim()) return;
-
-    const validItems = items
-      .filter((i) => i.productId && num(i.qty) > 0)
-      .map((i) => ({ productId: i.productId, qty: num(i.qty) }));
-
-    if (validItems.length === 0) {
-      alert("Please select at least one item and enter a valid quantity.");
+    if (!shipmentNumber.trim()) {
+      alert("Please enter a shipment reference number.");
       return;
     }
 
-    if (editingShipmentId) {
-      const updatedShipments = data.shipments.map(s => {
-        if (s.id === editingShipmentId) {
-          return {
-            ...s,
-            supplierId,
-            shipmentNumber: shipmentNumber.trim(),
-            destinationBranch: destinationBranch.trim(),
-            date,
-            items: validItems
-          };
-        }
-        return s;
+    const selectedItems = Object.entries(itemSelections)
+      .filter(([_, info]) => info.selected && num(info.qty) > 0)
+      .map(([pId, info]) => {
+        const p = productInfo(pId);
+        return {
+          productId: pId,
+          supplierId: p.supplierId,
+          qty: num(info.qty),
+          unitPrice: num(info.unitPrice)
+        };
       });
-      save({ ...data, shipments: updatedShipments }, "Shipment updated");
+
+    if (selectedItems.length === 0) {
+      alert("Please select at least one item and enter a quantity.");
+      return;
+    }
+
+    const shipmentPayload = {
+      id: editingShipmentId || uid(),
+      shipmentNumber: shipmentNumber.trim(),
+      country,
+      supplierIds: selectedSupplierIds,
+      destinationBranch,
+      status,
+      date,
+      items: selectedItems,
+      totalCbm: containerTotals.totalCbm,
+      totalWeight: containerTotals.totalWeight,
+      totalValue: containerTotals.totalValue,
+      totalCtns: containerTotals.totalCtns
+    };
+
+    if (editingShipmentId) {
+      const updated = data.shipments.map(s => s.id === editingShipmentId ? shipmentPayload : s);
+      save({ ...data, shipments: updated }, "Shipment updated");
     } else {
-      const newShipment = {
-        id: uid(),
-        supplierId,
-        shipmentNumber: shipmentNumber.trim(),
-        destinationBranch: destinationBranch.trim(),
-        date,
-        items: validItems,
-      };
-      save({ ...data, shipments: [...data.shipments, newShipment] }, "Shipment recorded successfully");
+      save({ ...data, shipments: [...data.shipments, shipmentPayload] }, "Shipment recorded successfully");
     }
 
     setShowModal(false);
@@ -1109,189 +1221,407 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     }
   };
 
+  // Export Excel
+  const exportShipmentExcel = (sh) => {
+    const rows = sh.items.map((it) => {
+      const p = productInfo(it.productId);
+      const q = num(it.qty);
+      const uPrice = num(it.unitPrice);
+      let packSize = 1;
+      if (p.packingSize) {
+        const m = p.packingSize.match(/\d+/);
+        if (m) packSize = Number(m[0]) || 1;
+      }
+      return {
+        "Shipment Ref": sh.shipmentNumber,
+        "Status": sh.status || "Dispatched",
+        "Destination": sh.destinationBranch || "Branch",
+        "Item Name": p.name,
+        "Item Code": p.sku || "—",
+        "Supplier": supplierName(it.supplierId || sh.supplierId),
+        "Shipped Qty": q,
+        "Pack Size": p.packingSize || "—",
+        "Est. Cartons": Math.ceil(q / packSize),
+        "Unit Price (AED)": uPrice,
+        "Total Line Value (AED)": q * uPrice,
+        "Total Weight (Kg)": (q * num(p.weightKg)).toFixed(2),
+        "Total CBM": (q * num(p.cbm)).toFixed(3),
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Shipment Details");
+    XLSX.writeFile(workbook, `Shipment_${sh.shipmentNumber}.xlsx`);
+  };
+
+  // Export PDF
   const exportPackingListPDF = (sh) => {
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("OUTBOUND SHIPMENT PACKING LIST", 14, 20);
+    doc.setFontSize(15);
+    doc.text("OUTBOUND SHIPMENT & CONTAINER MANIFEST", 14, 18);
 
-    doc.setFontSize(10);
-    doc.text(`Shipment Ref: ${sh.shipmentNumber}`, 14, 28);
-    doc.text(`Destination: ${sh.destinationBranch || "Branch"}`, 14, 34);
-    doc.text(`Supplier: ${supplierName(sh.supplierId)}`, 14, 40);
-    doc.text(`Dispatch Date: ${sh.date}`, 14, 46);
+    doc.setFontSize(9);
+    doc.text(`Shipment Ref: ${sh.shipmentNumber}`, 14, 25);
+    doc.text(`Status: ${sh.status || "Dispatched"}`, 14, 30);
+    doc.text(`Destination: ${sh.destinationBranch || "Branch"}`, 14, 35);
+    doc.text(`Origin Country: ${sh.country || "—"}`, 14, 40);
+    doc.text(`Dispatch Date: ${sh.date}`, 14, 45);
+
+    let totCbm = 0, totWt = 0, totVal = 0, totCtns = 0;
 
     const tableRows = sh.items.map((it) => {
       const p = productInfo(it.productId);
-      const totalWeight = num(it.qty) * num(p.weightKg);
-      const totalCbm = num(it.qty) * num(p.cbm);
+      const q = num(it.qty);
+      const uPrice = num(it.unitPrice);
+      const weight = q * num(p.weightKg);
+      const cbm = q * num(p.cbm);
+      const lineVal = q * uPrice;
+
+      let packSize = 1;
+      if (p.packingSize) {
+        const m = p.packingSize.match(/\d+/);
+        if (m) packSize = Number(m[0]) || 1;
+      }
+      const ctns = Math.ceil(q / packSize);
+
+      totCbm += cbm;
+      totWt += weight;
+      totVal += lineVal;
+      totCtns += ctns;
+
       return [
         p.name, 
         p.sku || "—", 
-        fmt(it.qty) + " " + p.unit, 
-        p.packingSize || "—", 
-        totalWeight > 0 ? totalWeight.toFixed(2) + " kg" : "—", 
-        totalCbm > 0 ? totalCbm.toFixed(3) + " m³" : "—"
+        supplierName(it.supplierId || sh.supplierId),
+        fmt(q) + " " + p.unit, 
+        ctns + " ctns",
+        "AED " + money(uPrice),
+        "AED " + money(lineVal),
+        cbm.toFixed(3) + " m³"
       ];
     });
 
     autoTable(doc, {
-      startY: 52,
-      head: [["Item Name", "Item Code", "Shipped Qty", "Packing Size", "Est. Weight", "Est. CBM"]],
+      startY: 50,
+      head: [["Item Name", "Code", "Supplier", "Qty", "Cartons", "Unit Price", "Total Value", "CBM"]],
       body: tableRows,
       headStyles: { fillColor: [27, 36, 48] },
     });
 
+    const finalY = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total Container Value: AED ${money(totVal)}`, 14, finalY);
+    doc.text(`Total Volume: ${totCbm.toFixed(3)} CBM | Total Weight: ${totWt.toFixed(2)} Kg | Total Boxes: ${totCtns}`, 14, finalY + 6);
+
     doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
   };
+
+  // Filtered Shipments
+  const filteredShipments = useMemo(() => {
+    return data.shipments.filter(sh => {
+      const matchCountry = filterCountry === "all" || sh.country === filterCountry;
+      const matchStatus = filterStatus === "all" || (sh.status || "Dispatched") === filterStatus;
+      return matchCountry && matchStatus;
+    });
+  }, [data.shipments, filterCountry, filterStatus]);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Shipments &amp; Dispatches</h1>
-          <p className="text-sm text-[#7A7568] mt-0.5">Record outbound goods movement and export PDF packing lists.</p>
+          <p className="text-sm text-[#7A7568] mt-0.5">Container capacity checking, multi-supplier loads, and valuation tracking.</p>
         </div>
-        <button onClick={handleOpenCreateModal} className={btnPrimary}>
-          <Plus className="w-4 h-4" /> Record New Shipment
-        </button>
+
+        <div className="flex items-center gap-3">
+          {/* Filters */}
+          <div className="flex items-center gap-2 bg-white p-2 border border-[#E4DFD3] rounded-xl text-xs shadow-sm">
+            <span className="font-bold text-[#7A7568] uppercase">Country:</span>
+            <select value={filterCountry} onChange={(e) => setFilterCountry(e.target.value)} className="border rounded px-2 py-1 font-medium">
+              <option value="all">All Countries</option>
+              {countriesList.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <span className="font-bold text-[#7A7568] uppercase ml-2">Status:</span>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border rounded px-2 py-1 font-medium">
+              <option value="all">All Statuses</option>
+              {SHIPMENT_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+            </select>
+          </div>
+
+          <button onClick={handleOpenCreateModal} className={btnPrimary}>
+            <Plus className="w-4 h-4" /> Create Shipment
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
-        {data.shipments.length === 0 ? (
-          <EmptyState text="No outbound shipments logged yet." />
+        {filteredShipments.length === 0 ? (
+          <EmptyState text="No outbound shipments match your filters." />
         ) : (
-          data.shipments.map((sh) => (
-            <div key={sh.id} className={card + " p-5"}>
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-lg">{sh.shipmentNumber}</span>
-                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full font-medium">→ {sh.destinationBranch || "Branch"}</span>
-                  <span className="text-xs text-[#7A7568] font-medium">• {supplierName(sh.supplierId)}</span>
-                  <span className="text-xs text-[#9C9788] font-mono">• {sh.date}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => exportPackingListPDF(sh)} className={btnGhost + " py-1 text-xs"}>
-                    <Download className="w-3.5 h-3.5 text-rose-600" /> PDF Packing List
-                  </button>
-                  <button onClick={() => handleOpenEditModal(sh)} className="text-slate-400 hover:text-[#C98A3E] transition-colors p-1">
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => deleteShipment(sh.id)} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+          filteredShipments.map((sh) => {
+            const containerVal = sh.items.reduce((s, it) => s + num(it.qty) * num(it.unitPrice), 0);
+            const containerCbm = sh.items.reduce((s, it) => {
+              const p = productInfo(it.productId);
+              return s + num(it.qty) * num(p.cbm);
+            }, 0);
 
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
-                    <th className="text-left py-1 font-medium">Item Name</th>
-                    <th className="text-right py-1 font-medium">Shipped Quantity</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F3F0E7]">
-                  {sh.items.map((it, idx) => {
-                    const p = productInfo(it.productId);
-                    return (
-                      <tr key={idx}>
-                        <td className="py-1.5 font-medium">{p.name} {p.sku && <span className="text-xs font-mono text-[#7A7568]">({p.sku})</span>}</td>
-                        <td className="text-right py-1.5 font-semibold text-[#B5453A]">{fmt(it.qty)} {p.unit}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))
+            return (
+              <div key={sh.id} className={card + " p-5"}>
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-lg">{sh.shipmentNumber}</span>
+                    <Stamp tone="info">{sh.status || "Dispatched"}</Stamp>
+                    <span className="text-xs text-[#7A7568] font-medium">• Destination: {sh.destinationBranch || "Branch"}</span>
+                    {sh.country && <span className="text-xs bg-amber-50 text-amber-900 px-2 py-0.5 rounded border border-amber-200 font-medium">• {sh.country}</span>}
+                    <span className="text-xs text-[#9C9788] font-mono">• {sh.date}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => exportShipmentExcel(sh)} className={btnGhost + " py-1 text-xs"}>
+                      <Download className="w-3.5 h-3.5 text-emerald-600" /> Excel
+                    </button>
+                    <button onClick={() => exportPackingListPDF(sh)} className={btnGhost + " py-1 text-xs"}>
+                      <Download className="w-3.5 h-3.5 text-rose-600" /> PDF Manifest
+                    </button>
+                    <button onClick={() => handleOpenEditModal(sh)} className="text-slate-400 hover:text-[#C98A3E] transition-colors p-1">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => deleteShipment(sh.id)} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mb-3 bg-[#FAF8F5] p-3 rounded-lg border border-[#EFEAE0] text-xs">
+                  <div>Container Valuation: <strong className="text-sm font-bold text-[#1B2430]">AED {money(containerVal)}</strong></div>
+                  <div>Total CBM Volume: <strong className="text-sm font-bold text-[#1B2430]">{containerCbm.toFixed(3)} m³</strong></div>
+                  <div>20FT Fill Ratio: <strong className="text-sm font-bold text-[#C98A3E]">{((containerCbm / CONTAINER_20FT.cbm) * 100).toFixed(1)}%</strong></div>
+                </div>
+
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788]">
+                      <th className="text-left py-1 font-medium">Item Details</th>
+                      <th className="text-left py-1 font-medium">Supplier</th>
+                      <th className="text-right py-1 font-medium">Unit Price</th>
+                      <th className="text-right py-1 font-medium">Shipped Qty</th>
+                      <th className="text-right py-1 font-medium">Total Line Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F0E7]">
+                    {sh.items.map((it, idx) => {
+                      const p = productInfo(it.productId);
+                      const lineVal = num(it.qty) * num(it.unitPrice);
+                      return (
+                        <tr key={idx}>
+                          <td className="py-1.5 font-medium">{p.name} {p.sku && <span className="text-xs font-mono text-[#7A7568]">({p.sku})</span>}</td>
+                          <td className="py-1.5 text-xs text-[#7A7568]">{supplierName(it.supplierId || sh.supplierId)}</td>
+                          <td className="text-right py-1.5 text-xs text-[#7A7568]">{it.unitPrice ? "AED " + money(it.unitPrice) : "—"}</td>
+                          <td className="text-right py-1.5 font-semibold text-[#B5453A]">{fmt(it.qty)} {p.unit}</td>
+                          <td className="text-right py-1.5 font-bold text-[#1B2430]">{lineVal > 0 ? "AED " + money(lineVal) : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))
         )}
       </div>
 
+      {/* Modern Multi-Supplier & Multi-Item Shipment Builder Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E4DFD3] max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-[#E4DFD3] max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
-              <h2 className="text-lg font-bold">{editingShipmentId ? "Edit Outbound Shipment" : "Record Outbound Shipment"}</h2>
+              <h2 className="text-lg font-bold">{editingShipmentId ? "Edit Outbound Shipment" : "Create Outbound Shipment & Container Check"}</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-black" /></button>
             </div>
             
             <div className="space-y-4 overflow-y-auto pr-1 flex-1">
-              <Field label="Supplier">
-                <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={inputCls + " w-full"}>
-                  <option value="">Select Supplier...</option>
-                  {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Shipment Ref #">
-                  <input type="text" value={shipmentNumber} onChange={(e) => setShipmentNumber(e.target.value)} placeholder="e.g. SH-001" className={inputCls} />
+              {/* Header Configuration */}
+              <div className="grid grid-cols-4 gap-3 bg-[#FAF8F5] p-3 rounded-xl border border-[#EFEAE0]">
+                <Field label="1. Select Country">
+                  <select value={country} onChange={(e) => { setCountry(e.target.value); setSelectedSupplierIds([]); setItemSelections({}); }} className={inputCls}>
+                    <option value="">Choose Country...</option>
+                    {countriesList.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </Field>
-                <Field label="Destination Branch">
-                  <input type="text" value={destinationBranch} onChange={(e) => setDestinationBranch(e.target.value)} placeholder="e.g. Dubai Main Branch" className={inputCls} />
+
+                <Field label="Shipment Ref #">
+                  <input type="text" value={shipmentNumber} onChange={(e) => setShipmentNumber(e.target.value)} placeholder="e.g. SH-2026-001" className={inputCls} />
+                </Field>
+
+                <Field label="Destination Branch/Client">
+                  <select value={destinationBranch} onChange={(e) => setDestinationBranch(e.target.value)} className={inputCls}>
+                    <option value="">Select Branch...</option>
+                    {(data.branches || []).map(b => (
+                      <option key={b.id} value={b.name}>{b.name} ({b.country || "General"})</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Workflow Status">
+                  <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputCls}>
+                    {SHIPMENT_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                  </select>
                 </Field>
               </div>
 
-              <Field label="Date">
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-              </Field>
+              {/* Multi-Supplier Selection Checkboxes */}
+              {country && (
+                <div className="border border-[#E4DFD3] rounded-xl p-3 bg-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold">2. Select Suppliers in {country}</span>
+                    <button onClick={toggleSelectAllSuppliers} className="text-xs text-[#C98A3E] font-bold flex items-center gap-1 hover:underline">
+                      {selectedSupplierIds.length === suppliersInCountry.length ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />} Select All Suppliers
+                    </button>
+                  </div>
 
-              <div className="pt-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold">Items Dispatched</span>
-                  <button onClick={handleAddLine} className="text-xs text-[#C98A3E] hover:underline font-bold flex items-center gap-1">
-                    <Plus className="w-3 h-3" /> Add Item Line
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    {suppliersInCountry.map(s => {
+                      const isSel = selectedSupplierIds.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => toggleSupplier(s.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 transition-all ${
+                            isSel ? "bg-[#1B2430] text-white border-[#1B2430]" : "bg-white text-[#4A4638] border-[#DDD7C7] hover:bg-[#FAF8F5]"
+                          }`}
+                        >
+                          {isSel ? <CheckSquare className="w-3.5 h-3.5 text-[#C98A3E]" /> : <Square className="w-3.5 h-3.5" />}
+                          {s.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Multi-Item Selection Table */}
+              {selectedSupplierIds.length > 0 && (
+                <div className="border border-[#E4DFD3] rounded-xl p-3 bg-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold">3. Select Items &amp; Quantities</span>
+                    <button onClick={toggleSelectAllProducts} className="text-xs text-[#C98A3E] font-bold flex items-center gap-1 hover:underline">
+                      Select All Items
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto max-h-60 overflow-y-auto border border-[#EFEAE0] rounded-lg">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-[#FAF8F5] sticky top-0 border-b border-[#EFEAE0]">
+                        <tr>
+                          <th className="p-2 text-center w-10">Select</th>
+                          <th className="p-2 font-semibold">Item Name</th>
+                          <th className="p-2 font-semibold">Supplier</th>
+                          <th className="p-2 font-semibold">Pack Size</th>
+                          <th className="p-2 font-semibold text-right">In Stock</th>
+                          <th className="p-2 font-semibold text-right w-24">Shipped Qty</th>
+                          <th className="p-2 font-semibold text-right w-28">Unit Price (AED)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F3F0E7]">
+                        {availableProducts.map(p => {
+                          const info = itemSelections[p.id] || { selected: false, qty: "", unitPrice: "" };
+                          const inStock = closingQtyFor(p.supplierId, p.id);
+
+                          return (
+                            <tr key={p.id} className={info.selected ? "bg-amber-50/40" : "hover:bg-slate-50"}>
+                              <td className="p-2 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={!!info.selected}
+                                  onChange={() => toggleProductSelection(p.id)}
+                                  className="rounded border-slate-300 text-[#C98A3E] focus:ring-[#C98A3E]"
+                                />
+                              </td>
+                              <td className="p-2 font-medium">{p.name} {p.sku && <span className="text-[10px] font-mono text-[#7A7568]">({p.sku})</span>}</td>
+                              <td className="p-2 text-[#7A7568]">{supplierName(p.supplierId)}</td>
+                              <td className="p-2 text-[#7A7568]">{p.packingSize || "—"}</td>
+                              <td className="p-2 text-right font-medium text-emerald-700">{fmt(inStock)}</td>
+                              <td className="p-2 text-right">
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  value={info.qty}
+                                  onChange={(e) => handleItemValueChange(p.id, "qty", e.target.value)}
+                                  className="w-full border rounded px-1.5 py-1 text-right text-xs"
+                                />
+                              </td>
+                              <td className="p-2 text-right">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  value={info.unitPrice}
+                                  onChange={(e) => handleItemValueChange(p.id, "unitPrice", e.target.value)}
+                                  className="w-full border rounded px-1.5 py-1 text-right text-xs"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Automated Container Space & Capacity Calculator */}
+              <div className="bg-[#1B2430] text-white p-4 rounded-xl shadow-inner border border-slate-700 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Box className="w-4 h-4 text-[#C98A3E]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Automated Container Capacity &amp; Load Calculator</span>
+                  </div>
+                  <div className="text-xs text-[#C98A3E] font-bold">Total Container Value: AED {money(containerTotals.totalValue)}</div>
                 </div>
 
-                <div className="space-y-2">
-                  {items.map((item, idx) => {
-                    const avail = item.productId && supplierId ? closingQtyFor(supplierId, item.productId) : null;
-                    return (
-                      <div key={idx} className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0]">
-                        <div className="flex-1 min-w-0">
-                          <select
-                            value={item.productId}
-                            onChange={(e) => handleItemChange(idx, "productId", e.target.value)}
-                            className={inputCls + " w-full text-xs py-1.5"}
-                          >
-                            <option value="">Select Item...</option>
-                            {catalogProducts.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} {p.sku ? `(${p.sku})` : ""}
-                              </option>
-                            ))}
-                          </select>
-                          {avail !== null && (
-                            <div className="text-[10px] text-[#7A7568] mt-1 pl-1">
-                              In Stock: <span className="font-semibold text-[#1B2430]">{avail}</span>
-                            </div>
-                          )}
-                        </div>
+                <div className="grid grid-cols-4 gap-4 text-center text-xs">
+                  <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+                    <span className="text-[10px] text-slate-400 block uppercase">Est. Total Cartons</span>
+                    <span className="text-base font-bold text-white">{fmt(containerTotals.totalCtns)} Boxes</span>
+                  </div>
+                  <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+                    <span className="text-[10px] text-slate-400 block uppercase">Total Volume</span>
+                    <span className="text-base font-bold text-amber-400">{containerTotals.totalCbm.toFixed(3)} m³</span>
+                  </div>
+                  <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+                    <span className="text-[10px] text-slate-400 block uppercase">Total Gross Weight</span>
+                    <span className="text-base font-bold text-emerald-400">{containerTotals.totalWeight.toFixed(2)} Kg</span>
+                  </div>
+                  <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+                    <span className="text-[10px] text-slate-400 block uppercase">20FT / 40FT Fill Ratio</span>
+                    <span className="text-base font-bold text-blue-400">
+                      {((containerTotals.totalCbm / CONTAINER_20FT.cbm) * 100).toFixed(0)}% / {((containerTotals.totalCbm / CONTAINER_40FT.cbm) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
 
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="Qty"
-                          value={item.qty}
-                          onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
-                          className={inputCls + " w-24 text-xs py-1.5 text-right"}
-                        />
-
-                        {items.length > 1 && (
-                          <button onClick={() => handleRemoveLine(idx)} className="text-slate-400 hover:text-rose-600 p-1">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                {/* Progress Visualizer */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between text-[11px] text-slate-300 font-medium">
+                    <span>20FT Container Capacity ({CONTAINER_20FT.cbm} CBM Max)</span>
+                    <span>{containerTotals.totalCbm.toFixed(2)} / {CONTAINER_20FT.cbm} CBM</span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all ${containerTotals.totalCbm > CONTAINER_20FT.cbm ? "bg-rose-500" : "bg-[#C98A3E]"}`} 
+                      style={{ width: `${Math.min(100, (containerTotals.totalCbm / CONTAINER_20FT.cbm) * 100)}%` }} 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t border-[#EFEAE0] mt-2">
               <button onClick={() => setShowModal(false)} className={btnGhost}>Cancel</button>
-              <button onClick={saveShipment} className={btnPrimary}>{editingShipmentId ? "Update Shipment" : "Save Shipment"}</button>
+              <button onClick={saveShipment} className={btnPrimary}>{editingShipmentId ? "Update Shipment" : "Save Shipment & Container Check"}</button>
             </div>
           </div>
         </div>
@@ -1315,6 +1645,12 @@ function SetupTab({ data, save, showToast }) {
   const [pWeight, setPWeight] = useState("");
   const [pCbm, setPCbm] = useState("");
   const [pPackingSize, setPPackingSize] = useState("");
+
+  // Branch / Client State
+  const [editingBranchId, setEditingBranchId] = useState(null);
+  const [bName, setBName] = useState("");
+  const [bCountry, setBCountry] = useState("");
+  const [bCode, setBCode] = useState("");
 
   const fileInputRef = useRef(null);
 
@@ -1341,17 +1677,7 @@ function SetupTab({ data, save, showToast }) {
   };
 
   const handleDeleteSupplier = (id) => {
-    const hasProducts = data.products.some(p => p.supplierId === id);
-    if (hasProducts) {
-      if (!confirm("This supplier has products linked in the catalog. Deleting it will remove the supplier association. Proceed?")) return;
-    } else if (!confirm("Are you sure you want to delete this supplier?")) return;
-
     save({ ...data, suppliers: data.suppliers.filter(s => s.id !== id) }, "Supplier removed");
-    if (editingSupplierId === id) {
-      setEditingSupplierId(null);
-      setSName("");
-      setSCountry("");
-    }
   };
 
   // --- Product CRUD ---
@@ -1404,176 +1730,121 @@ function SetupTab({ data, save, showToast }) {
   };
 
   const handleDeleteProduct = (id) => {
-    if (confirm("Are you sure you want to delete this item from master catalog?")) {
-      save({ ...data, products: data.products.filter(p => p.id !== id) }, "Item removed from catalog");
-      if (editingProductId === id) {
-        setEditingProductId(null);
-        setPName("");
-        setPSku("");
-        setPWeight("");
-        setPCbm("");
-        setPPackingSize("");
-      }
+    save({ ...data, products: data.products.filter(p => p.id !== id) }, "Item removed from catalog");
+  };
+
+  // --- Branch / Client Master CRUD ---
+  const handleSaveBranch = () => {
+    if (!bName.trim()) return;
+
+    const branches = data.branches || [];
+
+    if (editingBranchId) {
+      const updated = branches.map(b => b.id === editingBranchId ? {
+        ...b,
+        name: bName.trim(),
+        country: bCountry.trim(),
+        code: bCode.trim()
+      } : b);
+      save({ ...data, branches: updated }, "Branch / Client updated");
+      setEditingBranchId(null);
+    } else {
+      const newBranch = {
+        id: uid(),
+        name: bName.trim(),
+        country: bCountry.trim(),
+        code: bCode.trim()
+      };
+      save({ ...data, branches: [...branches, newBranch] }, "Branch / Client added");
     }
+
+    setBName("");
+    setBCountry("");
+    setBCode("");
   };
 
-  const downloadExcelTemplate = () => {
-    const templateData = [
-      {
-        "Supplier Name": "Guangzhou Trade Co.",
-        "Country": "China",
-        "Item Name": "Perfume 100ml",
-        "Item Code": "PRF-001",
-        "Unit": "pcs",
-        "Weight (Kg)": 0.25,
-        "CBM": 0.002,
-        "Packing Size": "24 pcs/ctn"
-      },
-      {
-        "Supplier Name": "Tokyo Trading LLC",
-        "Country": "Japan",
-        "Item Name": "Skincare Serum 50ml",
-        "Item Code": "SKN-002",
-        "Unit": "pcs",
-        "Weight (Kg)": 0.15,
-        "CBM": 0.001,
-        "Packing Size": "48 pcs/ctn"
-      }
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "Inventory_Bulk_Import_Template.xlsx");
+  const handleEditBranch = (branch) => {
+    setEditingBranchId(branch.id);
+    setBName(branch.name);
+    setBCountry(branch.country || "");
+    setBCode(branch.code || "");
   };
 
-  const handleBulkExcelUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target.result;
-        const wb = XLSX.read(bstr, { type: "binary" });
-        const wsName = wb.SheetNames[0];
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wsName]);
-
-        if (rows.length === 0) {
-          showToast("Uploaded Excel file contains no valid rows", "error");
-          return;
-        }
-
-        const newSuppliers = [...data.suppliers];
-        const newProducts = [...data.products];
-
-        rows.forEach((row) => {
-          const sNameRaw = String(row["Supplier Name"] || row["Supplier"] || "").trim();
-          const sCountryRaw = String(row["Country"] || "").trim();
-          const pNameRaw = String(row["Item Name"] || row["Product Name"] || "").trim();
-          const pCodeRaw = String(row["Item Code"] || row["SKU"] || "").trim();
-          const pUnitRaw = String(row["Unit"] || "pcs").trim();
-
-          if (sNameRaw) {
-            let supplier = newSuppliers.find((s) => s.name.toLowerCase() === sNameRaw.toLowerCase());
-            if (!supplier) {
-              supplier = { id: uid(), name: sNameRaw, country: sCountryRaw };
-              newSuppliers.push(supplier);
-            }
-
-            if (pNameRaw) {
-              newProducts.push({
-                id: uid(),
-                supplierId: supplier.id,
-                name: pNameRaw,
-                sku: pCodeRaw,
-                unit: pUnitRaw,
-                weightKg: num(row["Weight (Kg)"]),
-                cbm: num(row["CBM"]),
-                packingSize: String(row["Packing Size"] || "").trim(),
-              });
-            }
-          }
-        });
-
-        save({ ...data, suppliers: newSuppliers, products: newProducts }, `Bulk imported ${rows.length} records successfully!`);
-      } catch (err) {
-        console.error("Bulk upload parse error:", err);
-        showToast("Error parsing Excel file. Ensure headers match required schema.", "error");
-      }
-    };
-    reader.readAsBinaryString(file);
+  const handleDeleteBranch = (id) => {
+    const branches = data.branches || [];
+    save({ ...data, branches: branches.filter(b => b.id !== id) }, "Branch / Client removed");
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Suppliers &amp; Items Setup</h1>
-          <p className="text-sm text-[#7A7568] mt-0.5">Manage master database of suppliers and item master catalog.</p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button onClick={downloadExcelTemplate} className={btnGhost}>
-            <Download className="w-4 h-4 text-[#C98A3E]" /> Download Template
-          </button>
-
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleBulkExcelUpload} 
-            accept=".xlsx, .xls, .csv" 
-            className="hidden" 
-          />
-          <button onClick={() => fileInputRef.current.click()} className={btnGhost}>
-            <FileSpreadsheet className="w-4 h-4 text-emerald-700" /> Excel Bulk Import
-          </button>
+          <h1 className="text-2xl font-bold tracking-tight">Master Data Setup</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Manage master suppliers, item catalogs, and branch/client destinations.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        {/* Suppliers Setup */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* Suppliers Master */}
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>{editingSupplierId ? "Edit Supplier" : "Register New Supplier"}</div>
+          <div className={sectionLabel}>{editingSupplierId ? "Edit Supplier" : "Register Supplier"}</div>
           <div className="space-y-3 mb-6">
             <Field label="Supplier Name"><input type="text" value={sName} onChange={(e) => setSName(e.target.value)} placeholder="e.g. Guangzhou Trade Co." className={inputCls} /></Field>
             <Field label="Country"><input type="text" value={sCountry} onChange={(e) => setSCountry(e.target.value)} placeholder="e.g. China" className={inputCls} /></Field>
-            <div className="flex gap-2">
-              {editingSupplierId && (
-                <button onClick={() => { setEditingSupplierId(null); setSName(""); setSCountry(""); }} className={btnGhost + " w-1/3 justify-center"}>
-                  Cancel
-                </button>
-              )}
-              <button onClick={handleSaveSupplier} className={btnPrimary + " flex-1 justify-center"}>
-                {editingSupplierId ? "Update Supplier" : "Add Supplier"}
-              </button>
-            </div>
+            <button onClick={handleSaveSupplier} className={btnPrimary + " w-full justify-center"}>
+              {editingSupplierId ? "Update Supplier" : "Add Supplier"}
+            </button>
           </div>
 
           <div className={sectionLabel}>Active Suppliers ({data.suppliers.length})</div>
           <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
             {data.suppliers.map((s) => (
-              <li key={s.id} className="py-2 flex items-center justify-between text-sm group">
+              <li key={s.id} className="py-2 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-xs text-[#7A7568] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E4DFD3] ml-2">{s.country || "—"}</span>
+                  <span className="font-semibold">{s.name}</span>
+                  <span className="text-[10px] text-[#7A7568] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E4DFD3] ml-2">{s.country || "—"}</span>
                 </div>
-                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleEditSupplier(s)} className="text-slate-400 hover:text-[#C98A3E] p-1">
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => handleDeleteSupplier(s.id)} className="text-slate-400 hover:text-rose-600 p-1">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => handleEditSupplier(s)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDeleteSupplier(s.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* Product Catalog Setup */}
+        {/* Branch / Client Destination Master */}
         <div className={card + " p-5"}>
-          <div className={sectionLabel}>{editingProductId ? "Edit Master Item" : "Register New Item"}</div>
+          <div className={sectionLabel}>{editingBranchId ? "Edit Branch/Client" : "Register Branch / Client"}</div>
+          <div className="space-y-3 mb-6">
+            <Field label="Branch / Client Name"><input type="text" value={bName} onChange={(e) => setBName(e.target.value)} placeholder="e.g. Dubai Central Warehouse" className={inputCls} /></Field>
+            <Field label="Destination Country"><input type="text" value={bCountry} onChange={(e) => setBCountry(e.target.value)} placeholder="e.g. UAE" className={inputCls} /></Field>
+            <Field label="Branch Code"><input type="text" value={bCode} onChange={(e) => setBCode(e.target.value)} placeholder="e.g. DXB-MAIN" className={inputCls} /></Field>
+            <button onClick={handleSaveBranch} className={btnPrimary + " w-full justify-center"}>
+              {editingBranchId ? "Update Branch" : "Add Branch / Client"}
+            </button>
+          </div>
+
+          <div className={sectionLabel}>Branches &amp; Clients ({(data.branches || []).length})</div>
+          <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
+            {(data.branches || []).map((b) => (
+              <li key={b.id} className="py-2 flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-semibold">{b.name}</span>
+                  <span className="text-[10px] text-[#7A7568] bg-blue-50 px-1 py-0.5 rounded ml-2">{b.country}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => handleEditBranch(b)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDeleteBranch(b.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Item Master Catalog Setup */}
+        <div className={card + " p-5"}>
+          <div className={sectionLabel}>{editingProductId ? "Edit Master Item" : "Register Master Item"}</div>
           <div className="space-y-3 mb-6">
             <Field label="Supplier">
               <select value={pSupplierId} onChange={(e) => setPSupplierId(e.target.value)} className={inputCls}>
@@ -1582,42 +1853,30 @@ function SetupTab({ data, save, showToast }) {
               </select>
             </Field>
             <Field label="Item Name"><input type="text" value={pName} onChange={(e) => setPName(e.target.value)} placeholder="e.g. Perfume 100ml" className={inputCls} /></Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <Field label="Item Code"><input type="text" value={pSku} onChange={(e) => setPSku(e.target.value)} placeholder="e.g. PRF-001" className={inputCls} /></Field>
-              <Field label="Unit"><input type="text" value={pUnit} onChange={(e) => setPUnit(e.target.value)} className={inputCls} /></Field>
+              <Field label="Packing Size"><input type="text" value={pPackingSize} onChange={(e) => setPPackingSize(e.target.value)} placeholder="24 pcs/ctn" className={inputCls} /></Field>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Field label="Weight (Kg)"><input type="number" value={pWeight} onChange={(e) => setPWeight(e.target.value)} placeholder="0.00" className={inputCls} /></Field>
               <Field label="CBM"><input type="number" value={pCbm} onChange={(e) => setPCbm(e.target.value)} placeholder="0.000" className={inputCls} /></Field>
-              <Field label="Packing Size"><input type="text" value={pPackingSize} onChange={(e) => setPPackingSize(e.target.value)} placeholder="e.g. 24 pcs/ctn" className={inputCls} /></Field>
             </div>
-            <div className="flex gap-2">
-              {editingProductId && (
-                <button onClick={() => { setEditingProductId(null); setPName(""); setPSku(""); setPWeight(""); setPCbm(""); setPPackingSize(""); }} className={btnGhost + " w-1/3 justify-center"}>
-                  Cancel
-                </button>
-              )}
-              <button onClick={handleSaveProduct} className={btnPrimary + " flex-1 justify-center"}>
-                {editingProductId ? "Update Item" : "Add Item to Catalog"}
-              </button>
-            </div>
+            <button onClick={handleSaveProduct} className={btnPrimary + " w-full justify-center"}>
+              {editingProductId ? "Update Item" : "Add Item to Master"}
+            </button>
           </div>
 
-          <div className={sectionLabel}>Item Master Catalog ({data.products.length})</div>
+          <div className={sectionLabel}>Master Item Catalog ({data.products.length})</div>
           <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
             {data.products.map((p) => (
-              <li key={p.id} className="py-2 flex items-center justify-between text-sm group">
+              <li key={p.id} className="py-2 flex items-center justify-between text-xs">
                 <div>
-                  <div className="font-medium">{p.name}</div>
-                  <div className="text-xs text-[#7A7568] font-mono">{p.sku || "No Code"} • {p.unit}</div>
+                  <div className="font-semibold">{p.name}</div>
+                  <div className="text-[10px] text-[#7A7568]">{p.sku || "No Code"} • {p.packingSize || "No Pack Size"}</div>
                 </div>
-                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleEditProduct(p)} className="text-slate-400 hover:text-[#C98A3E] p-1">
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => handleDeleteProduct(p.id)} className="text-slate-400 hover:text-rose-600 p-1">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => handleEditProduct(p)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDeleteProduct(p.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </li>
             ))}
