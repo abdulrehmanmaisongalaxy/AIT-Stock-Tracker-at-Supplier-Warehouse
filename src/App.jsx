@@ -2,9 +2,11 @@ import { useState, useEffect, useMemo } from "react";
 import { 
   Plus, Trash2, Package, FileText, Ship, LayoutGrid, X, 
   AlertCircle, Loader2, CheckCircle2, Boxes, BookOpen, 
-  Upload, Download, FileSpreadsheet 
+  Upload, Download, FileSpreadsheet, Edit3, FileCode
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -66,7 +68,7 @@ export default function StockLedger() {
       if (saved) setData({ ...emptyData, ...JSON.parse(saved) });
     } catch (e) {
       /* first run */
-    } finally {
+    } fontally {
       setLoading(false);
     }
   }, []);
@@ -468,6 +470,9 @@ function SetupTab({ data, save }) {
   const [supForm, setSupForm] = useState({ name: "", country: "", contact: "" });
   const [prodForm, setProdForm] = useState({ sku: "", name: "", unit: "pcs", weightKg: "", cbm: "", packingSize: "" });
 
+  const [editingSup, setEditingSup] = useState(null);
+  const [editingProd, setEditingProd] = useState(null);
+
   const addSupplier = () => {
     if (!supForm.name.trim()) return;
     save({ ...data, suppliers: [...data.suppliers, { id: uid(), ...supForm }] });
@@ -490,6 +495,24 @@ function SetupTab({ data, save }) {
       ],
     });
     setProdForm({ sku: "", name: "", unit: "pcs", weightKg: "", cbm: "", packingSize: "" });
+  };
+
+  const saveEditedSupplier = () => {
+    if (!editingSup.name.trim()) return;
+    const updated = data.suppliers.map((s) => (s.id === editingSup.id ? editingSup : s));
+    save({ ...data, suppliers: updated });
+    setEditingSup(null);
+  };
+
+  const saveEditedProduct = () => {
+    if (!editingProd.name.trim()) return;
+    const updated = data.products.map((p) =>
+      p.id === editingProd.id
+        ? { ...editingProd, weightKg: num(editingProd.weightKg), cbm: num(editingProd.cbm) }
+        : p
+    );
+    save({ ...data, products: updated });
+    setEditingProd(null);
   };
 
   const removeSupplier = (id) => save({ ...data, suppliers: data.suppliers.filter((s) => s.id !== id) });
@@ -572,7 +595,7 @@ function SetupTab({ data, save }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold mb-1">Suppliers &amp; Products</h1>
-          <p className="text-sm text-[#7A7568]">Set up master suppliers and SKUs, or import them in bulk via Excel.</p>
+          <p className="text-sm text-[#7A7568]">Set up master suppliers and SKUs, edit existing ones, or bulk import via Excel.</p>
         </div>
         <div className="flex gap-2">
           <button className={btnGhost} onClick={downloadTemplate}>
@@ -597,9 +620,15 @@ function SetupTab({ data, save }) {
           <ul className="divide-y divide-[#F3F0E7]">
             {data.suppliers.length === 0 && <li className="py-3 text-sm text-[#9C9788]">No suppliers yet.</li>}
             {data.suppliers.map((s) => (
-              <li key={s.id} className="py-2 flex items-center justify-between text-sm">
-                <span>{s.name} {s.country && <span className="text-[#9C9788]">({s.country})</span>}</span>
-                <button onClick={() => removeSupplier(s.id)} className="text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
+              <li key={s.id} className="py-2.5 flex items-center justify-between text-sm">
+                <div>
+                  <div className="font-medium">{s.name} {s.country && <span className="text-[#9C9788] font-normal">({s.country})</span>}</div>
+                  {s.contact && <div className="text-xs text-[#7A7568]">{s.contact}</div>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setEditingSup(s)} className="text-[#4A4638] hover:text-[#C98A3E]"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => removeSupplier(s.id)} className="text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
               </li>
             ))}
           </ul>
@@ -626,12 +655,76 @@ function SetupTab({ data, save }) {
                     Unit: {p.unit} | Wt: {p.weightKg || 0}kg | CBM: {p.cbm || 0} | Packing: {p.packingSize || "—"}
                   </div>
                 </div>
-                <button onClick={() => removeProduct(p.id)} className="text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setEditingProd(p)} className="text-[#4A4638] hover:text-[#C98A3E]"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => removeProduct(p.id)} className="text-[#B5453A] hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
               </li>
             ))}
           </ul>
         </div>
       </div>
+
+      {editingSup && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className={card + " p-6 max-w-md w-full space-y-4 shadow-xl"}>
+            <div className="flex justify-between items-center">
+              <h2 className="font-bold text-lg">Edit Supplier</h2>
+              <button onClick={() => setEditingSup(null)}><X className="w-5 h-5 text-[#7A7568]" /></button>
+            </div>
+            <Field label="Supplier Name">
+              <input className={inputCls} value={editingSup.name} onChange={(e) => setEditingSup({ ...editingSup, name: e.target.value })} />
+            </Field>
+            <Field label="Country">
+              <input className={inputCls} value={editingSup.country} onChange={(e) => setEditingSup({ ...editingSup, country: e.target.value })} />
+            </Field>
+            <Field label="Contact Details">
+              <input className={inputCls} value={editingSup.contact} onChange={(e) => setEditingSup({ ...editingSup, contact: e.target.value })} />
+            </Field>
+            <div className="flex justify-end gap-2 pt-2">
+              <button className={btnGhost} onClick={() => setEditingSup(null)}>Cancel</button>
+              <button className={btnPrimary} onClick={saveEditedSupplier}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingProd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className={card + " p-6 max-w-md w-full space-y-4 shadow-xl"}>
+            <div className="flex justify-between items-center">
+              <h2 className="font-bold text-lg">Edit Product / SKU</h2>
+              <button onClick={() => setEditingProd(null)}><X className="w-5 h-5 text-[#7A7568]" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="SKU">
+                <input className={inputCls} value={editingProd.sku} onChange={(e) => setEditingProd({ ...editingProd, sku: e.target.value })} />
+              </Field>
+              <Field label="Unit">
+                <input className={inputCls} value={editingProd.unit} onChange={(e) => setEditingProd({ ...editingProd, unit: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Product Name">
+              <input className={inputCls} value={editingProd.name} onChange={(e) => setEditingProd({ ...editingProd, name: e.target.value })} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Weight (kg)">
+                <input className={inputCls} type="number" value={editingProd.weightKg} onChange={(e) => setEditingProd({ ...editingProd, weightKg: e.target.value })} />
+              </Field>
+              <Field label="CBM">
+                <input className={inputCls} type="number" value={editingProd.cbm} onChange={(e) => setEditingProd({ ...editingProd, cbm: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Packing Size / Configuration">
+              <input className={inputCls} value={editingProd.packingSize} onChange={(e) => setEditingProd({ ...editingProd, packingSize: e.target.value })} />
+            </Field>
+            <div className="flex justify-end gap-2 pt-2">
+              <button className={btnGhost} onClick={() => setEditingProd(null)}>Cancel</button>
+              <button className={btnPrimary} onClick={saveEditedProduct}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -883,7 +976,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
 
   const deleteShipment = (id) => save({ ...data, shipments: data.shipments.filter((s) => s.id !== id) });
 
-  const exportPackingList = (sh) => {
+  const exportExcelPackingList = (sh) => {
     const sup = data.suppliers.find((s) => s.id === sh.supplierId);
     const rows = [
       ["PACKING LIST / SHIPMENT MANIFEST"],
@@ -930,6 +1023,70 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Packing List");
     XLSX.writeFile(wb, `Packing_List_${sh.shipmentNumber}.xlsx`);
+  };
+
+  const exportPDFPackingList = (sh) => {
+    const doc = new jsPDF();
+    const sup = data.suppliers.find((s) => s.id === sh.supplierId);
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("PACKING LIST / SHIPMENT MANIFEST", 14, 18);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Shipment Ref: ${sh.shipmentNumber}`, 14, 28);
+    doc.text(`Supplier: ${sup?.name || "—"} (${sup?.country || "N/A"})`, 14, 34);
+    doc.text(`Destination: ${sh.destinationBranch || "—"}`, 14, 40);
+    doc.text(`Date Shipped: ${sh.date}`, 14, 46);
+
+    const tableRows = [];
+    let totalQty = 0;
+    let totalWeight = 0;
+    let totalCbm = 0;
+
+    sh.items.forEach((it) => {
+      const p = productInfo(it.productId);
+      const shippedQty = num(it.qty);
+      const lineWt = shippedQty * (p.weightKg || 0);
+      const lineCbm = shippedQty * (p.cbm || 0);
+
+      totalQty += shippedQty;
+      totalWeight += lineWt;
+      totalCbm += lineCbm;
+
+      tableRows.push([
+        p.sku,
+        p.name,
+        `${fmt(shippedQty)} ${p.unit}`,
+        p.packingSize || "—",
+        `${p.weightKg || 0} kg`,
+        `${lineWt.toFixed(2)} kg`,
+        `${p.cbm || 0}`,
+        `${lineCbm.toFixed(3)} m³`
+      ]);
+    });
+
+    tableRows.push([
+      { content: "TOTALS", colSpan: 2, styles: { fontStyle: "bold" } },
+      { content: fmt(totalQty), styles: { fontStyle: "bold" } },
+      "",
+      "",
+      { content: `${totalWeight.toFixed(2)} kg`, styles: { fontStyle: "bold" } },
+      "",
+      { content: `${totalCbm.toFixed(3)} m³`, styles: { fontStyle: "bold" } }
+    ]);
+
+    autoTable(doc, {
+      startY: 52,
+      head: [["SKU", "Product Name", "Qty", "Packing", "Unit Wt", "Total Wt", "Unit CBM", "Total CBM"]],
+      body: tableRows,
+      theme: "striped",
+      headStyles: { fillColor: [27, 36, 48] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
   };
 
   return (
@@ -1005,8 +1162,11 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => exportPackingList(sh)} className={btnGhost + " py-1 px-2.5 text-xs"}>
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#2F5A41]" /> Export Packing List
+                <button onClick={() => exportPDFPackingList(sh)} className={btnGhost + " py-1 px-2.5 text-xs"}>
+                  <FileCode className="w-3.5 h-3.5 text-[#B5453A]" /> PDF Packing List
+                </button>
+                <button onClick={() => exportExcelPackingList(sh)} className={btnGhost + " py-1 px-2.5 text-xs"}>
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#2F5A41]" /> Excel Packing List
                 </button>
                 <button onClick={() => deleteShipment(sh.id)} className="text-[#B5453A] hover:opacity-70 text-xs flex items-center gap-1">
                   <Trash2 className="w-3.5 h-3.5" />
