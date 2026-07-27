@@ -171,7 +171,6 @@ export default function StockLedger() {
     }
     for (const sh of data.shipments || []) {
       for (const it of sh.items) {
-        // Multi-supplier support on shipments
         const supId = it.supplierId || sh.supplierId;
         const row = touch(supId, it.productId);
         row.shipped += num(it.qty);
@@ -1025,11 +1024,9 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
   const [showModal, setShowModal] = useState(false);
   const [editingShipmentId, setEditingShipmentId] = useState(null);
 
-  // Filters
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  // Form State
   const [country, setCountry] = useState("");
   const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
   const [shipmentNumber, setShipmentNumber] = useState("");
@@ -1037,7 +1034,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
   const [status, setStatus] = useState("Draft");
   const [date, setDate] = useState(todayStr());
   
-  // Selected items with qty & unit price
   const [itemSelections, setItemSelections] = useState({});
 
   const countriesList = useMemo(() => {
@@ -1139,7 +1135,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     }));
   };
 
-  // Container metrics calculation
   const containerTotals = useMemo(() => {
     let totalCbm = 0;
     let totalWeight = 0;
@@ -1154,7 +1149,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
         totalWeight += q * num(p.weightKg);
         totalValue += q * num(info.unitPrice);
 
-        // Calculate Cartons based on pack size (e.g. "24 pcs/ctn")
         let packSize = 1;
         if (p.packingSize) {
           const match = p.packingSize.match(/\d+/);
@@ -1221,7 +1215,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     }
   };
 
-  // Export Excel
   const exportShipmentExcel = (sh) => {
     const rows = sh.items.map((it) => {
       const p = productInfo(it.productId);
@@ -1255,7 +1248,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     XLSX.writeFile(workbook, `Shipment_${sh.shipmentNumber}.xlsx`);
   };
 
-  // Export PDF
   const exportPackingListPDF = (sh) => {
     const doc = new jsPDF();
     doc.setFontSize(15);
@@ -1318,7 +1310,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
   };
 
-// Filtered Shipments
   const filteredShipments = useMemo(() => {
     return data.shipments.filter(sh => {
       const matchCountry = filterCountry === "all" || sh.country === filterCountry;
@@ -1336,7 +1327,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Filters */}
           <div className="flex items-center gap-2 bg-white p-2 border border-[#E4DFD3] rounded-xl text-xs shadow-sm">
             <span className="font-bold text-[#7A7568] uppercase">Country:</span>
             <select value={filterCountry} onChange={(e) => setFilterCountry(e.target.value)} className="border rounded px-2 py-1 font-medium">
@@ -1432,9 +1422,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
           })
         )}
       </div>
-    </div>
-  );
-      {/* Modern Multi-Supplier & Multi-Item Shipment Builder Modal */}
+
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-[#E4DFD3] max-h-[92vh] flex flex-col">
@@ -1444,7 +1432,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
             </div>
             
             <div className="space-y-4 overflow-y-auto pr-1 flex-1">
-              {/* Header Configuration */}
               <div className="grid grid-cols-4 gap-3 bg-[#FAF8F5] p-3 rounded-xl border border-[#EFEAE0]">
                 <Field label="1. Select Country">
                   <select value={country} onChange={(e) => { setCountry(e.target.value); setSelectedSupplierIds([]); setItemSelections({}); }} className={inputCls}>
@@ -1473,7 +1460,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                 </Field>
               </div>
 
-              {/* Multi-Supplier Selection Checkboxes */}
               {country && (
                 <div className="border border-[#E4DFD3] rounded-xl p-3 bg-white">
                   <div className="flex items-center justify-between mb-2">
@@ -1504,7 +1490,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                 </div>
               )}
 
-              {/* Multi-Item Selection Table */}
               {selectedSupplierIds.length > 0 && (
                 <div className="border border-[#E4DFD3] rounded-xl p-3 bg-white">
                   <div className="flex items-center justify-between mb-2">
@@ -1574,7 +1559,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                 </div>
               )}
 
-              {/* Automated Container Space & Capacity Calculator */}
               <div className="bg-[#1B2430] text-white p-4 rounded-xl shadow-inner border border-slate-700 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-2">
                   <div className="flex items-center gap-2">
@@ -1605,7 +1589,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                   </div>
                 </div>
 
-                {/* Progress Visualizer */}
                 <div className="space-y-1.5 pt-1">
                   <div className="flex justify-between text-[11px] text-slate-300 font-medium">
                     <span>20FT Container Capacity ({CONTAINER_20FT.cbm} CBM Max)</span>
@@ -1633,12 +1616,10 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
 }
 
 function SetupTab({ data, save, showToast }) {
-  // Supplier State
   const [editingSupplierId, setEditingSupplierId] = useState(null);
   const [sName, setSName] = useState("");
   const [sCountry, setSCountry] = useState("");
 
-  // Product State
   const [editingProductId, setEditingProductId] = useState(null);
   const [pSupplierId, setPSupplierId] = useState("");
   const [pName, setPName] = useState("");
@@ -1648,7 +1629,6 @@ function SetupTab({ data, save, showToast }) {
   const [pCbm, setPCbm] = useState("");
   const [pPackingSize, setPPackingSize] = useState("");
 
-  // Branch / Client State
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [bName, setBName] = useState("");
   const [bCountry, setBCountry] = useState("");
@@ -1656,7 +1636,6 @@ function SetupTab({ data, save, showToast }) {
 
   const fileInputRef = useRef(null);
 
-  // --- Supplier CRUD ---
   const handleSaveSupplier = () => {
     if (!sName.trim()) return;
 
@@ -1682,7 +1661,6 @@ function SetupTab({ data, save, showToast }) {
     save({ ...data, suppliers: data.suppliers.filter(s => s.id !== id) }, "Supplier removed");
   };
 
-  // --- Product CRUD ---
   const handleSaveProduct = () => {
     if (!pSupplierId || !pName.trim()) return;
 
@@ -1735,7 +1713,6 @@ function SetupTab({ data, save, showToast }) {
     save({ ...data, products: data.products.filter(p => p.id !== id) }, "Item removed from catalog");
   };
 
-  // --- Branch / Client Master CRUD ---
   const handleSaveBranch = () => {
     if (!bName.trim()) return;
 
@@ -1787,7 +1764,6 @@ function SetupTab({ data, save, showToast }) {
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        {/* Suppliers Master */}
         <div className={card + " p-5"}>
           <div className={sectionLabel}>{editingSupplierId ? "Edit Supplier" : "Register Supplier"}</div>
           <div className="space-y-3 mb-6">
@@ -1815,7 +1791,6 @@ function SetupTab({ data, save, showToast }) {
           </ul>
         </div>
 
-        {/* Branch / Client Destination Master */}
         <div className={card + " p-5"}>
           <div className={sectionLabel}>{editingBranchId ? "Edit Branch/Client" : "Register Branch / Client"}</div>
           <div className="space-y-3 mb-6">
@@ -1844,7 +1819,6 @@ function SetupTab({ data, save, showToast }) {
           </ul>
         </div>
 
-        {/* Item Master Catalog Setup */}
         <div className={card + " p-5"}>
           <div className={sectionLabel}>{editingProductId ? "Edit Master Item" : "Register Master Item"}</div>
           <div className="space-y-3 mb-6">
