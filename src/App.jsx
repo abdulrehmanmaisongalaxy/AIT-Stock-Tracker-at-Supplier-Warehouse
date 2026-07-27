@@ -1635,6 +1635,7 @@ function SetupTab({ data, save, showToast }) {
   const [bCode, setBCode] = useState("");
 
   const fileInputRef = useRef(null);
+  const [importType, setImportType] = useState("suppliers");
 
   const handleSaveSupplier = () => {
     if (!sName.trim()) return;
@@ -1754,109 +1755,258 @@ function SetupTab({ data, save, showToast }) {
     save({ ...data, branches: branches.filter(b => b.id !== id) }, "Branch / Client removed");
   };
 
+  const downloadTemplate = (type) => {
+    let sampleData = [];
+    let filename = "";
+
+    if (type === "suppliers") {
+      filename = "Suppliers_Template.xlsx";
+      sampleData = [{ "Supplier Name": "Guangzhou Trading Co.", "Country": "China" }];
+    } else if (type === "products") {
+      filename = "Master_Items_Template.xlsx";
+      sampleData = [{ "Item Name": "Perfume 100ml", "Item Code": "PRF-001", "Supplier Name": "Guangzhou Trading Co.", "Unit": "pcs", "Packing Size": "24 pcs/ctn", "Weight (Kg)": 0.45, "CBM": 0.002 }];
+    } else if (type === "branches") {
+      filename = "Branches_Template.xlsx";
+      sampleData = [{ "Branch / Client Name": "Dubai Central Warehouse", "Country": "UAE", "Branch Code": "DXB-MAIN" }];
+    }
+
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, filename);
+  };
+
+  const handleFileUpload = (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rows = XLSX.utils.sheet_to_json(ws);
+
+        if (type === "suppliers") {
+          const newSuppliers = [...data.suppliers];
+          rows.forEach((r) => {
+            const name = r["Supplier Name"] || r["name"];
+            const country = r["Country"] || r["country"];
+            if (name) {
+              newSuppliers.push({ id: uid(), name: String(name).trim(), country: String(country || "").trim() });
+            }
+          });
+          save({ ...data, suppliers: newSuppliers }, `Successfully imported ${rows.length} suppliers`);
+        } else if (type === "products") {
+          const newProducts = [...data.products];
+          rows.forEach((r) => {
+            const name = r["Item Name"] || r["name"];
+            const sku = r["Item Code"] || r["sku"] || "";
+            const supName = r["Supplier Name"] || r["supplierName"] || "";
+            const unit = r["Unit"] || r["unit"] || "pcs";
+            const packingSize = r["Packing Size"] || r["packingSize"] || "";
+            const weightKg = Number(r["Weight (Kg)"] || r["weightKg"] || 0);
+            const cbm = Number(r["CBM"] || r["cbm"] || 0);
+
+            let matchedSup = data.suppliers.find(s => s.name.toLowerCase() === String(supName).toLowerCase());
+            const supplierId = matchedSup ? matchedSup.id : (data.suppliers[0]?.id || "");
+
+            if (name) {
+              newProducts.push({
+                id: uid(),
+                supplierId,
+                name: String(name).trim(),
+                sku: String(sku).trim(),
+                unit: String(unit).trim(),
+                packingSize: String(packingSize).trim(),
+                weightKg,
+                cbm
+              });
+            }
+          });
+          save({ ...data, products: newProducts }, `Successfully imported ${rows.length} items`);
+        } else if (type === "branches") {
+          const newBranches = [...(data.branches || [])];
+          rows.forEach((r) => {
+            const name = r["Branch / Client Name"] || r["name"];
+            const country = r["Country"] || r["country"] || "";
+            const code = r["Branch Code"] || r["code"] || "";
+            if (name) {
+              newBranches.push({ id: uid(), name: String(name).trim(), country: String(country).trim(), code: String(code).trim() });
+            }
+          });
+          save({ ...data, branches: newBranches }, `Successfully imported ${rows.length} branches/clients`);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("Error parsing uploaded file", "error");
+      }
+      e.target.value = "";
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Master Data Setup</h1>
-          <p className="text-sm text-[#7A7568] mt-0.5">Manage master suppliers, item catalogs, and branch/client destinations.</p>
+          <p className="text-sm text-[#7A7568] mt-0.5">Manage master suppliers, item catalogs, and branch/client destinations via manual entry or Excel bulk import.</p>
         </div>
       </div>
 
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={(e) => handleFileUpload(e, importType)} 
+        accept=".xlsx, .xls, .csv" 
+        className="hidden" 
+      />
+
       <div className="grid grid-cols-3 gap-6">
-        <div className={card + " p-5"}>
-          <div className={sectionLabel}>{editingSupplierId ? "Edit Supplier" : "Register Supplier"}</div>
-          <div className="space-y-3 mb-6">
-            <Field label="Supplier Name"><input type="text" value={sName} onChange={(e) => setSName(e.target.value)} placeholder="e.g. Guangzhou Trade Co." className={inputCls} /></Field>
-            <Field label="Country"><input type="text" value={sCountry} onChange={(e) => setSCountry(e.target.value)} placeholder="e.g. China" className={inputCls} /></Field>
-            <button onClick={handleSaveSupplier} className={btnPrimary + " w-full justify-center"}>
-              {editingSupplierId ? "Update Supplier" : "Add Supplier"}
-            </button>
+        {/* Suppliers Box */}
+        <div className={card + " p-5 flex flex-col justify-between"}>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className={sectionLabel + " mb-0"}>{editingSupplierId ? "Edit Supplier" : "Register Supplier"}</div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => downloadTemplate("suppliers")} title="Download Excel Template" className="text-xs text-[#7A7568] hover:text-[#C98A3E] font-medium flex items-center gap-1 bg-[#FAF8F5] px-2 py-1 rounded border border-[#E4DFD3]">
+                  <Download className="w-3 h-3" /> Template
+                </button>
+                <button onClick={() => { setImportType("suppliers"); fileInputRef.current.click(); }} title="Bulk Import Excel" className="text-xs text-emerald-700 hover:underline font-medium flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                  <Upload className="w-3 h-3" /> Import
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <Field label="Supplier Name"><input type="text" value={sName} onChange={(e) => setSName(e.target.value)} placeholder="e.g. Guangzhou Trade Co." className={inputCls} /></Field>
+              <Field label="Country"><input type="text" value={sCountry} onChange={(e) => setSCountry(e.target.value)} placeholder="e.g. China" className={inputCls} /></Field>
+              <button onClick={handleSaveSupplier} className={btnPrimary + " w-full justify-center"}>
+                {editingSupplierId ? "Update Supplier" : "Add Supplier"}
+              </button>
+            </div>
           </div>
 
-          <div className={sectionLabel}>Active Suppliers ({data.suppliers.length})</div>
-          <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
-            {data.suppliers.map((s) => (
-              <li key={s.id} className="py-2 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-semibold">{s.name}</span>
-                  <span className="text-[10px] text-[#7A7568] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E4DFD3] ml-2">{s.country || "—"}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => handleEditSupplier(s)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => handleDeleteSupplier(s.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div>
+            <div className={sectionLabel}>Active Suppliers ({data.suppliers.length})</div>
+            <ul className="divide-y divide-[#F3F0E7] max-h-52 overflow-y-auto">
+              {data.suppliers.map((s) => (
+                <li key={s.id} className="py-2 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-semibold">{s.name}</span>
+                    <span className="text-[10px] text-[#7A7568] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E4DFD3] ml-2">{s.country || "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleEditSupplier(s)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleDeleteSupplier(s.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <div className={card + " p-5"}>
-          <div className={sectionLabel}>{editingBranchId ? "Edit Branch/Client" : "Register Branch / Client"}</div>
-          <div className="space-y-3 mb-6">
-            <Field label="Branch / Client Name"><input type="text" value={bName} onChange={(e) => setBName(e.target.value)} placeholder="e.g. Dubai Central Warehouse" className={inputCls} /></Field>
-            <Field label="Destination Country"><input type="text" value={bCountry} onChange={(e) => setBCountry(e.target.value)} placeholder="e.g. UAE" className={inputCls} /></Field>
-            <Field label="Branch Code"><input type="text" value={bCode} onChange={(e) => setBCode(e.target.value)} placeholder="e.g. DXB-MAIN" className={inputCls} /></Field>
-            <button onClick={handleSaveBranch} className={btnPrimary + " w-full justify-center"}>
-              {editingBranchId ? "Update Branch" : "Add Branch / Client"}
-            </button>
+        {/* Branches Box */}
+        <div className={card + " p-5 flex flex-col justify-between"}>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className={sectionLabel + " mb-0"}>{editingBranchId ? "Edit Branch/Client" : "Register Branch / Client"}</div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => downloadTemplate("branches")} title="Download Excel Template" className="text-xs text-[#7A7568] hover:text-[#C98A3E] font-medium flex items-center gap-1 bg-[#FAF8F5] px-2 py-1 rounded border border-[#E4DFD3]">
+                  <Download className="w-3 h-3" /> Template
+                </button>
+                <button onClick={() => { setImportType("branches"); fileInputRef.current.click(); }} title="Bulk Import Excel" className="text-xs text-emerald-700 hover:underline font-medium flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                  <Upload className="w-3 h-3" /> Import
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <Field label="Branch / Client Name"><input type="text" value={bName} onChange={(e) => setBName(e.target.value)} placeholder="e.g. Dubai Warehouse" className={inputCls} /></Field>
+              <Field label="Destination Country"><input type="text" value={bCountry} onChange={(e) => setBCountry(e.target.value)} placeholder="e.g. UAE" className={inputCls} /></Field>
+              <Field label="Branch Code"><input type="text" value={bCode} onChange={(e) => setBCode(e.target.value)} placeholder="e.g. DXB-MAIN" className={inputCls} /></Field>
+              <button onClick={handleSaveBranch} className={btnPrimary + " w-full justify-center"}>
+                {editingBranchId ? "Update Branch" : "Add Branch / Client"}
+              </button>
+            </div>
           </div>
 
-          <div className={sectionLabel}>Branches &amp; Clients ({(data.branches || []).length})</div>
-          <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
-            {(data.branches || []).map((b) => (
-              <li key={b.id} className="py-2 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-semibold">{b.name}</span>
-                  <span className="text-[10px] text-[#7A7568] bg-blue-50 px-1 py-0.5 rounded ml-2">{b.country}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => handleEditBranch(b)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => handleDeleteBranch(b.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div>
+            <div className={sectionLabel}>Branches &amp; Clients ({(data.branches || []).length})</div>
+            <ul className="divide-y divide-[#F3F0E7] max-h-52 overflow-y-auto">
+              {(data.branches || []).map((b) => (
+                <li key={b.id} className="py-2 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-semibold">{b.name}</span>
+                    <span className="text-[10px] text-[#7A7568] bg-blue-50 px-1 py-0.5 rounded ml-2">{b.country}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleEditBranch(b)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleDeleteBranch(b.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <div className={card + " p-5"}>
-          <div className={sectionLabel}>{editingProductId ? "Edit Master Item" : "Register Master Item"}</div>
-          <div className="space-y-3 mb-6">
-            <Field label="Supplier">
-              <select value={pSupplierId} onChange={(e) => setPSupplierId(e.target.value)} className={inputCls}>
-                <option value="">Select Supplier...</option>
-                {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </Field>
-            <Field label="Item Name"><input type="text" value={pName} onChange={(e) => setPName(e.target.value)} placeholder="e.g. Perfume 100ml" className={inputCls} /></Field>
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Item Code"><input type="text" value={pSku} onChange={(e) => setPSku(e.target.value)} placeholder="e.g. PRF-001" className={inputCls} /></Field>
-              <Field label="Packing Size"><input type="text" value={pPackingSize} onChange={(e) => setPPackingSize(e.target.value)} placeholder="24 pcs/ctn" className={inputCls} /></Field>
+        {/* Master Item Catalog Box */}
+        <div className={card + " p-5 flex flex-col justify-between"}>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className={sectionLabel + " mb-0"}>{editingProductId ? "Edit Master Item" : "Register Master Item"}</div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => downloadTemplate("products")} title="Download Excel Template" className="text-xs text-[#7A7568] hover:text-[#C98A3E] font-medium flex items-center gap-1 bg-[#FAF8F5] px-2 py-1 rounded border border-[#E4DFD3]">
+                  <Download className="w-3 h-3" /> Template
+                </button>
+                <button onClick={() => { setImportType("products"); fileInputRef.current.click(); }} title="Bulk Import Excel" className="text-xs text-emerald-700 hover:underline font-medium flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                  <Upload className="w-3 h-3" /> Import
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Weight (Kg)"><input type="number" value={pWeight} onChange={(e) => setPWeight(e.target.value)} placeholder="0.00" className={inputCls} /></Field>
-              <Field label="CBM"><input type="number" value={pCbm} onChange={(e) => setPCbm(e.target.value)} placeholder="0.000" className={inputCls} /></Field>
+
+            <div className="space-y-3 mb-6">
+              <Field label="Supplier">
+                <select value={pSupplierId} onChange={(e) => setPSupplierId(e.target.value)} className={inputCls}>
+                  <option value="">Select Supplier...</option>
+                  {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Item Name"><input type="text" value={pName} onChange={(e) => setPName(e.target.value)} placeholder="e.g. Perfume 100ml" className={inputCls} /></Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Item Code"><input type="text" value={pSku} onChange={(e) => setPSku(e.target.value)} placeholder="e.g. PRF-001" className={inputCls} /></Field>
+                <Field label="Packing Size"><input type="text" value={pPackingSize} onChange={(e) => setPPackingSize(e.target.value)} placeholder="24 pcs/ctn" className={inputCls} /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Weight (Kg)"><input type="number" value={pWeight} onChange={(e) => setPWeight(e.target.value)} placeholder="0.00" className={inputCls} /></Field>
+                <Field label="CBM"><input type="number" value={pCbm} onChange={(e) => setPCbm(e.target.value)} placeholder="0.000" className={inputCls} /></Field>
+              </div>
+              <button onClick={handleSaveProduct} className={btnPrimary + " w-full justify-center"}>
+                {editingProductId ? "Update Item" : "Add Item to Master"}
+              </button>
             </div>
-            <button onClick={handleSaveProduct} className={btnPrimary + " w-full justify-center"}>
-              {editingProductId ? "Update Item" : "Add Item to Master"}
-            </button>
           </div>
 
-          <div className={sectionLabel}>Master Item Catalog ({data.products.length})</div>
-          <ul className="divide-y divide-[#F3F0E7] max-h-60 overflow-y-auto">
-            {data.products.map((p) => (
-              <li key={p.id} className="py-2 flex items-center justify-between text-xs">
-                <div>
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-[10px] text-[#7A7568]">{p.sku || "No Code"} • {p.packingSize || "No Pack Size"}</div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => handleEditProduct(p)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => handleDeleteProduct(p.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div>
+            <div className={sectionLabel}>Master Item Catalog ({data.products.length})</div>
+            <ul className="divide-y divide-[#F3F0E7] max-h-52 overflow-y-auto">
+              {data.products.map((p) => (
+                <li key={p.id} className="py-2 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-semibold">{p.name}</div>
+                    <div className="text-[10px] text-[#7A7568]">{p.sku || "No Code"} • {p.packingSize || "No Pack Size"}</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleEditProduct(p)} className="text-slate-400 hover:text-[#C98A3E] p-1"><Edit3 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleDeleteProduct(p.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </div>
