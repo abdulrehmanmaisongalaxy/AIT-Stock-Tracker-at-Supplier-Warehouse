@@ -184,10 +184,13 @@ const save = (next, msg) => {
         <aside className="w-[220px] shrink-0 border-r border-[#E4DFD3] min-h-screen px-4 py-6 bg-[#F6F3EC]/50 backdrop-blur-sm sticky top-0 h-screen">
           <div className="mb-8 px-2">
             <div className="inline-block px-2 py-0.5 rounded bg-[#C98A3E]/10 text-[10px] uppercase tracking-[0.18em] text-[#C98A3E] font-bold mb-1">
-              Enterprise Hub
+              AIT INVENTORY PORTAL - SUPPLIER WAREHOUSE
             </div>
-            <div className="text-[16px] font-bold tracking-tight text-[#1B2430]">Stock &amp; Ledger</div>
+            <div className="text-[16px] font-bold tracking-tight text-[#1B2430]">Inventory Tracker
           </div>
+            <div className="text-[11px] text-[#7A7568] mt-1 font-medium">
+    Created by <span className="text-[#1B2430] font-semibold">Abdul Rehman</span>
+  </div>
           <nav className="space-y-1">
             {NAV.map(([key, label, Icon]) => (
               <button
