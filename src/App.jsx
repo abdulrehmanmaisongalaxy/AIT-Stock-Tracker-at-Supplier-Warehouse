@@ -1428,9 +1428,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
                   </tbody>
                 </table>
               </div>
-            ))
-        )}
-      </div>
+            </div>
 
       {/* Modern Multi-Supplier & Multi-Item Shipment Builder Modal */}
       {showModal && (
