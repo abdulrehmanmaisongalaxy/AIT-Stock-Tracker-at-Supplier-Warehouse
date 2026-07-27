@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+const API_URL = "https://ait-inventory-backend.onrender.com/api/inventory";
 const uid = () => Math.random().toString(36).slice(2, 10);
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const num = (n) => Number(n) || 0;
@@ -68,26 +69,34 @@ export default function StockLedger() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORE_KEY);
-      if (saved) setData({ ...emptyData, ...JSON.parse(saved) });
-    } catch (e) {
-      /* first run */
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+useEffect(() => {
+  fetch(API_URL)
+    .then((res) => res.json())
+    .then((serverData) => {
+      setData({ ...emptyData, ...serverData });
+    })
+    .catch((err) => {
+      console.error("Error fetching inventory data:", err);
+      showToast("Could not connect to server", "error");
+    })
+    .finally(() => setLoading(false));
+}, []);
 
-  const save = (next, msg) => {
-    setData(next);
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(next));
+const save = (next, msg) => {
+  setData(next);
+  fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(next),
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error("Failed to save");
       if (msg) showToast(msg, "success");
-    } catch (e) {
-      showToast("Could not save — check browser storage limits.", "error");
-    }
-  };
+    })
+    .catch((e) => {
+      showToast("Could not save to central database.", "error");
+    });
+};
 
   const ledger = useMemo(() => {
     const map = {};
