@@ -736,21 +736,59 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
   const [supplierId, setSupplierId] = useState("");
   const [piNumber, setPiNumber] = useState("");
   const [date, setDate] = useState(todayStr());
-  const [items, setItems] = useState([]);
+  // Line items structure: [{ productId: "", qty: "", unitPrice: "" }]
+  const [items, setItems] = useState([{ productId: "", qty: "", unitPrice: "" }]);
+
+  // Filter products for selected supplier, fallback to ALL products if none matched
+  const catalogProducts = useMemo(() => {
+    if (!supplierId) return data.products;
+    const filtered = data.products.filter((p) => p.supplierId === supplierId);
+    return filtered.length > 0 ? filtered : data.products;
+  }, [data.products, supplierId]);
+
+  const handleAddLine = () => {
+    setItems((prev) => [...prev, { productId: "", qty: "", unitPrice: "" }]);
+  };
+
+  const handleRemoveLine = (index) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleItemChange = (index, field, value) => {
+    setItems((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
 
   const addPI = () => {
     if (!supplierId || !piNumber.trim()) return;
+
+    const validItems = items
+      .filter((i) => i.productId && num(i.qty) > 0)
+      .map((i) => ({ productId: i.productId, qty: num(i.qty), unitPrice: num(i.unitPrice), receivedQty: 0 }));
+
+    if (validItems.length === 0) {
+      alert("Please select at least one item and enter a valid quantity.");
+      return;
+    }
+
     const newPI = {
       id: uid(),
       supplierId,
       piNumber: piNumber.trim(),
       date,
-      items: items.filter((i) => i.productId && num(i.qty) > 0),
+      items: validItems,
     };
+
     save({ ...data, pis: [...data.pis, newPI] }, "Proforma Invoice saved successfully");
+    
+    // Reset modal form
     setShowModal(false);
     setPiNumber("");
-    setItems([]);
+    setSupplierId("");
+    setItems([{ productId: "", qty: "", unitPrice: "" }]);
   };
 
   const updateReceived = (piId, productId, val) => {
@@ -769,10 +807,6 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
     save({ ...data, pis: data.pis.filter((p) => p.id !== id) }, "PI removed");
   };
 
-  const availableProducts = useMemo(() => {
-    return data.products.filter((p) => p.supplierId === supplierId);
-  }, [data.products, supplierId]);
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -780,7 +814,13 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
           <h1 className="text-2xl font-bold tracking-tight">Proforma Invoices (PIs)</h1>
           <p className="text-sm text-[#7A7568] mt-0.5">Log signed purchase orders and record physical warehouse receipts.</p>
         </div>
-        <button onClick={() => setShowModal(true)} className={btnPrimary}>
+        <button 
+          onClick={() => {
+            setItems([{ productId: "", qty: "", unitPrice: "" }]);
+            setShowModal(true);
+          }} 
+          className={btnPrimary}
+        >
           <Plus className="w-4 h-4" /> Log New PI
         </button>
       </div>
@@ -845,61 +885,95 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E4DFD3]">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E4DFD3] max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
               <h2 className="text-lg font-bold">Log Proforma Invoice</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-black" /></button>
             </div>
-            <div className="space-y-4">
+            
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
               <Field label="Supplier">
                 <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={inputCls + " w-full"}>
                   <option value="">Select Supplier...</option>
                   {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </Field>
+
               <div className="grid grid-cols-2 gap-3">
-                <Field label="PI Number"><input type="text" value={piNumber} onChange={(e) => setPiNumber(e.target.value)} placeholder="e.g. PI-2026-001" className={inputCls} /></Field>
-                <Field label="Date"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></Field>
+                <Field label="PI Number">
+                  <input type="text" value={piNumber} onChange={(e) => setPiNumber(e.target.value)} placeholder="e.g. PI-2026-001" className={inputCls} />
+                </Field>
+                <Field label="Date">
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+                </Field>
               </div>
 
-              {supplierId && (
-                <div>
-                  <div className={sectionLabel}>Items in PI</div>
-                  {availableProducts.map((p) => {
-                    const existing = items.find((i) => i.productId === p.id) || { qty: 0, unitPrice: 0 };
-                    return (
-                      <div key={p.id} className="flex items-center gap-2 mb-2">
-                        <span className="flex-1 text-xs font-medium truncate">{p.name}</span>
-                        <input
-                          type="number"
-                          placeholder="Qty"
-                          value={existing.qty || ""}
-                          onChange={(e) => {
-                            const qty = num(e.target.value);
-                            setItems((prev) => [...prev.filter((i) => i.productId !== p.id), { productId: p.id, qty, unitPrice: existing.unitPrice }]);
-                          }}
-                          className={inputCls + " w-20 py-1 text-xs"}
-                        />
-                        <input
-                          type="number"
-                          placeholder="Unit Price"
-                          value={existing.unitPrice || ""}
-                          onChange={(e) => {
-                            const unitPrice = num(e.target.value);
-                            setItems((prev) => [...prev.filter((i) => i.productId !== p.id), { productId: p.id, qty: existing.qty, unitPrice }]);
-                          }}
-                          className={inputCls + " w-24 py-1 text-xs"}
-                        />
-                      </div>
-                    );
-                  })}
+              {/* Dynamic Line Items Section */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold">Items in PI</span>
+                  <button onClick={handleAddLine} className="text-xs text-[#C98A3E] hover:underline font-bold flex items-center gap-1">
+                    <Plus className="w-3 h-3" /> Add Item Line
+                  </button>
                 </div>
-              )}
 
-              <div className="flex justify-end gap-2 pt-3">
-                <button onClick={() => setShowModal(false)} className={btnGhost}>Cancel</button>
-                <button onClick={addPI} className={btnPrimary}>Save PI</button>
+                {data.products.length === 0 ? (
+                  <div className="p-3 text-xs text-[#7A7568] bg-amber-50 border border-amber-200 rounded-lg">
+                    No items in catalog yet. Please add items in <b>Suppliers &amp; Items</b> tab first.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0]">
+                        <div className="flex-1 min-w-0">
+                          <select
+                            value={item.productId}
+                            onChange={(e) => handleItemChange(idx, "productId", e.target.value)}
+                            className={inputCls + " w-full text-xs py-1.5"}
+                          >
+                            <option value="">Select Item...</option>
+                            {catalogProducts.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} {p.sku ? `(${p.sku})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty"
+                          value={item.qty}
+                          onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
+                          className={inputCls + " w-20 text-xs py-1.5 text-right"}
+                        />
+
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Price"
+                          value={item.unitPrice}
+                          onChange={(e) => handleItemChange(idx, "unitPrice", e.target.value)}
+                          className={inputCls + " w-24 text-xs py-1.5 text-right"}
+                        />
+
+                        {items.length > 1 && (
+                          <button onClick={() => handleRemoveLine(idx)} className="text-slate-400 hover:text-rose-600 p-1">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-[#EFEAE0] mt-2">
+              <button onClick={() => setShowModal(false)} className={btnGhost}>Cancel</button>
+              <button onClick={addPI} className={btnPrimary}>Save PI</button>
             </div>
           </div>
         </div>
@@ -914,23 +988,61 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
   const [shipmentNumber, setShipmentNumber] = useState("");
   const [destinationBranch, setDestinationBranch] = useState("");
   const [date, setDate] = useState(todayStr());
-  const [items, setItems] = useState([]);
+  // Line items structure: [{ productId: "", qty: "" }]
+  const [items, setItems] = useState([{ productId: "", qty: "" }]);
+
+  // Filter products for selected supplier, fallback to ALL products if none matched
+  const catalogProducts = useMemo(() => {
+    if (!supplierId) return data.products;
+    const filtered = data.products.filter((p) => p.supplierId === supplierId);
+    return filtered.length > 0 ? filtered : data.products;
+  }, [data.products, supplierId]);
+
+  const handleAddLine = () => {
+    setItems((prev) => [...prev, { productId: "", qty: "" }]);
+  };
+
+  const handleRemoveLine = (index) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleItemChange = (index, field, value) => {
+    setItems((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
 
   const addShipment = () => {
     if (!supplierId || !shipmentNumber.trim()) return;
+
+    const validItems = items
+      .filter((i) => i.productId && num(i.qty) > 0)
+      .map((i) => ({ productId: i.productId, qty: num(i.qty) }));
+
+    if (validItems.length === 0) {
+      alert("Please select at least one item and enter a valid quantity.");
+      return;
+    }
+
     const newShipment = {
       id: uid(),
       supplierId,
       shipmentNumber: shipmentNumber.trim(),
       destinationBranch: destinationBranch.trim(),
       date,
-      items: items.filter((i) => i.productId && num(i.qty) > 0),
+      items: validItems,
     };
+
     save({ ...data, shipments: [...data.shipments, newShipment] }, "Shipment recorded successfully");
+    
+    // Reset modal form
     setShowModal(false);
     setShipmentNumber("");
     setDestinationBranch("");
-    setItems([]);
+    setSupplierId("");
+    setItems([{ productId: "", qty: "" }]);
   };
 
   const deleteShipment = (id) => {
@@ -952,7 +1064,14 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
       const p = productInfo(it.productId);
       const totalWeight = num(it.qty) * num(p.weightKg);
       const totalCbm = num(it.qty) * num(p.cbm);
-      return [p.name, p.sku || "—", fmt(it.qty) + " " + p.unit, p.packingSize || "—", totalWeight > 0 ? totalWeight.toFixed(2) + " kg" : "—", totalCbm > 0 ? totalCbm.toFixed(3) + " m³" : "—"];
+      return [
+        p.name, 
+        p.sku || "—", 
+        fmt(it.qty) + " " + p.unit, 
+        p.packingSize || "—", 
+        totalWeight > 0 ? totalWeight.toFixed(2) + " kg" : "—", 
+        totalCbm > 0 ? totalCbm.toFixed(3) + " m³" : "—"
+      ];
     });
 
     autoTable(doc, {
@@ -965,10 +1084,6 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
     doc.save(`Packing_List_${sh.shipmentNumber}.pdf`);
   };
 
-  const availableProducts = useMemo(() => {
-    return data.products.filter((p) => p.supplierId === supplierId);
-  }, [data.products, supplierId]);
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -976,7 +1091,13 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
           <h1 className="text-2xl font-bold tracking-tight">Shipments &amp; Dispatches</h1>
           <p className="text-sm text-[#7A7568] mt-0.5">Record outbound goods movement and export PDF packing lists.</p>
         </div>
-        <button onClick={() => setShowModal(true)} className={btnPrimary}>
+        <button 
+          onClick={() => {
+            setItems([{ productId: "", qty: "" }]);
+            setShowModal(true);
+          }} 
+          className={btnPrimary}
+        >
           <Plus className="w-4 h-4" /> Record New Shipment
         </button>
       </div>
@@ -1030,56 +1151,97 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E4DFD3]">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E4DFD3] max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
               <h2 className="text-lg font-bold">Record Outbound Shipment</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-black" /></button>
             </div>
-            <div className="space-y-4">
+            
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
               <Field label="Supplier">
                 <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={inputCls + " w-full"}>
                   <option value="">Select Supplier...</option>
                   {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </Field>
+
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Shipment Ref #"><input type="text" value={shipmentNumber} onChange={(e) => setShipmentNumber(e.target.value)} placeholder="e.g. SH-001" className={inputCls} /></Field>
-                <Field label="Destination Branch"><input type="text" value={destinationBranch} onChange={(e) => setDestinationBranch(e.target.value)} placeholder="e.g. Dubai Main Branch" className={inputCls} /></Field>
+                <Field label="Shipment Ref #">
+                  <input type="text" value={shipmentNumber} onChange={(e) => setShipmentNumber(e.target.value)} placeholder="e.g. SH-001" className={inputCls} />
+                </Field>
+                <Field label="Destination Branch">
+                  <input type="text" value={destinationBranch} onChange={(e) => setDestinationBranch(e.target.value)} placeholder="e.g. Dubai Main Branch" className={inputCls} />
+                </Field>
               </div>
-              <Field label="Date"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></Field>
 
-              {supplierId && (
-                <div>
-                  <div className={sectionLabel}>Items Dispatched</div>
-                  {availableProducts.map((p) => {
-                    const stock = closingQtyFor(supplierId, p.id);
-                    const existing = items.find((i) => i.productId === p.id) || { qty: 0 };
-                    return (
-                      <div key={p.id} className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium truncate">{p.name}</div>
-                          <div className="text-[10px] text-[#7A7568]">Available Stock: {fmt(stock)} {p.unit}</div>
-                        </div>
-                        <input
-                          type="number"
-                          placeholder="Shipped Qty"
-                          value={existing.qty || ""}
-                          onChange={(e) => {
-                            const qty = num(e.target.value);
-                            setItems((prev) => [...prev.filter((i) => i.productId !== p.id), { productId: p.id, qty }]);
-                          }}
-                          className={inputCls + " w-28 py-1 text-xs text-right"}
-                        />
-                      </div>
-                    );
-                  })}
+              <Field label="Date">
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+              </Field>
+
+              {/* Dynamic Line Items Section */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font-bold">Items Dispatched</span>
+                  <button onClick={handleAddLine} className="text-xs text-[#C98A3E] hover:underline font-bold flex items-center gap-1">
+                    <Plus className="w-3 h-3" /> Add Item Line
+                  </button>
                 </div>
-              )}
 
-              <div className="flex justify-end gap-2 pt-3">
-                <button onClick={() => setShowModal(false)} className={btnGhost}>Cancel</button>
-                <button onClick={addShipment} className={btnPrimary}>Save Shipment</button>
+                {data.products.length === 0 ? (
+                  <div className="p-3 text-xs text-[#7A7568] bg-amber-50 border border-amber-200 rounded-lg">
+                    No items in catalog yet. Please add items in <b>Suppliers &amp; Items</b> tab first.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {items.map((item, idx) => {
+                      const avail = item.productId && supplierId ? closingQtyFor(supplierId, item.productId) : null;
+                      return (
+                        <div key={idx} className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-lg border border-[#EFEAE0]">
+                          <div className="flex-1 min-w-0">
+                            <select
+                              value={item.productId}
+                              onChange={(e) => handleItemChange(idx, "productId", e.target.value)}
+                              className={inputCls + " w-full text-xs py-1.5"}
+                            >
+                              <option value="">Select Item...</option>
+                              {catalogProducts.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} {p.sku ? `(${p.sku})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                            {avail !== null && (
+                              <div className="text-[10px] text-[#7A7568] mt-1 pl-1">
+                                In Stock: <span className="font-semibold text-[#1B2430]">{avail}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={item.qty}
+                            onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
+                            className={inputCls + " w-24 text-xs py-1.5 text-right"}
+                          />
+
+                          {items.length > 1 && (
+                            <button onClick={() => handleRemoveLine(idx)} className="text-slate-400 hover:text-rose-600 p-1">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-[#EFEAE0] mt-2">
+              <button onClick={() => setShowModal(false)} className={btnGhost}>Cancel</button>
+              <button onClick={addShipment} className={btnPrimary}>Save Shipment</button>
             </div>
           </div>
         </div>
@@ -1128,6 +1290,36 @@ function SetupTab({ data, save, showToast }) {
     setPWeight("");
     setPCbm("");
     setPPackingSize("");
+  };
+
+  const downloadExcelTemplate = () => {
+    const templateData = [
+      {
+        "Supplier Name": "Guangzhou Trade Co.",
+        "Country": "China",
+        "Item Name": "Perfume 100ml",
+        "Item Code": "PRF-001",
+        "Unit": "pcs",
+        "Weight (Kg)": 0.25,
+        "CBM": 0.002,
+        "Packing Size": "24 pcs/ctn"
+      },
+      {
+        "Supplier Name": "Tokyo Trading LLC",
+        "Country": "Japan",
+        "Item Name": "Skincare Serum 50ml",
+        "Item Code": "SKN-002",
+        "Unit": "pcs",
+        "Weight (Kg)": 0.15,
+        "CBM": 0.001,
+        "Packing Size": "48 pcs/ctn"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "Inventory_Bulk_Import_Template.xlsx");
   };
 
   const handleBulkExcelUpload = (e) => {
@@ -1196,7 +1388,11 @@ function SetupTab({ data, save, showToast }) {
           <p className="text-sm text-[#7A7568] mt-0.5">Manage master database of suppliers and item master catalog.</p>
         </div>
 
-        <div>
+        <div className="flex items-center gap-2">
+          <button onClick={downloadExcelTemplate} className={btnGhost}>
+            <Download className="w-4 h-4 text-[#C98A3E]" /> Download Template
+          </button>
+
           <input 
             type="file" 
             ref={fileInputRef} 
