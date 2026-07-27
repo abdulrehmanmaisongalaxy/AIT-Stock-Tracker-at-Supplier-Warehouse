@@ -73,11 +73,30 @@ useEffect(() => {
   fetch(API_URL)
     .then((res) => res.json())
     .then((serverData) => {
-      setData({ ...emptyData, ...serverData });
+      // 1. If central DB already has data, use it
+      if (serverData && (serverData.suppliers?.length > 0 || serverData.pis?.length > 0)) {
+        setData({ ...emptyData, ...serverData });
+      } else {
+        // 2. If central DB is empty, migrate your existing browser storage!
+        const localSaved = localStorage.getItem(STORE_KEY);
+        if (localSaved) {
+          const parsed = JSON.parse(localSaved);
+          const merged = { ...emptyData, ...parsed };
+          setData(merged);
+          
+          // Auto-upload local data to your Render database
+          fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(merged),
+          });
+          showToast("Local data successfully migrated to central database!", "success");
+        }
+      }
     })
     .catch((err) => {
       console.error("Error fetching inventory data:", err);
-      showToast("Could not connect to server", "error");
+      showToast("Could not connect to central database", "error");
     })
     .finally(() => setLoading(false));
 }, []);
