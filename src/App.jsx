@@ -930,7 +930,7 @@ function PIsTab({ data, save, supplierName, productInfo, piStatus }) {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-[80vw] h-[80vh] max-w-none p-6 shadow-2xl border border-[#E4DFD3] flex flex-col">
+          <div className="bg-white rounded-2xl w-[90vw] h-[85vh] max-w-none p-6 shadow-2xl border border-[#E4DFD3] flex flex-col">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
               <h2 className="text-lg font-bold">{editingPiId ? "Edit Proforma Invoice" : "Log Proforma Invoice"}</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-black" /></button>
@@ -1425,7 +1425,7 @@ function ShipmentsTab({ data, save, supplierName, productInfo, closingQtyFor }) 
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-[80vw] h-[80vh] max-w-none p-6 shadow-2xl border border-[#E4DFD3] flex flex-col">
+          <div className="bg-white rounded-2xl w-[90vw] h-[85vh] max-w-none p-6 shadow-2xl border border-[#E4DFD3] flex flex-col">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#EFEAE0]">
               <h2 className="text-lg font-bold">{editingShipmentId ? "Edit Outbound Shipment" : "Create Outbound Shipment & Container Check"}</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-black" /></button>
