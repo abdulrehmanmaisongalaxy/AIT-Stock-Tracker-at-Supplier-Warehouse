@@ -1,0 +1,43 @@
+/* Make modal/dialog windows larger so forms use ~80% of viewport. */
+.modal,
+.dialog,
+.sheet,
+.panel,
+.popup,
+.form-modal,
+.react-modal,
+.react-modal__content,
+.fixed-modal,
+.fixed-dialog,
+/* Target the app's centered cards used as dialogs */
+.card-modal {
+  width: 80vw !important;
+  max-width: 80vw !important;
+  height: 80vh !important;
+  max-height: 80vh !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Keep it usable on small screens */
+@media (max-width: 800px) {
+  .modal,
+  .dialog,
+  .sheet,
+  .panel,
+  .popup,
+  .form-modal,
+  .react-modal,
+  .react-modal__content,
+  .fixed-modal,
+  .fixed-dialog,
+  .card-modal {
+    width: 95vw !important;
+    height: 95vh !important;
+    max-width: 95vw !important;
+    max-height: 95vh !important;
+  }
+}
