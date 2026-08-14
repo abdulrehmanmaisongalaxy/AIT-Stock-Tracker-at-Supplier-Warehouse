@@ -1,86 +1,147 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 
-export default function BranchPortal({ branchName, inventoryItems, onSubmittingOrder }) {
-  const [orderQty, setOrderQty] = useState({});
+export function BranchPortalTab({ data, save, showToast, branchId, card, inputCls, btnPrimary, EmptyState, Stamp, fmt, num, uid, todayStr }) {
+  const [selectedBranchId, setSelectedBranchId] = useState(branchId || data.branches?.[0]?.id || "");
+  const [orderCart, setOrderCart] = useState({});
 
-  const handleQtyChange = (id, val) => {
-    setOrderQty({ ...orderQty, [id]: val });
+  const currentBranch = data.branches.find(b => b.id === selectedBranchId);
+
+  const availableProducts = useMemo(() => {
+    if (!currentBranch) return [];
+    const allowed = currentBranch.allowedProductIds || [];
+    if (allowed.length === 0) return data.products; 
+    return data.products.filter(p => allowed.includes(p.id));
+  }, [currentBranch, data.products]);
+
+  const handleQtyChange = (productId, val) => {
+    setOrderCart(prev => ({ ...prev, [productId]: num(val) }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const itemsOrdered = Object.keys(orderQty)
-      .filter((id) => Number(orderQty[id]) > 0)
-      .map((id) => ({
-        itemId: id,
-        qty: Number(orderQty[id])
-      }));
+  const submitBranchOrder = () => {
+    if (!selectedBranchId) return showToast("Please select a branch first", "error");
+    const itemsToOrder = Object.entries(orderCart)
+      .filter(([_, qty]) => qty > 0)
+      .map(([productId, qty]) => ({ productId, qty }));
 
-    if (itemsOrdered.length === 0) return alert('Please enter quantities to order.');
+    if (itemsToOrder.length === 0) return showToast("Please add quantities to order", "error");
 
-    const newReq = {
-      id: Date.now(),
-      branch: branchName,
-      date: new Date().toLocaleDateString(),
-      items: itemsOrdered
+    const newOrder = {
+      id: uid(),
+      branchId: selectedBranchId,
+      branchName: currentBranch?.name || "Branch",
+      date: todayStr(),
+      status: "Submitted",
+      items: itemsToOrder
     };
 
-    onSubmittingOrder(newReq);
-    alert('Requisition submitted successfully to Admin!');
-    setOrderQty({});
+    const nextData = {
+      ...data,
+      branchOrders: [...(data.branchOrders || []), newOrder]
+    };
+
+    save(nextData, "Branch order submitted successfully!");
+    setOrderCart({});
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg flex justify-between items-center">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-cyan-400">Branch Requisition Portal</h2>
-          <p className="text-xs text-slate-400">Ordering on behalf of: <span className="text-slate-200 font-medium">{branchName}</span></p>
+          <h1 className="text-2xl font-bold tracking-tight">Branch Order Portal</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Restricted item catalog for branch-level requisition.</p>
         </div>
+        {!branchId && (
+          <div className="flex items-center gap-2 bg-white p-2 border border-[#E4DFD3] rounded-xl shadow-sm">
+            <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Select Branch:</span>
+            <select 
+              className={inputCls + " font-medium py-1 text-xs"}
+              value={selectedBranchId}
+              onChange={(e) => { setSelectedBranchId(e.target.value); setOrderCart({}); }}
+            >
+              {(data.branches || []).map(b => (
+                <option key={b.id} value={b.id}>{b.name} ({b.location || "Branch"})</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-800/50 text-slate-400 border-b border-slate-800">
-                <th className="p-3">SKU</th>
-                <th className="p-3">Item Name</th>
-                <th className="p-3">Available Stock</th>
-                <th className="p-3">Order Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventoryItems.length === 0 ? (
-                <tr><td colSpan="4" className="p-4 text-center text-slate-500">No items available for requisition.</td></tr>
-              ) : (
-                inventoryItems.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-800/50">
-                    <td className="p-3 font-mono text-cyan-400">{item.sku}</td>
-                    <td className="p-3 text-slate-200">{item.name}</td>
-                    <td className="p-3 text-slate-300">{item.stock}</td>
-                    <td className="p-3">
+      <div className={card + " p-5"}>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E4DFD3]">
+          <div>
+            <h2 className="font-bold text-base text-[#1B2430]">Catalog Requisition — {currentBranch?.name || "Branch"}</h2>
+            <p className="text-xs text-[#7A7568]">Enter required quantities for available items and submit to central procurement.</p>
+          </div>
+          <button onClick={submitBranchOrder} className={btnPrimary}>
+            <CheckCircle2 className="w-4 h-4 text-[#C98A3E]" /> Submit Requisition Order
+          </button>
+        </div>
+
+        {availableProducts.length === 0 ? (
+          <EmptyState text="No items have been assigned to this branch yet. Configure access in Master Setup." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                  <th className="text-left py-2 font-semibold">Item Name</th>
+                  <th className="text-left py-2 font-semibold">SKU Code</th>
+                  <th className="text-left py-2 font-semibold">Packing Size</th>
+                  <th className="text-right py-2 font-semibold w-36">Request Quantity</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F3F0E7]">
+                {availableProducts.map(p => (
+                  <tr key={p.id} className="hover:bg-[#FAF8F5] transition-colors">
+                    <td className="py-2.5 font-medium">{p.name}</td>
+                    <td className="py-2.5 text-xs font-mono text-[#7A7568]">{p.sku || "—"}</td>
+                    <td className="py-2.5 text-xs text-[#7A7568]">{p.packingSize || "—"}</td>
+                    <td className="text-right py-2.5">
                       <input 
-                        type="number" 
+                        type="number"
                         min="0"
-                        value={orderQty[item.id] || ''}
-                        onChange={(e) => handleQtyChange(item.id, e.target.value)}
-                        className="bg-slate-800 border border-slate-700 px-3 py-1 rounded text-sm text-slate-200 w-28 focus:outline-none focus:border-cyan-500" 
                         placeholder="0"
+                        value={orderCart[p.id] || ""}
+                        onChange={(e) => handleQtyChange(p.id, e.target.value)}
+                        className={inputCls + " w-28 text-right py-1 text-xs"}
                       />
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-end">
-          <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded text-sm font-medium">
-            Submit Requisition
-          </button>
-        </div>
-      </form>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className={card + " p-5"}>
+        <div className="text-xs font-bold uppercase tracking-wider text-[#7A7568] mb-3">Previous Requisition Orders from {currentBranch?.name || "Branch"}</div>
+        {((data.branchOrders || []).filter(o => o.branchId === selectedBranchId)).length === 0 ? (
+          <EmptyState text="No requisition orders submitted yet." />
+        ) : (
+          <div className="space-y-3">
+            {data.branchOrders.filter(o => o.branchId === selectedBranchId).map(ord => (
+              <div key={ord.id} className="p-3 bg-[#FAF8F5] border border-[#EFEAE0] rounded-xl text-xs space-y-2">
+                <div className="flex items-center justify-between font-bold">
+                  <span>Order Ref: {ord.id.slice(0, 6).toUpperCase()} ({ord.date})</span>
+                  <Stamp tone="stock">{ord.status}</Stamp>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {ord.items.map((it, idx) => {
+                    const p = data.products.find(prod => prod.id === it.productId);
+                    return (
+                      <span key={idx} className="bg-white px-2 py-1 rounded border border-[#DDD7C7]">
+                        {p?.name || "Item"}: <strong className="text-[#C98A3E]">{it.qty} {p?.unit || "pcs"}</strong>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
