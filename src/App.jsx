@@ -97,6 +97,10 @@ const NAV = [
 ];
 
 export default function StockLedger() {
+  const [currentUser, setCurrentUser] = useState(null); // Will store { username, role, branchId }
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [data, setData] = useState(emptyData);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dashboard");
@@ -205,6 +209,61 @@ export default function StockLedger() {
     const closingQty = ledger.reduce((s, r) => s + Math.max(0, r.closingQty), 0);
     return { closingValue, pipelineQty, closingQty };
   }, [ledger]);
+
+  // Login Screen Guard Check
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F6F3EC]">
+        <div className="p-8 bg-white shadow-md rounded-2xl border border-[#E4DFD3] w-96">
+          <div className="mb-6 text-center">
+            <span className="inline-block px-2 py-0.5 rounded bg-[#C98A3E]/10 text-[10px] uppercase tracking-[0.18em] text-[#C98A3E] font-bold mb-1">
+              AIT SUPPLIER PORTAL
+            </span>
+            <h2 className="text-xl font-bold text-[#1B2430]">Branch Portal Login</h2>
+          </div>
+
+          {loginError && <p className="mb-4 text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">{loginError}</p>}
+          
+          <div className="mb-4">
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#7A7568] mb-2">Username / Email</label>
+            <input 
+              type="text" 
+              className="w-full p-2.5 text-sm border border-[#E4DFD3] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#C98A3E]"
+              value={loginUsername}
+              onChange={(e) => setLoginUsername(e.target.value)}
+              placeholder="Enter username"
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#7A7568] mb-2">Password</label>
+            <input 
+              type="password" 
+              className="w-full p-2.5 text-sm border border-[#E4DFD3] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#C98A3E]"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button 
+            onClick={() => {
+              if (loginUsername === "admin") {
+                setCurrentUser({ username: "admin", role: "Admin", branchId: null });
+              } else if (loginUsername === "branch1") {
+                setCurrentUser({ username: "branch1", role: "Branch_User", branchId: 1 });
+              } else {
+                setLoginError("Invalid username or password");
+              }
+            }}
+            className="w-full bg-[#1B2430] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-black transition"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
