@@ -3,10 +3,10 @@ import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { StockLedger } from './components/StockLedger';
 import { BranchHandling } from './components/BranchHandling';
 import { BranchPortalTab } from './components/BranchPortal';
-import { OrderConsolidation } from './components/OrderConsolidation';
+import OrderConsolidation from './components/OrderConsolidation';
 import { ProformaInvoices } from './components/ProformaInvoices';
 import { Shipments } from './components/Shipments';
-import { MasterSetup } from './components/MasterSetup';
+import MasterSetup from './components/MasterSetup';
 
 // --- Utility Helpers ---
 const uid = () => Math.random().toString(36).substring(2, 9);
