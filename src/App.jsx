@@ -3,10 +3,10 @@ import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { StockLedger } from './components/StockLedger';
 import { BranchHandling } from './components/BranchHandling';
 import { BranchPortalTab } from './components/BranchPortal';
-import { MOQConsolidationTab } from './components/MOQConsolidationTab';
+import { OrderConsolidation } from './components/OrderConsolidation';
 import { ProformaInvoices } from './components/ProformaInvoices';
 import { Shipments } from './components/Shipments';
-import { MasterSetupTab } from './components/MasterSetup';
+import { MasterSetup } from './components/MasterSetup';
 
 // --- Utility Helpers ---
 const uid = () => Math.random().toString(36).substring(2, 9);
@@ -48,7 +48,6 @@ export default function App() {
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    // Default Initial Mock Data
     return {
       suppliers: [
         { id: 's1', name: 'Guangzhou Trade Co.', country: 'China' },
@@ -70,7 +69,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [currentBranchLogin, setCurrentBranchLogin] = useState('Admin'); // 'Admin' or Branch ID
+  const [currentBranchLogin, setCurrentBranchLogin] = useState('Admin');
   const [toast, setToast] = useState(null);
 
   // --- Master Setup Form States ---
@@ -92,10 +91,8 @@ export default function App() {
   const [editingProductId, setEditingProductId] = useState(null);
 
   const [selectedBranchForAssign, setSelectedBranchForAssign] = useState(data.branches[0]?.id || '');
-  const [importType, setImportType] = useState('products');
   const fileInputRef = useRef(null);
 
-  // --- Sync to LocalStorage ---
   useEffect(() => {
     localStorage.setItem('ait_portal_data_v2', JSON.stringify(data));
   }, [data]);
@@ -227,7 +224,7 @@ export default function App() {
         />
       </header>
 
-      {/* Navigation Tabs (Admin vs Branch) */}
+      {/* Navigation Tabs */}
       <nav className="bg-white border-b border-[#E4DFD3] px-6 flex overflow-x-auto shadow-2xs">
         {currentBranchLogin === 'Admin' ? (
           <>
@@ -249,11 +246,11 @@ export default function App() {
           <>
             {activeTab === 'dashboard' && <ExecutiveDashboard data={data} card={card} sectionLabel={sectionLabel} fmt={fmt} Stamp={Stamp} />}
             {activeTab === 'ledger' && <StockLedger data={data} card={card} sectionLabel={sectionLabel} fmt={fmt} EmptyState={EmptyState} />}
-            {activeTab === 'consolidation' && <MOQConsolidationTab data={data} save={saveData} showToast={showToast} card={card} sectionLabel={sectionLabel} inputCls={inputCls} btnPrimary={btnPrimary} EmptyState={EmptyState} Stamp={Stamp} fmt={fmt} num={num} uid={uid} todayStr={todayStr} />}
+            {activeTab === 'consolidation' && <OrderConsolidation data={data} save={saveData} showToast={showToast} card={card} sectionLabel={sectionLabel} inputCls={inputCls} btnPrimary={btnPrimary} EmptyState={EmptyState} Stamp={Stamp} fmt={fmt} num={num} uid={uid} todayStr={todayStr} />}
             {activeTab === 'pi' && <ProformaInvoices data={data} card={card} sectionLabel={sectionLabel} EmptyState={EmptyState} />}
             {activeTab === 'shipments' && <Shipments data={data} card={card} sectionLabel={sectionLabel} EmptyState={EmptyState} />}
             {activeTab === 'setup' && (
-              <MasterSetupTab 
+              <MasterSetup 
                 data={data} save={saveData} showToast={showToast}
                 sName={sName} setSName={setSName} sCountry={sCountry} setSCountry={setSCountry}
                 editingSupplierId={editingSupplierId} handleSaveSupplier={handleSaveSupplier} handleEditSupplier={handleEditSupplier} handleDeleteSupplier={handleDeleteSupplier}
@@ -264,7 +261,7 @@ export default function App() {
                 editingProductId={editingProductId} handleSaveProduct={handleSaveProduct} handleEditProduct={handleEditProduct} handleDeleteProduct={handleDeleteProduct}
                 selectedBranchForAssign={selectedBranchForAssign} setSelectedBranchForAssign={setSelectedBranchForAssign}
                 currentBranchForAssignObj={currentBranchForAssignObj} toggleProductAssignment={toggleProductAssignment}
-                downloadTemplate={downloadTemplate} setImportType={setImportType} fileInputRef={fileInputRef}
+                downloadTemplate={downloadTemplate} fileInputRef={fileInputRef}
                 card={card} sectionLabel={sectionLabel} inputCls={inputCls} btnPrimary={btnPrimary}
               />
             )}
