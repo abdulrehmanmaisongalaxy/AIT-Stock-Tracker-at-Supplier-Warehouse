@@ -188,7 +188,7 @@ export default function StockLedger() {
   }, [data]);
 
   const supplierName = (id) => data.suppliers.find((s) => s.id === id)?.name || "—";
-  const productInfo = (id) => data.products.find((p) => p.id === id) || { name: "—", sku: "", unit: "pcs", weightKg: 0, cbm: 0, packingSize: "" };
+  const productInfo = (id) => data.products.find((p) => p.id === id) || { name: "—", sku: "", unit: "pcs", weightKg: 0, cbm: 0, packingSize: "", moq: 0 };
   const closingQtyFor = (supplierId, productId) => ledger.find((r) => r.supplierId === supplierId && r.productId === productId)?.closingQty || 0;
 
   const piStatus = (pi) => {
@@ -2193,37 +2193,37 @@ function BranchPortalTab({ data, save, showToast, branchId }) {
       <div className={card + " p-5"}>
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E4DFD3]">
           <div>
-            <h2 className="font-bold text-base text-[#1B2430]">{currentBranch?.name || "Select a Branch"} Catalog</h2>
-            <p className="text-xs text-[#7A7568]">Permitted items available for requisition.</p>
+            <h2 className="font-bold text-base text-[#1B2430]">Catalog Requisition — {currentBranch?.name || "Branch"}</h2>
+            <p className="text-xs text-[#7A7568]">Enter required quantities for available items and submit to central procurement.</p>
           </div>
           <button onClick={submitBranchOrder} className={btnPrimary}>
-            Submit Requisition
+            <CheckCircle2 className="w-4 h-4 text-[#C98A3E]" /> Submit Requisition Order
           </button>
         </div>
 
         {availableProducts.length === 0 ? (
-          <EmptyState text="No permitted items assigned to this branch yet. Please contact admin." />
+          <EmptyState text="No items have been assigned to this branch yet. Configure access in Master Setup." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
                   <th className="text-left py-2 font-semibold">Item Name</th>
-                  <th className="text-left py-2 font-semibold">SKU / Code</th>
+                  <th className="text-left py-2 font-semibold">SKU Code</th>
                   <th className="text-left py-2 font-semibold">Packing Size</th>
-                  <th className="text-right py-2 font-semibold w-36">Request Qty</th>
+                  <th className="text-right py-2 font-semibold w-36">Request Quantity</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F0E7]">
                 {availableProducts.map(p => (
-                  <tr key={p.id} className="hover:bg-[#FAF8F5]">
-                    <td className="py-2.5 font-medium text-[#1B2430]">{p.name}</td>
-                    <td className="py-2.5 font-mono text-xs text-slate-500">{p.sku || "—"}</td>
+                  <tr key={p.id} className="hover:bg-[#FAF8F5] transition-colors">
+                    <td className="py-2.5 font-medium">{p.name}</td>
+                    <td className="py-2.5 text-xs font-mono text-[#7A7568]">{p.sku || "—"}</td>
                     <td className="py-2.5 text-xs text-[#7A7568]">{p.packingSize || "—"}</td>
                     <td className="text-right py-2.5">
                       <input 
-                        type="number" 
-                        min="0" 
+                        type="number"
+                        min="0"
                         placeholder="0"
                         value={orderCart[p.id] || ""}
                         onChange={(e) => handleQtyChange(p.id, e.target.value)}
@@ -2237,19 +2237,169 @@ function BranchPortalTab({ data, save, showToast, branchId }) {
           </div>
         )}
       </div>
+
+      <div className={card + " p-5"}>
+        <div className={sectionLabel}>Previous Requisition Orders from {currentBranch?.name || "Branch"}</div>
+        {((data.branchOrders || []).filter(o => o.branchId === selectedBranchId)).length === 0 ? (
+          <EmptyState text="No requisition orders submitted yet." />
+        ) : (
+          <div className="space-y-3">
+            {data.branchOrders.filter(o => o.branchId === selectedBranchId).map(ord => (
+              <div key={ord.id} className="p-3 bg-[#FAF8F5] border border-[#EFEAE0] rounded-xl text-xs space-y-2">
+                <div className="flex items-center justify-between font-bold">
+                  <span>Order Ref: {ord.id.slice(0, 6).toUpperCase()} ({ord.date})</span>
+                  <Stamp tone="stock">{ord.status}</Stamp>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {ord.items.map((it, idx) => {
+                    const p = data.products.find(prod => prod.id === it.productId);
+                    return (
+                      <span key={idx} className="bg-white px-2 py-1 rounded border border-[#DDD7C7]">
+                        {p?.name || "Item"}: <strong className="text-[#C98A3E]">{it.qty} {p?.unit || "pcs"}</strong>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 function MOQConsolidationTab({ data, save, showToast }) {
+  const [selectedSupplierId, setSelectedSupplierId] = useState(data.suppliers[0]?.id || "");
+
+  const supplierOrders = useMemo(() => {
+    if (!selectedSupplierId) return [];
+    const orders = data.branchOrders || [];
+    const supplierProducts = new Set(
+      data.products.filter(p => p.supplierId === selectedSupplierId).map(p => p.id)
+    );
+
+    const consolidatedMap = {};
+    orders.forEach(ord => {
+      ord.items.forEach(it => {
+        if (supplierProducts.has(it.productId)) {
+          consolidatedMap[it.productId] = (consolidatedMap[it.productId] || 0) + num(it.qty);
+        }
+      });
+    });
+
+    return Object.entries(consolidatedMap).map(([productId, totalQty]) => {
+      const p = data.products.find(prod => prod.id === productId);
+      const moq = num(p?.moq || 100); 
+      return {
+        productId,
+        productName: p?.name || "—",
+        sku: p?.sku || "—",
+        unit: p?.unit || "pcs",
+        totalQty,
+        moq,
+        met: totalQty >= moq
+      };
+    });
+  }, [data, selectedSupplierId]);
+
+  const convertToPI = () => {
+    const validItems = supplierOrders
+      .filter(o => o.totalQty > 0)
+      .map(o => ({
+        productId: o.productId,
+        qty: o.totalQty,
+        unitPrice: 0,
+        receivedQty: 0
+      }));
+
+    if (validItems.length === 0) {
+      showToast("No quantities available to convert into PI", "error");
+      return;
+    }
+
+    const newPI = {
+      id: uid(),
+      supplierId: selectedSupplierId,
+      piNumber: `PI-CONSOL-${Math.floor(Math.random() * 8999 + 1000)}`,
+      date: todayStr(),
+      items: validItems
+    };
+
+    const nextData = {
+      ...data,
+      pis: [...data.pis, newPI],
+      branchOrders: [] // Clear branch orders once consolidated
+    };
+
+    save(nextData, "Successfully consolidated branch orders into a new Proforma Invoice!");
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">MOQ Consolidation</h1>
-        <p className="text-sm text-[#7A7568] mt-0.5">Consolidate supplier minimum order quantities and branch orders into draft PIs.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">MOQ Consolidation &amp; Procurement</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Consolidate multi-branch requisitions against supplier Minimum Order Quantities (MOQ).</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <select 
+            className={inputCls + " font-medium text-xs py-1.5"}
+            value={selectedSupplierId}
+            onChange={(e) => setSelectedSupplierId(e.target.value)}
+          >
+            {data.suppliers.map(s => (
+              <option key={s.id} value={s.id}>{s.name} ({s.country || "General"})</option>
+            ))}
+          </select>
+
+          <button onClick={convertToPI} className={btnPrimary}>
+            <CheckSquare className="w-4 h-4 text-[#C98A3E]" /> Convert to Purchase Order (PI)
+          </button>
+        </div>
       </div>
-      <div className={card + " p-6"}>
-        <EmptyState text="MOQ Consolidation module is ready. Branch requisitions and supplier thresholds will appear here for batch processing." />
+
+      <div className={card + " p-5"}>
+        <div className={sectionLabel}>Consolidated Demand vs. MOQ Threshold</div>
+        {supplierOrders.length === 0 ? (
+          <EmptyState text="No branch requisitions found for this supplier." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                  <th className="text-left py-2 font-semibold">Item Name &amp; Code</th>
+                  <th className="text-right py-2 font-semibold">Total Branch Demand</th>
+                  <th className="text-right py-2 font-semibold">Target MOQ</th>
+                  <th className="text-center py-2 font-semibold">MOQ Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F3F0E7]">
+                {supplierOrders.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-[#FAF8F5] transition-colors">
+                    <td className="py-2.5 font-medium">
+                      {row.productName} {row.sku && <span className="text-xs text-[#7A7568] font-mono">({row.sku})</span>}
+                    </td>
+                    <td className="text-right py-2.5 font-bold text-[#1B2430]">
+                      {fmt(row.totalQty)} {row.unit}
+                    </td>
+                    <td className="text-right py-2.5 text-[#7A7568]">
+                      {fmt(row.moq)} {row.unit}
+                    </td>
+                    <td className="text-center py-2.5">
+                      {row.met ? (
+                        <Stamp tone="stock">MOQ Met ✓</Stamp>
+                      ) : (
+                        <Stamp tone="low">Below MOQ</Stamp>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
