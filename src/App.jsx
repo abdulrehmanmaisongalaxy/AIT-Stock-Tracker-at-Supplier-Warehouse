@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Package, 
   FileText, 
@@ -18,47 +18,69 @@ import {
 } from 'lucide-react';
 
 export default function AITEnterprisePortal() {
-  // Top-level navigation: 'admin' (Head Office Full System) or 'branch' (Restricted Branch Order Link)
   const [portalRole, setPortalRole] = useState('admin');
-  
-  // Admin module tabs: 'dashboard', 'inventory', 'consolidation', 'invoices', 'shipments', 'setup'
   const [adminTab, setAdminTab] = useState('consolidation');
-
-  // Branch Portal simulation state
   const [currentBranch, setCurrentBranch] = useState('Branch A');
 
-  // 1. Master Supplier Catalog & Warehouse Inventory (Global Multi-Country Stock)
-  const [inventory, setInventory] = useState([
-    { id: 'SKU-8801', name: 'Industrial Grade Steel Rods', category: 'Raw Materials', country: 'Turkey', supplier: 'Metro Metals Ltd', stock: 1450, unit: 'pcs', unitCost: 45.00, moq: 1000, allowedBranches: ['Branch A', 'Branch B'] },
-    { id: 'SKU-8802', name: 'Polyethylene Granules (HDPE)', category: 'Polymers', country: 'Saudi Arabia', supplier: 'Gulf Polymers FZE', stock: 3200, unit: 'kg', unitCost: 3.50, moq: 3000, allowedBranches: ['Branch A'] },
-    { id: 'SKU-8803', name: 'Aluminum Extrusion Profiles', category: 'Raw Materials', country: 'Bahrain', supplier: 'Aluminium Bahrain', stock: 890, unit: 'pcs', unitCost: 78.50, moq: 800, allowedBranches: ['Branch B'] },
-    { id: 'SKU-8804', name: 'Hydraulic Seal Kits', category: 'Components', country: 'Sweden', supplier: 'Nordic Parts AB', stock: 430, unit: 'sets', unitCost: 120.00, moq: 500, allowedBranches: ['Branch A', 'Branch B'] },
-    { id: 'SKU-8805', name: 'Copper Wiring Harness 5m', category: 'Electrical', country: 'Oman', supplier: 'VoltCraft Industries', stock: 1200, unit: 'pcs', unitCost: 22.40, moq: 1500, allowedBranches: ['Branch A', 'Branch B'] },
-  ]);
-
-  // 2. Branch Orders Submitted (Branch ID -> { SKU-ID: quantity })
-  const [branchOrders, setBranchOrders] = useState({
-    'Branch A': { 'SKU-8801': 600, 'SKU-8802': 2500, 'SKU-8804': 200 },
-    'Branch B': { 'SKU-8801': 300, 'SKU-8803': 400, 'SKU-8804': 150 }
+  // 1. Persistent Inventory & Master Catalog State
+  const [inventory, setInventory] = useState(() => {
+    const saved = localStorage.getItem('ait_inventory');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'SKU-8801', name: 'Industrial Grade Steel Rods', category: 'Raw Materials', country: 'Turkey', supplier: 'Metro Metals Ltd', stock: 1450, unit: 'pcs', unitCost: 45.00, moq: 1000, allowedBranches: ['Branch A', 'Branch B'] },
+      { id: 'SKU-8802', name: 'Polyethylene Granules (HDPE)', category: 'Polymers', country: 'Saudi Arabia', supplier: 'Gulf Polymers FZE', stock: 3200, unit: 'kg', unitCost: 3.50, moq: 3000, allowedBranches: ['Branch A'] },
+      { id: 'SKU-8803', name: 'Aluminum Extrusion Profiles', category: 'Raw Materials', country: 'Bahrain', supplier: 'Aluminium Bahrain', stock: 890, unit: 'pcs', unitCost: 78.50, moq: 800, allowedBranches: ['Branch B'] },
+      { id: 'SKU-8804', name: 'Hydraulic Seal Kits', category: 'Components', country: 'Sweden', supplier: 'Nordic Parts AB', stock: 430, unit: 'sets', unitCost: 120.00, moq: 500, allowedBranches: ['Branch A', 'Branch B'] },
+    ];
   });
 
-  // Temporary inputs for branch ordering view
-  const [branchInputQty, setBranchInputQty] = useState({});
+  // 2. Persistent Branch Orders State
+  const [branchOrders, setBranchOrders] = useState(() => {
+    const saved = localStorage.getItem('ait_branch_orders');
+    if (saved) return JSON.parse(saved);
+    return {
+      'Branch A': { 'SKU-8801': 600, 'SKU-8802': 2500, 'SKU-8804': 200 },
+      'Branch B': { 'SKU-8801': 300, 'SKU-8803': 400, 'SKU-8804': 150 }
+    };
+  });
 
-  // 3. Proforma Invoices Ledger
-  const [invoices, setInvoices] = useState([
-    { piNumber: 'PI-2026-901', supplier: 'Metro Metals Ltd', date: '2026-08-10', totalAmount: 45200.00, status: 'Confirmed' },
-    { piNumber: 'PI-2026-902', supplier: 'Gulf Polymers FZE', date: '2026-08-12', totalAmount: 18750.50, status: 'Draft' },
-  ]);
+  // 3. Persistent Proforma Invoices Ledger
+  const [invoices, setInvoices] = useState(() => {
+    const saved = localStorage.getItem('ait_invoices');
+    if (saved) return JSON.parse(saved);
+    return [
+      { piNumber: 'PI-2026-901', supplier: 'Metro Metals Ltd', date: '2026-08-10', totalAmount: 45200.00, status: 'Confirmed' },
+      { piNumber: 'PI-2026-902', supplier: 'Gulf Polymers FZE', date: '2026-08-12', totalAmount: 18750.50, status: 'Draft' },
+    ];
+  });
 
   // 4. Shipments Module State
-  const [shipments, setShipments] = useState([
-    { trackingId: 'TRK-5501', piNumber: 'PI-2026-901', origin: 'Turkey', destination: 'Dubai Warehouse', status: 'In Transit', cbm: 42, weight: 14500 }
-  ]);
+  const [shipments, setShipments] = useState(() => {
+    const saved = localStorage.getItem('ait_shipments');
+    if (saved) return JSON.parse(saved);
+    return [
+      { trackingId: 'TRK-5501', piNumber: 'PI-2026-901', origin: 'Turkey', destination: 'Dubai Warehouse', status: 'In Transit', cbm: 42, weight: 14500 }
+    ];
+  });
 
-  // Search & Filters for Admin
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('All');
+  const [branchInputQty, setBranchInputQty] = useState({});
+
+  // Save changes to localStorage automatically to prevent data loss
+  useEffect(() => {
+    localStorage.setItem('ait_inventory', JSON.stringify(inventory));
+  }, [inventory]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_branch_orders', JSON.stringify(branchOrders));
+  }, [branchOrders]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_invoices', JSON.stringify(invoices));
+  }, [invoices]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_shipments', JSON.stringify(shipments));
+  }, [shipments]);
 
   // Total Portfolio Valuation
   const totalValuation = useMemo(() => {
@@ -91,7 +113,6 @@ export default function AITEnterprisePortal() {
     });
   }, [inventory, branchOrders]);
 
-  // Handle branch order submission
   const handleBranchQtyChange = (skuId, val) => {
     setBranchInputQty(prev => ({ ...prev, [skuId]: val }));
   };
@@ -107,14 +128,13 @@ export default function AITEnterprisePortal() {
         )
       }
     }));
-    alert(`Order quantities successfully recorded for ${currentBranch}. Consolidated totals updated for Head Office review.`);
+    alert(`Order quantities successfully recorded for ${currentBranch}. Consolidated totals updated.`);
     setBranchInputQty({});
   };
 
-  // Place Order & Create Proforma Invoice (PI) when MOQ is met
   const generatePIFromConsolidation = (item) => {
     if (!item.meetsMoq) {
-      alert("Cannot place order. Total ordered quantity from branches has not met the supplier's MOQ threshold.");
+      alert("Cannot place order. Total ordered quantity has not met the supplier's MOQ threshold.");
       return;
     }
     const piNumber = `PI-2026-${Math.floor(910 + Math.random() * 90)}`;
@@ -183,7 +203,6 @@ export default function AITEnterprisePortal() {
         </div>
       </header>
 
-      {/* Main Container View Routing */}
       {portalRole === 'admin' ? (
         <div className="flex-1 flex flex-col md:flex-row">
           {/* Admin Sidebar Navigation */}
@@ -240,7 +259,6 @@ export default function AITEnterprisePortal() {
           {/* Admin Content Panels */}
           <main className="flex-1 p-6 overflow-y-auto bg-slate-900">
             
-            {/* 1. DASHBOARD & ANALYTICS */}
             {adminTab === 'dashboard' && (
               <div className="space-y-6">
                 <div>
@@ -260,7 +278,7 @@ export default function AITEnterprisePortal() {
                   <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
                     <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Active Supplier SKUs</div>
                     <div className="text-2xl font-bold font-mono text-blue-400">{inventory.length} Items</div>
-                    <div className="text-xs text-slate-500 mt-2">Sourced across 5 international hubs</div>
+                    <div className="text-xs text-slate-500 mt-2">Sourced across international hubs</div>
                   </div>
 
                   <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
@@ -274,7 +292,6 @@ export default function AITEnterprisePortal() {
               </div>
             )}
 
-            {/* 2. MOQ CONSOLIDATION ENGINE */}
             {adminTab === 'consolidation' && (
               <div className="space-y-6">
                 <div>
@@ -349,7 +366,6 @@ export default function AITEnterprisePortal() {
               </div>
             )}
 
-            {/* 3. STOCK LEDGER */}
             {adminTab === 'inventory' && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -434,7 +450,6 @@ export default function AITEnterprisePortal() {
               </div>
             )}
 
-            {/* 4. PROFORMA INVOICES */}
             {adminTab === 'invoices' && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -484,7 +499,6 @@ export default function AITEnterprisePortal() {
               </div>
             )}
 
-            {/* 5. SHIPMENTS TRACKER */}
             {adminTab === 'shipments' && (
               <div className="space-y-6">
                 <div>
@@ -522,7 +536,6 @@ export default function AITEnterprisePortal() {
               </div>
             )}
 
-            {/* 6. MASTER SETUP & BRANCH RESTRICTIONS */}
             {adminTab === 'setup' && (
               <div className="space-y-6">
                 <div>
@@ -554,7 +567,6 @@ export default function AITEnterprisePortal() {
           </main>
         </div>
       ) : (
-        /* ==================== BRANCH ORDER FORM LINK VIEW (RESTRICTED) ==================== */
         <div className="flex-1 p-6 overflow-y-auto bg-slate-900 max-w-5xl mx-auto w-full space-y-6">
           <div className="bg-blue-950/40 border border-blue-800/50 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
@@ -565,7 +577,6 @@ export default function AITEnterprisePortal() {
               </div>
             </div>
             
-            {/* Branch Selector Simulation */}
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-slate-300">Logged-in Branch:</label>
               <select 
