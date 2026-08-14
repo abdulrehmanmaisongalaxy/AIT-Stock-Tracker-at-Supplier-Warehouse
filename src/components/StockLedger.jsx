@@ -1,65 +1,46 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-export default function StockLedger({ items, setItems }) {
-  const [name, setName] = useState('');
-  const [sku, setSku] = useState('');
-  const [stock, setStock] = useState('');
-
-  const handleAddItem = (e) => {
-    e.preventDefault();
-    if (!name || !sku) return;
-    const newItem = { id: Date.now(), name, sku, stock: Number(stock) || 0 };
-    setItems([...items, newItem]);
-    setName('');
-    setSku('');
-    setStock('');
-  };
-
+export function StockLedger({ data, card, sectionLabel, fmt, EmptyState }) {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-slate-200">Stock Ledger</h2>
-      
-      {/* Simple Form to Add Items */}
-      <form onSubmit={handleAddItem} className="bg-slate-900 border border-slate-800 p-4 rounded-lg flex gap-4 items-end">
-        <div>
-          <label className="block text-xs text-slate-400 mb-1">Item Name</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded text-sm text-slate-200" placeholder="Item name..." />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-400 mb-1">SKU</label>
-          <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded text-sm text-slate-200" placeholder="SKU code..." />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-400 mb-1">Initial Stock</label>
-          <input type="number" value={stock} onChange={(e) => setStock(e.target.value)} className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded text-sm text-slate-200" placeholder="0" />
-        </div>
-        <button type="submit" className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-1.5 rounded text-sm font-medium">Add Item</button>
-      </form>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Stock Ledger &amp; Warehouse Inventory</h1>
+        <p className="text-sm text-[#7A7568] mt-0.5">Track real-time inventory levels available across different international suppliers.</p>
+      </div>
 
-      {/* Inventory Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-        <table className="w-full text-left border-collapse text-sm">
-          <thead>
-            <tr className="bg-slate-800/50 text-slate-400 border-b border-slate-800">
-              <th className="p-3">SKU</th>
-              <th className="p-3">Item Name</th>
-              <th className="p-3">Stock Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr><td colSpan="3" className="p-4 text-center text-slate-500">No inventory items found. Add one above.</td></tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id} className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                  <td className="p-3 font-mono text-cyan-400">{item.sku}</td>
-                  <td className="p-3 text-slate-200">{item.name}</td>
-                  <td className="p-3 text-slate-300">{item.stock}</td>
+      <div className={card + " p-5"}>
+        <div className={sectionLabel}>Inventory Availability Matrix</div>
+        {(data.products || []).length === 0 ? (
+          <EmptyState text="No products found in the catalog." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                  <th className="text-left py-2 font-semibold">Item Name</th>
+                  <th className="text-left py-2 font-semibold">SKU Code</th>
+                  <th className="text-left py-2 font-semibold">Supplier</th>
+                  <th className="text-right py-2 font-semibold">Packing Size</th>
+                  <th className="text-right py-2 font-semibold">Available Stock / Qty</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-[#F3F0E7]">
+                {data.products.map(p => {
+                  const supplier = data.suppliers.find(s => s.id === p.supplierId);
+                  return (
+                    <tr key={p.id} className="hover:bg-[#FAF8F5] transition-colors">
+                      <td className="py-2.5 font-medium">{p.name}</td>
+                      <td className="py-2.5 text-xs font-mono text-[#7A7568]">{p.sku || "—"}</td>
+                      <td className="py-2.5 text-xs text-[#7A7568]">{supplier?.name || "General"} ({supplier?.country || "—"})</td>
+                      <td className="text-right py-2.5 text-xs text-[#7A7568]">{p.packingSize || "—"}</td>
+                      <td className="text-right py-2.5 font-bold text-[#1B2430]">{fmt(p.stock || 0)} {p.unit || "pcs"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
