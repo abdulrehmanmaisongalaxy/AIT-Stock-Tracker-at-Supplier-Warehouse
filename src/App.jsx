@@ -100,6 +100,7 @@ export default function StockLedger() {
   const [data, setData] = useState(emptyData);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dashboard");
+  const [branchPortalLogin, setBranchPortalLogin] = useState(null); // holds branchId if logged in as branch
   const [toast, setToast] = useState(null);
 
   const showToast = (msg, type = "info") => {
@@ -205,10 +206,34 @@ export default function StockLedger() {
     return { closingValue, pipelineQty, closingQty };
   }, [ledger]);
 
-  if (loading) {
+if (loading) {
     return (
       <div className="w-full h-full min-h-[500px] flex items-center justify-center bg-[#F6F3EC] text-[#7A7568]">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading inventory portal…
+      </div>
+    );
+  }
+
+  if (branchPortalLogin) {
+    const currentBranchObj = (data.branches || []).find(b => b.id === branchPortalLogin);
+    return (
+      <div className="min-h-screen bg-[#F9F8F6] p-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-[#E4DFD3] shadow-sm">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-[#7A7568] font-bold">Branch Portal Session</div>
+              <div className="text-lg font-bold text-[#1B2430]">{currentBranchObj?.name || "Branch"}</div>
+            </div>
+            <button 
+              onClick={() => setBranchPortalLogin(null)}
+              className="px-4 py-2 bg-[#1B2430] text-white text-xs font-semibold rounded-xl hover:bg-black transition-colors"
+            >
+              Log Out to Admin Dashboard
+            </button>
+          </div>
+          
+          <BranchPortalForcedView branchId={branchPortalLogin} data={data} save={save} showToast={showToast} />
+        </div>
       </div>
     );
   }
@@ -246,21 +271,53 @@ export default function StockLedger() {
             </nav>
           </div>
 
-          <div className="px-2 pt-4 border-t border-[#E4DFD3]/80 space-y-2 text-[11px] text-[#7A7568] mb-4">
-            <div className="flex justify-between items-center">
-              <span>Suppliers</span>
-              <span className="font-semibold text-[#1B2430]">{data.suppliers.length}</span>
+          <div className="space-y-4">
+            {/* Quick Branch Login Switcher */}
+            <div className="px-2 pt-2">
+              <div className="text-[10px] uppercase font-bold text-[#7A7568] mb-1.5">Simulate Branch Login</div>
+              <select 
+                className="w-full text-xs py-1.5 px-2 border rounded border-[#E4DFD3] bg-white text-[#1B2430] font-medium focus:outline-none focus:ring-1 focus:ring-[#C98A3E]"
+                onChange={(e) => { if(e.target.value) setBranchPortalLogin(e.target.value); }}
+                defaultValue=""
+              >
+                <option value="" disabled>Select Branch View...</option>
+                {(data.branches || []).map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="flex justify-between items-center">
-              <span>Branches / Clients</span>
-              <span className="font-semibold text-[#1B2430]">{(data.branches || []).length}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>Shipments</span>
-              <span className="font-semibold text-[#1B2430]">{data.shipments.length}</span>
+
+            <div className="px-2 pt-3 border-t border-[#E4DFD3]/80 space-y-2 text-[11px] text-[#7A7568]">
+              <div className="flex justify-between items-center">
+                <span>Suppliers</span>
+                <span className="font-semibold text-[#1B2430]">{data.suppliers.length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Branches / Clients</span>
+                <span className="font-semibold text-[#1B2430]">{(data.branches || []).length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Shipments</span>
+                <span className="font-semibold text-[#1B2430]">{data.shipments.length}</span>
+              </div>
             </div>
           </div>
         </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 px-8 py-6 min-w-0">
+          {tab === "dashboard" && <Dashboard data={data} ledger={ledger} totals={totals} supplierName={supplierName} productInfo={productInfo} piStatus={piStatus} />}
+          {tab === "ledger" && <LedgerTab data={data} ledger={ledger} supplierName={supplierName} productInfo={productInfo} />}
+          {tab === "pis" && <PIsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} piStatus={piStatus} />}
+          {tab === "shipments" && <ShipmentsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} closingQtyFor={closingQtyFor} />}
+          {tab === "setup" && <SetupTab data={data} save={save} showToast={showToast} />}
+          {tab === "branch-portal" && <BranchPortalTab data={data} save={save} showToast={showToast} />}
+          {tab === "moq-consolidation" && <MOQConsolidationTab data={data} save={save} showToast={showToast} />}
+        </main>
+      </div>
+    </div>
+  );
+}
 
         {/* Main Content Area */}
         <main className="flex-1 px-8 py-6 min-w-0">
@@ -1638,6 +1695,9 @@ function SetupTab({ data, save, showToast }) {
   const [bCountry, setBCountry] = useState("");
   const [bCode, setBCode] = useState("");
 
+  // State for Branch Item Assignment feature
+  const [selectedBranchForAssign, setSelectedBranchForAssign] = useState(data.branches?.[0]?.id || "");
+
   const fileInputRef = useRef(null);
   const [importType, setImportType] = useState("suppliers");
 
@@ -1737,7 +1797,8 @@ function SetupTab({ data, save, showToast }) {
         id: uid(),
         name: bName.trim(),
         country: bCountry.trim(),
-        code: bCode.trim()
+        code: bCode.trim(),
+        allowedProductIds: [] // Initialize empty permission list
       };
       save({ ...data, branches: [...branches, newBranch] }, "Branch / Client added");
     }
@@ -1757,6 +1818,25 @@ function SetupTab({ data, save, showToast }) {
   const handleDeleteBranch = (id) => {
     const branches = data.branches || [];
     save({ ...data, branches: branches.filter(b => b.id !== id) }, "Branch / Client removed");
+  };
+
+  // Toggle item restriction for selected branch
+  const toggleProductAssignment = (productId) => {
+    const currentBranch = (data.branches || []).find(b => b.id === selectedBranchForAssign);
+    if (!currentBranch) return;
+
+    const currentAllowed = currentBranch.allowedProductIds || [];
+    const isAssigned = currentAllowed.includes(productId);
+
+    const nextAllowed = isAssigned
+      ? currentAllowed.filter(id => id !== productId)
+      : [...currentAllowed, productId];
+
+    const updatedBranches = data.branches.map(b => 
+      b.id === currentBranch.id ? { ...b, allowedProductIds: nextAllowed } : b
+    );
+
+    save({ ...data, branches: updatedBranches }, `Updated item access for ${currentBranch.name}`);
   };
 
   const downloadTemplate = (type) => {
@@ -1838,7 +1918,7 @@ function SetupTab({ data, save, showToast }) {
             const country = r["Country"] || r["country"] || "";
             const code = r["Branch Code"] || r["code"] || "";
             if (name) {
-              newBranches.push({ id: uid(), name: String(name).trim(), country: String(country).trim(), code: String(code).trim() });
+              newBranches.push({ id: uid(), name: String(name).trim(), country: String(country).trim(), code: String(code).trim(), allowedProductIds: [] });
             }
           });
           save({ ...data, branches: newBranches }, `Successfully imported ${rows.length} branches/clients`);
@@ -1852,12 +1932,14 @@ function SetupTab({ data, save, showToast }) {
     reader.readAsBinaryString(file);
   };
 
+  const currentBranchForAssignObj = (data.branches || []).find(b => b.id === selectedBranchForAssign);
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Master Data Setup</h1>
-          <p className="text-sm text-[#7A7568] mt-0.5">Manage master suppliers, item catalogs, and branch/client destinations via manual entry or Excel bulk import.</p>
+          <p className="text-sm text-[#7A7568] mt-0.5">Manage master suppliers, item catalogs, and branch/client destinations.</p>
         </div>
       </div>
 
@@ -2011,6 +2093,51 @@ function SetupTab({ data, save, showToast }) {
               ))}
             </ul>
           </div>
+        </div>
+      </div>
+
+      {/* NEW: Branch Catalog Permissions Section */}
+      <div className={card + " p-6 mt-6 space-y-4"}>
+        <div className="flex items-center justify-between border-b border-[#E4DFD3] pb-4">
+          <div>
+            <h2 className="font-bold text-base text-[#1B2430]">Branch Item Access Control</h2>
+            <p className="text-xs text-[#7A7568]">Select a branch below and toggle which items they are permitted to view and order.</p>
+          </div>
+          <select 
+            className={inputCls + " font-medium text-xs py-1.5 w-64"}
+            value={selectedBranchForAssign}
+            onChange={(e) => setSelectedBranchForAssign(e.target.value)}
+          >
+            {(data.branches || []).map(b => (
+              <option key={b.id} value={b.id}>{b.name} ({b.location || b.country || "Branch"})</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {(data.products || []).map(p => {
+            const allowedList = currentBranchForAssignObj?.allowedProductIds || [];
+            // If allowedList is empty, default to allowing all items until restricted, or check explicit inclusion
+            const isAssigned = allowedList.includes(p.id);
+
+            return (
+              <div 
+                key={p.id} 
+                onClick={() => toggleProductAssignment(p.id)}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                  isAssigned ? "bg-emerald-50/50 border-emerald-400 text-[#1B2430]" : "bg-white border-[#E4DFD3] text-slate-500"
+                }`}
+              >
+                <div>
+                  <div className="font-bold text-xs text-[#1B2430]">{p.name}</div>
+                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">SKU: {p.sku || "—"}</div>
+                </div>
+                <div className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${isAssigned ? "bg-[#2F5A41] text-white" : "border border-slate-300"}`}>
+                  {isAssigned ? "✓" : ""}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
