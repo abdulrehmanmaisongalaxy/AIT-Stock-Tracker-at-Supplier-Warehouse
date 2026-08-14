@@ -89,6 +89,8 @@ const sectionLabel = "text-[11px] uppercase tracking-[0.1em] text-[#7A7568] font
 const NAV = [
   ["dashboard", "Dashboard", LayoutGrid],
   ["ledger", "Stock Ledger", BookOpen],
+  ["branch-portal", "Branch Portal", Globe],
+  ["moq-consolidation", "MOQ Consolidation", CheckSquare],
   ["pis", "Proforma Invoices", FileText],
   ["shipments", "Shipments", Ship],
   ["setup", "Master Setup", Package],
@@ -267,6 +269,8 @@ export default function StockLedger() {
           {tab === "pis" && <PIsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} piStatus={piStatus} />}
           {tab === "shipments" && <ShipmentsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} closingQtyFor={closingQtyFor} />}
           {tab === "setup" && <SetupTab data={data} save={save} showToast={showToast} />}
+          {tab === "branch-portal" && <BranchPortalTab data={data} save={save} showToast={showToast} />}
+          {tab === "moq-consolidation" && <MOQConsolidationTab data={data} save={save} showToast={showToast} />}
         </main>
       </div>
 
@@ -2009,6 +2013,273 @@ function SetupTab({ data, save, showToast }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+// ------------------------------------------------------------------
+// BRANCH ORDER PORTAL (What branches see via restricted link/tab)
+// ------------------------------------------------------------------
+function BranchPortalTab({ data, save, showToast }) {
+  const [selectedBranchId, setSelectedBranchId] = useState(data.branches?.[0]?.id || "");
+  const [orderCart, setOrderCart] = useState({});
+
+  const currentBranch = data.branches.find(b => b.id === selectedBranchId);
+
+  const availableProducts = useMemo(() => {
+    if (!currentBranch) return [];
+    const allowed = currentBranch.allowedProductIds || [];
+    if (allowed.length === 0) return data.products; 
+    return data.products.filter(p => allowed.includes(p.id));
+  }, [currentBranch, data.products]);
+
+  const handleQtyChange = (productId, val) => {
+    setOrderCart(prev => ({ ...prev, [productId]: num(val) }));
+  };
+
+  const submitBranchOrder = () => {
+    if (!selectedBranchId) return showToast("Please select a branch first", "error");
+    const itemsToOrder = Object.entries(orderCart)
+      .filter(([_, qty]) => qty > 0)
+      .map(([productId, qty]) => ({ productId, qty }));
+
+    if (itemsToOrder.length === 0) return showToast("Please add quantities to order", "error");
+
+    const newOrder = {
+      id: uid(),
+      branchId: selectedBranchId,
+      branchName: currentBranch?.name || "Branch",
+      date: todayStr(),
+      status: "Submitted",
+      items: itemsToOrder
+    };
+
+    const nextData = {
+      ...data,
+      branchOrders: [...(data.branchOrders || []), newOrder]
+    };
+
+    save(nextData, "Branch order submitted successfully!");
+    setOrderCart({});
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Branch Order Portal</h1>
+          <p className="text-sm text-[#7A7568] mt-0.5">Restricted item catalog for branch-level requisition.</p>
+        </div>
+        <div className="flex items-center gap-2 bg-white p-2 border border-[#E4DFD3] rounded-xl shadow-sm">
+          <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Select Branch:</span>
+          <select 
+            className={inputCls + " font-medium py-1 text-xs"}
+            value={selectedBranchId}
+            onChange={(e) => { setSelectedBranchId(e.target.value); setOrderCart({}); }}
+          >
+            {(data.branches || []).map(b => (
+              <option key={b.id} value={b.id}>{b.name} ({b.location || "Branch"})</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className={card + " p-5"}>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E4DFD3]">
+          <div>
+            <h2 className="font-bold text-base text-[#1B2430]">{currentBranch?.name || "Select a Branch"} Catalog</h2>
+            <p className="text-xs text-[#7A7568]">You can only view and order items assigned to your branch profile.</p>
+          </div>
+          <button onClick={submitBranchOrder} className={btnPrimary}>
+            Submit Requisition
+          </button>
+        </div>
+
+        {availableProducts.length === 0 ? (
+          <EmptyState text="No items are currently assigned or available for this branch." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                  <th className="text-left py-2 font-semibold">Item Details</th>
+                  <th className="text-left py-2 font-semibold">SKU / Code</th>
+                  <th className="text-right py-2 font-semibold">Available Unit</th>
+                  <th className="text-right py-3 font-semibold w-40">Order Qty</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F3F0E7]">
+                {availableProducts.map(p => (
+                  <tr key={p.id} className="hover:bg-[#FAF8F5] transition-colors">
+                    <td className="py-3 font-medium text-[#1B2430]">{p.name}</td>
+                    <td className="py-3 font-mono text-xs text-slate-500">{p.sku || "—"}</td>
+                    <td className="text-right py-3 text-[#7A7568]">{p.unit || "pcs"}</td>
+                    <td className="text-right py-3">
+                      <input 
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={orderCart[p.id] || ""}
+                        onChange={(e) => handleQtyChange(p.id, e.target.value)}
+                        className={inputCls + " w-32 text-right py-1"}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// MOQ CONSOLIDATION & PI GENERATION VIEW (Management Side)
+// ------------------------------------------------------------------
+function MOQConsolidationTab({ data, save, showToast }) {
+  const branchOrders = data.branchOrders || [];
+
+  const consolidatedList = useMemo(() => {
+    const map = {};
+    branchOrders.forEach(ord => {
+      if (ord.status !== "Submitted") return;
+      ord.items.forEach(it => {
+        const prod = data.products.find(p => p.id === it.productId);
+        if (!prod) return;
+        const supId = prod.supplierId || data.suppliers[0]?.id;
+        const key = supId + "|" + it.productId;
+
+        if (!map[key]) {
+          map[key] = {
+            supplierId: supId,
+            productId: it.productId,
+            totalOrderedQty: 0,
+            branchesBreakdown: []
+          };
+        }
+        map[key].totalOrderedQty += num(it.qty);
+        map[key].branchesBreakdown.push({ branchName: ord.branchName, qty: num(it.qty) });
+      });
+    });
+    return Object.values(map);
+  }, [branchOrders, data.products, data.suppliers]);
+
+  const convertToPI = (supplierId, items) => {
+    const piNumber = "PI-" + Math.floor(100000 + Math.random() * 900000);
+    
+    const piItems = items.map(i => {
+      const prod = data.products.find(p => p.id === i.productId);
+      return {
+        productId: i.productId,
+        qty: i.totalOrderedQty,
+        receivedQty: 0,
+        unitPrice: prod?.defaultPrice || 0
+      };
+    });
+
+    const newPI = {
+      id: uid(),
+      piNumber,
+      supplierId,
+      date: todayStr(),
+      items: piItems
+    };
+
+    const updatedBranchOrders = branchOrders.map(ord => ({ ...ord, status: "Converted to PI" }));
+
+    const nextData = {
+      ...data,
+      pis: [...(data.pis || []), newPI],
+      branchOrders: updatedBranchOrders
+    };
+
+    save(nextData, `Proforma Invoice ${piNumber} created successfully!`);
+  };
+
+  const bySupplier = useMemo(() => {
+    const group = {};
+    consolidatedList.forEach(item => {
+      group[item.supplierId] = group[item.supplierId] || [];
+      group[item.supplierId].push(item);
+    });
+    return group;
+  }, [consolidatedList]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">MOQ Consolidation &amp; PI Dispatch</h1>
+        <p className="text-sm text-[#7A7568] mt-0.5">Review branch requisitions, verify supplier minimum order quantities (MOQ), and generate PIs.</p>
+      </div>
+
+      {Object.keys(bySupplier).length === 0 ? (
+        <EmptyState text="No pending branch orders waiting for consolidation." />
+      ) : (
+        Object.entries(bySupplier).map(([supplierId, items]) => {
+          const supplier = data.suppliers.find(s => s.id === supplierId);
+          const moqLimit = supplier?.moqQty || 100;
+          const totalQtyForSupplier = items.reduce((sum, i) => sum + i.totalOrderedQty, 0);
+          const isMoqMet = totalQtyForSupplier >= moqLimit;
+
+          return (
+            <div key={supplierId} className={card + " p-5 mb-6"}>
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E4DFD3]">
+                <div>
+                  <div className="font-bold text-base text-[#1B2430] flex items-center gap-2">
+                    {supplier?.name || "Supplier"} 
+                    <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-100 border text-slate-600">
+                      MOQ Target: {fmt(moqLimit)} units
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#7A7568] mt-0.5">
+                    Total Consolidated Demand: <span className="font-bold text-[#1B2430]">{fmt(totalQtyForSupplier)} units</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Stamp tone={isMoqMet ? "stock" : "pipeline"}>
+                    {isMoqMet ? "MOQ Met — Ready for PI" : "Below MOQ — Holding"}
+                  </Stamp>
+                  {isMoqMet && (
+                    <button onClick={() => convertToPI(supplierId, items)} className={btnPrimary}>
+                      Generate PI
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
+                    <th className="text-left py-2 font-semibold">Item Name</th>
+                    <th className="text-left py-2 font-semibold">Branch Requisitions Breakdown</th>
+                    <th className="text-right py-2 font-semibold">Total Ordered Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F0E7]">
+                  {items.map((row, idx) => {
+                    const prod = data.products.find(p => p.id === row.productId);
+                    return (
+                      <tr key={idx} className="hover:bg-[#FAF8F5] transition-colors">
+                        <td className="py-2.5 font-medium text-[#1B2430]">{prod?.name || "—"}</td>
+                        <td className="py-2.5 text-xs text-[#7A7568]">
+                          {row.branchesBreakdown.map((b, i) => (
+                            <span key={i} className="inline-block bg-white border border-[#DDD7C7] px-2 py-0.5 rounded mr-1.5 mb-1">
+                              {b.branchName}: <strong className="text-[#1B2430]">{b.qty}</strong>
+                            </span>
+                          ))}
+                        </td>
+                        <td className="text-right py-2.5 font-bold text-[#2F5A41]">{fmt(row.totalOrderedQty)} {prod?.unit || "pcs"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
