@@ -250,10 +250,16 @@ export default function StockLedger() {
             onClick={() => {
               if (loginUsername === "admin") {
                 setCurrentUser({ username: "admin", role: "Admin", branchId: null });
-              } else if (loginUsername === "branch1") {
-                setCurrentUser({ username: "branch1", role: "Branch_User", branchId: 1 });
+              } else {
+              const matchedBranch = (data.branches || []).find(
+                b => b.name.toLowerCase() === loginUsername.toLowerCase()
+              );
+              if (matchedBranch) {
+                setCurrentUser({ username: matchedBranch.name, role: "Branch_User", branchId: matchedBranch.id });
               } else {
                 setLoginError("Invalid username or password");
+              }
+            }                setLoginError("Invalid username or password");
               }
             }}
             className="w-full bg-[#1B2430] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-black transition"
@@ -264,7 +270,28 @@ export default function StockLedger() {
       </div>
     );
   }
-
+  if (currentUser && currentUser.role === "Branch_User") {
+    return (
+      <div className="min-h-screen bg-[#F9F8F6] p-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-[#E4DFD3] shadow-sm">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-[#7A7568] font-bold">Branch Portal Session</div>
+              <div className="text-lg font-bold text-[#1B2430]">{currentUser.username}</div>
+            </div>
+            <button 
+              onClick={() => setCurrentUser(null)}
+              className="px-4 py-2 bg-[#1B2430] text-white text-xs font-semibold rounded-xl hover:bg-black transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+          
+          <BranchPortalTab branchId={currentUser.branchId} data={data} save={save} showToast={showToast} />
+        </div>
+      </div>
+    );
+  }
   if (loading) {
     return (
       <div className="w-full h-full min-h-[500px] flex items-center justify-center bg-[#F6F3EC] text-[#7A7568]">
