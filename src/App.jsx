@@ -6,99 +6,144 @@ import {
   BarChart3, 
   Plus, 
   Search, 
-  Download, 
-  ArrowUpDown, 
   Layers, 
-  DollarSign, 
-  AlertTriangle,
   CheckCircle2,
   FileSpreadsheet,
-  Calculator
+  Send,
+  ArrowRight,
+  ShieldCheck,
+  Clock,
+  Boxes,
+  Globe
 } from 'lucide-react';
 
-export default function AITPortal() {
-  const [activeTab, setActiveTab] = useState('inventory');
+export default function AITEnterprisePortal() {
+  // Top-level navigation: 'admin' (Head Office Full System) or 'branch' (Restricted Branch Order Link)
+  const [portalRole, setPortalRole] = useState('admin');
+  
+  // Admin module tabs: 'dashboard', 'inventory', 'consolidation', 'invoices', 'shipments', 'setup'
+  const [adminTab, setAdminTab] = useState('consolidation');
+
+  // Branch Portal simulation state
+  const [currentBranch, setCurrentBranch] = useState('Branch A');
+
+  // 1. Master Supplier Catalog & Warehouse Inventory (Global Multi-Country Stock)
+  const [inventory, setInventory] = useState([
+    { id: 'SKU-8801', name: 'Industrial Grade Steel Rods', category: 'Raw Materials', country: 'Turkey', supplier: 'Metro Metals Ltd', stock: 1450, unit: 'pcs', unitCost: 45.00, moq: 1000, allowedBranches: ['Branch A', 'Branch B'] },
+    { id: 'SKU-8802', name: 'Polyethylene Granules (HDPE)', category: 'Polymers', country: 'Saudi Arabia', supplier: 'Gulf Polymers FZE', stock: 3200, unit: 'kg', unitCost: 3.50, moq: 3000, allowedBranches: ['Branch A'] },
+    { id: 'SKU-8803', name: 'Aluminum Extrusion Profiles', category: 'Raw Materials', country: 'Bahrain', supplier: 'Aluminium Bahrain', stock: 890, unit: 'pcs', unitCost: 78.50, moq: 800, allowedBranches: ['Branch B'] },
+    { id: 'SKU-8804', name: 'Hydraulic Seal Kits', category: 'Components', country: 'Sweden', supplier: 'Nordic Parts AB', stock: 430, unit: 'sets', unitCost: 120.00, moq: 500, allowedBranches: ['Branch A', 'Branch B'] },
+    { id: 'SKU-8805', name: 'Copper Wiring Harness 5m', category: 'Electrical', country: 'Oman', supplier: 'VoltCraft Industries', stock: 1200, unit: 'pcs', unitCost: 22.40, moq: 1500, allowedBranches: ['Branch A', 'Branch B'] },
+  ]);
+
+  // 2. Branch Orders Submitted (Branch ID -> { SKU-ID: quantity })
+  const [branchOrders, setBranchOrders] = useState({
+    'Branch A': { 'SKU-8801': 600, 'SKU-8802': 2500, 'SKU-8804': 200 },
+    'Branch B': { 'SKU-8801': 300, 'SKU-8803': 400, 'SKU-8804': 150 }
+  });
+
+  // Temporary inputs for branch ordering view
+  const [branchInputQty, setBranchInputQty] = useState({});
+
+  // 3. Proforma Invoices Ledger
+  const [invoices, setInvoices] = useState([
+    { piNumber: 'PI-2026-901', supplier: 'Metro Metals Ltd', date: '2026-08-10', totalAmount: 45200.00, status: 'Confirmed' },
+    { piNumber: 'PI-2026-902', supplier: 'Gulf Polymers FZE', date: '2026-08-12', totalAmount: 18750.50, status: 'Draft' },
+  ]);
+
+  // 4. Shipments Module State
+  const [shipments, setShipments] = useState([
+    { trackingId: 'TRK-5501', piNumber: 'PI-2026-901', origin: 'Turkey', destination: 'Dubai Warehouse', status: 'In Transit', cbm: 42, weight: 14500 }
+  ]);
+
+  // Search & Filters for Admin
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
 
-  // Initial State: Inventory Stock Data
-  const [inventory, setInventory] = useState([
-    { id: 'SKU-8801', name: 'Industrial Grade Steel Rods', category: 'Raw Materials', stock: 1450, unit: 'pcs', unitCost: 45.00, supplier: 'Metro Metals Ltd', warehouse: 'WH-Dubai-01' },
-    { id: 'SKU-8802', name: 'Polyethylene Granules (HDPE)', category: 'Polymers', stock: 3200, unit: 'kg', unitCost: 3.50, supplier: 'Gulf Polymers FZE', warehouse: 'WH-Dubai-01' },
-    { id: 'SKU-8803', name: 'Aluminum Extrusion Profiles', category: 'Raw Materials', stock: 890, unit: 'pcs', unitCost: 78.50, supplier: 'Aluminium Bahrain', warehouse: 'WH-JebelAli-02' },
-    { id: 'SKU-8804', name: 'Hydraulic Seal Kits', category: 'Components', stock: 430, sets: 215, unit: 'sets', unitCost: 120.00, supplier: 'Nordic Parts AB', warehouse: 'WH-Dubai-01' },
-    { id: 'SKU-8805', name: 'Copper Wiring Harness 5m', category: 'Electrical', stock: 1200, unit: 'pcs', unitCost: 22.40, supplier: 'VoltCraft Industries', warehouse: 'WH-JebelAli-02' },
-  ]);
-
-  // Initial State: Proforma Invoices
-  const [invoices, setInvoices] = useState([
-    { piNumber: 'PI-2026-901', client: 'Al-Futtaim Engineering', date: '2026-08-10', totalAmount: 45200.00, status: 'Confirmed' },
-    { piNumber: 'PI-2026-902', client: 'Emirates Global Trading', date: '2026-08-12', totalAmount: 18750.50, status: 'Draft' },
-    { piNumber: 'PI-2026-903', client: 'Desert Line LLC', date: '2026-08-13', totalAmount: 92300.00, status: 'Dispatched' },
-  ]);
-
-  // Container Calculation State
-  const [containerType, setContainerType] = useState('40ft');
-  const [selectedItemsForContainer, setSelectedItemsForContainer] = useState([
-    { sku: 'SKU-8801', qty: 500, cbmPerUnit: 0.04, weightPerUnit: 15 },
-    { sku: 'SKU-8803', qty: 200, cbmPerUnit: 0.08, weightPerUnit: 22 }
-  ]);
-
-  // Container Capacities Limits (CBM & Max Weight in KG)
-  const containerLimits = {
-    '20ft': { maxCbm: 33, maxWeight: 28000 },
-    '40ft': { maxCbm: 67, maxWeight: 29000 },
-    '40ftHC': { maxCbm: 76, maxWeight: 28500 }
-  };
-
-  // Metrics calculation
+  // Total Portfolio Valuation
   const totalValuation = useMemo(() => {
     return inventory.reduce((acc, item) => acc + (item.stock * item.unitCost), 0);
   }, [inventory]);
 
-  const lowStockCount = useMemo(() => {
-    return inventory.filter(item => item.stock < 500).length;
-  }, [inventory]);
-
-  // Filtered inventory list
-  const filteredInventory = useMemo(() => {
-    return inventory.filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.id.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
-      return matchesSearch && matchesCategory;
+  // Consolidated Item List calculation across all branches mapped against Supplier MOQ
+  const consolidatedItems = useMemo(() => {
+    const totals = {};
+    Object.entries(branchOrders).forEach(([branchName, items]) => {
+      Object.entries(items).forEach(([skuId, qty]) => {
+        if (!totals[skuId]) {
+          totals[skuId] = { totalQty: 0, breakdown: {} };
+        }
+        totals[skuId].totalQty += qty;
+        totals[skuId].breakdown[branchName] = qty;
+      });
     });
-  }, [inventory, searchTerm, filterCategory]);
 
-  // Container calculation totals
-  const containerTotals = useMemo(() => {
-    return selectedItemsForContainer.reduce((acc, curr) => {
-      acc.totalCbm += curr.qty * curr.cbmPerUnit;
-      acc.totalWeight += curr.qty * curr.weightPerUnit;
-      return acc;
-    }, { totalCbm: 0, totalWeight: 0 });
-  }, [selectedItemsForContainer]);
+    return inventory.map(item => {
+      const orderData = totals[item.id] || { totalQty: 0, breakdown: {} };
+      const meetsMoq = orderData.totalQty >= item.moq;
+      return {
+        ...item,
+        totalOrdered: orderData.totalQty,
+        breakdown: orderData.breakdown,
+        meetsMoq,
+        status: meetsMoq ? 'Ready to Order' : 'On Hold (Below MOQ)'
+      };
+    });
+  }, [inventory, branchOrders]);
 
-  const currentLimit = containerLimits[containerType];
-  const cbmPercentage = Math.min(100, Math.round((containerTotals.totalCbm / currentLimit.maxCbm) * 100));
-  const weightPercentage = Math.min(100, Math.round((containerTotals.totalWeight / currentLimit.maxWeight) * 100));
+  // Handle branch order submission
+  const handleBranchQtyChange = (skuId, val) => {
+    setBranchInputQty(prev => ({ ...prev, [skuId]: val }));
+  };
+
+  const submitBranchOrder = (e) => {
+    e.preventDefault();
+    setBranchOrders(prev => ({
+      ...prev,
+      [currentBranch]: {
+        ...(prev[currentBranch] || {}),
+        ...Object.fromEntries(
+          Object.entries(branchInputQty).map(([k, v]) => [k, parseFloat(v) || 0])
+        )
+      }
+    }));
+    alert(`Order quantities successfully recorded for ${currentBranch}. Consolidated totals updated for Head Office review.`);
+    setBranchInputQty({});
+  };
+
+  // Place Order & Create Proforma Invoice (PI) when MOQ is met
+  const generatePIFromConsolidation = (item) => {
+    if (!item.meetsMoq) {
+      alert("Cannot place order. Total ordered quantity from branches has not met the supplier's MOQ threshold.");
+      return;
+    }
+    const piNumber = `PI-2026-${Math.floor(910 + Math.random() * 90)}`;
+    const totalAmount = item.totalOrdered * item.unitCost;
+    
+    setInvoices(prev => [
+      { piNumber, supplier: item.supplier, date: new Date().toISOString().slice(0, 10), totalAmount, status: 'Generated / Pending Supplier Dispatch' },
+      ...prev
+    ]);
+    alert(`MOQ requirement cleared! Proforma Invoice ${piNumber} has been successfully generated for ${item.supplier}.`);
+  };
 
   const exportToCSV = (dataType) => {
     let csvContent = "data:text/csv;charset=utf-8,";
     if (dataType === 'inventory') {
-      csvContent += "SKU,Item Name,Category,Stock,Unit,Unit Cost (AED),Supplier,Warehouse\r\n";
+      csvContent += "SKU,Item Name,Category,Country,Supplier,Stock,Unit Cost (AED),MOQ\r\n";
       inventory.forEach(row => {
-        csvContent += `${row.id},"${row.name}",${row.category},${row.stock},${row.unit},${row.unitCost},"${row.supplier}",${row.warehouse}\r\n`;
+        csvContent += `${row.id},"${row.name}",${row.category},${row.country},"${row.supplier}",${row.stock},${row.unitCost},${row.moq}\r\n`;
       });
     } else {
-      csvContent += "PI Number,Client,Date,Total Amount (AED),Status\r\n";
+      csvContent += "PI Number,Supplier,Date,Total Amount (AED),Status\r\n";
       invoices.forEach(row => {
-        csvContent += `${row.piNumber},"${row.client}",${row.date},${row.totalAmount},${row.status}\r\n`;
+        csvContent += `${row.piNumber},"${row.supplier}",${row.date},${row.totalAmount},${row.status}\r\n`;
       });
     }
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `AIT_${dataType}_report_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `AIT_${dataType}_export.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -106,8 +151,8 @@ export default function AITPortal() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col">
-      {/* Top Navigation Bar */}
-      <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+      {/* Top Header */}
+      <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center space-x-3">
           <div className="bg-blue-600 p-2 rounded-lg text-white font-bold flex items-center justify-center shadow-lg shadow-blue-900/50">
             <Layers className="w-6 h-6" />
@@ -117,165 +162,254 @@ export default function AITPortal() {
               AIT Supplier Inventory & Trading Ledger
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">Enterprise Portal</span>
             </h1>
-            <p className="text-xs text-slate-400">Real-time Stock Valuation, Proforma Management & Container Optimization</p>
+            <p className="text-xs text-slate-400">Stock Ledger, Multi-Branch MOQ Consolidation, PI Generation & Shipments Tracker</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-right hidden sm:block">
-            <div className="text-xs text-slate-400">Logged in as</div>
-            <div className="text-sm font-medium text-slate-200">Abdul Rehman</div>
-          </div>
-          <div className="h-8 w-px bg-slate-800"></div>
+
+        {/* Portal Role Toggle Switcher */}
+        <div className="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800">
           <button 
-            onClick={() => alert("System synced successfully with local database via LAN.")}
-            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-md border border-slate-700 transition"
+            onClick={() => setPortalRole('admin')}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition ${portalRole === 'admin' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            Sync Database (LAN)
+            Head Office Dashboard
+          </button>
+          <button 
+            onClick={() => setPortalRole('branch')}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition ${portalRole === 'branch' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            Branch Order Form Link
           </button>
         </div>
       </header>
 
-      {/* Main Container Layout */}
-      <div className="flex-1 flex flex-col md:flex-row">
-        {/* Sidebar Menu */}
-        <aside className="w-full md:w-64 bg-slate-950 border-r border-slate-800 p-4 space-y-2">
-          <button 
-            onClick={() => setActiveTab('inventory')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}`}
-          >
-            <Package className="w-5 h-5" />
-            <span>Stock Ledger & Valuation</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('invoices')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'invoices' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}`}
-          >
-            <FileText className="w-5 h-5" />
-            <span>Proforma Invoices (PI)</span>
-          </button>
+      {/* Main Container View Routing */}
+      {portalRole === 'admin' ? (
+        <div className="flex-1 flex flex-col md:flex-row">
+          {/* Admin Sidebar Navigation */}
+          <aside className="w-full md:w-64 bg-slate-950 border-r border-slate-800 p-4 space-y-2">
+            <button 
+              onClick={() => setAdminTab('dashboard')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${adminTab === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900'}`}
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span>Dashboard & Analytics</span>
+            </button>
 
-          <button 
-            onClick={() => setActiveTab('container')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'container' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}`}
-          >
-            <Truck className="w-5 h-5" />
-            <span>Container Capacity Calculator</span>
-          </button>
+            <button 
+              onClick={() => setAdminTab('consolidation')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${adminTab === 'consolidation' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900'}`}
+            >
+              <Boxes className="w-5 h-5" />
+              <span>MOQ Consolidation Engine</span>
+            </button>
 
-          <button 
-            onClick={() => setActiveTab('analytics')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'analytics' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            <span>Warehouse Analytics</span>
-          </button>
+            <button 
+              onClick={() => setAdminTab('inventory')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${adminTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900'}`}
+            >
+              <Package className="w-5 h-5" />
+              <span>Stock Ledger & Valuation</span>
+            </button>
+            
+            <button 
+              onClick={() => setAdminTab('invoices')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${adminTab === 'invoices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900'}`}
+            >
+              <FileText className="w-5 h-5" />
+              <span>Proforma Invoices (PI)</span>
+            </button>
 
-          <div className="pt-6 mt-6 border-t border-slate-800">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2">Quick Metrics</div>
-            <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Total Stock Value:</span>
-                <span className="font-semibold text-emerald-400">AED {totalValuation.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Low Stock Items:</span>
-                <span className={`font-semibold ${lowStockCount > 0 ? 'text-amber-400' : 'text-slate-200'}`}>{lowStockCount} SKU(s)</span>
-              </div>
-            </div>
-          </div>
-        </aside>
+            <button 
+              onClick={() => setAdminTab('shipments')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${adminTab === 'shipments' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900'}`}
+            >
+              <Truck className="w-5 h-5" />
+              <span>Shipments Tracker</span>
+            </button>
 
-        {/* Dynamic Content Area */}
-        <main className="flex-1 p-6 overflow-y-auto bg-slate-900">
-          
-          {/* TAB 1: INVENTORY STOCK LEDGER */}
-          {activeTab === 'inventory' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <button 
+              onClick={() => setAdminTab('setup')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${adminTab === 'setup' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900'}`}
+            >
+              <Globe className="w-5 h-5" />
+              <span>Master Setup & Branch Controls</span>
+            </button>
+          </aside>
+
+          {/* Admin Content Panels */}
+          <main className="flex-1 p-6 overflow-y-auto bg-slate-900">
+            
+            {/* 1. DASHBOARD & ANALYTICS */}
+            {adminTab === 'dashboard' && (
+              <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-white">Stock Ledger & Valuation</h2>
-                  <p className="text-sm text-slate-400">Manage stock movements, valuations, and supplier warehouse balances.</p>
+                  <h2 className="text-2xl font-bold tracking-tight text-white">Executive Dashboard & KPIs</h2>
+                  <p className="text-sm text-slate-400">High-level financial valuation and multi-country supplier stock performance.</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <button 
-                    onClick={() => exportToCSV('inventory')}
-                    className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm border border-slate-700 transition shadow-sm"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                    <span>Export CSV</span>
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const name = prompt("Enter Item Name:");
-                      const category = prompt("Enter Category (Raw Materials, Polymers, Components, Electrical):", "Raw Materials");
-                      const stock = parseFloat(prompt("Enter Initial Stock Quantity:", "100") || 0);
-                      const unitCost = parseFloat(prompt("Enter Unit Cost (AED):", "10.00") || 0);
-                      const supplier = prompt("Enter Supplier Name:", "AIT Global Supplier");
-                      if (name) {
-                        setInventory([...inventory, {
-                          id: `SKU-880${inventory.length + 1}`,
-                          name,
-                          category: category || 'Raw Materials',
-                          stock,
-                          unit: 'pcs',
-                          unitCost,
-                          supplier: supplier || 'Default',
-                          warehouse: 'WH-Dubai-01'
-                        }]);
-                      }
-                    }}
-                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-blue-600/20"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add New SKU</span>
-                  </button>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
+                    <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Portfolio Valuation</div>
+                    <div className="text-2xl font-bold font-mono text-emerald-400">
+                      AED {totalValuation.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2">Active stock across global warehouses</div>
+                  </div>
+
+                  <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
+                    <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Active Supplier SKUs</div>
+                    <div className="text-2xl font-bold font-mono text-blue-400">{inventory.length} Items</div>
+                    <div className="text-xs text-slate-500 mt-2">Sourced across 5 international hubs</div>
+                  </div>
+
+                  <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
+                    <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Pending Proforma Orders</div>
+                    <div className="text-2xl font-bold font-mono text-amber-400">
+                      {invoices.filter(i => i.status !== 'Confirmed').length} PIs
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2">Awaiting supplier shipment confirmation</div>
+                  </div>
                 </div>
               </div>
+            )}
 
-              {/* Search and Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <div className="relative sm:col-span-2">
-                  <Search className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-                  <input 
-                    type="text" 
-                    placeholder="Search by SKU or item name..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition"
-                  />
-                </div>
+            {/* 2. MOQ CONSOLIDATION ENGINE */}
+            {adminTab === 'consolidation' && (
+              <div className="space-y-6">
                 <div>
-                  <select 
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition"
-                  >
-                    <option value="All">All Categories</option>
-                    <option value="Raw Materials">Raw Materials</option>
-                    <option value="Polymers">Polymers</option>
-                    <option value="Components">Components</option>
-                    <option value="Electrical">Electrical</option>
-                  </select>
+                  <h2 className="text-2xl font-bold tracking-tight text-white">Multi-Branch Order Consolidation & MOQ Engine</h2>
+                  <p className="text-sm text-slate-400">Review aggregated branch demands against supplier MOQ. Place order to generate PI when MOQ is met, or hold for future branch orders.</p>
+                </div>
+
+                <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-900/80 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                          <th className="p-4">SKU & Item Name</th>
+                          <th className="p-4">Supplier & Country</th>
+                          <th className="p-4">Supplier MOQ</th>
+                          <th className="p-4">Total Ordered (All Branches)</th>
+                          <th className="p-4">MOQ Status / Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 text-sm">
+                        {consolidatedItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-900/40 transition">
+                            <td className="p-4">
+                              <div className="font-semibold text-white">{item.name}</div>
+                              <div className="text-xs text-blue-400 font-mono">{item.id}</div>
+                            </td>
+                            <td className="p-4">
+                              <div className="text-slate-200">{item.supplier}</div>
+                              <div className="text-xs text-slate-500">{item.country}</div>
+                            </td>
+                            <td className="p-4 font-mono font-bold text-slate-300">
+                              {item.moq.toLocaleString()} units
+                            </td>
+                            <td className="p-4">
+                              <div className="font-mono font-bold text-emerald-400 text-base">
+                                {item.totalOrdered.toLocaleString()} units
+                              </div>
+                              <div className="text-xs text-slate-400 mt-0.5">
+                                {Object.entries(item.breakdown).map(([b, q]) => `${b}: ${q}`).join(' | ') || 'No branch orders yet'}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-col items-start gap-2">
+                                <span className={`text-xs px-2.5 py-1 rounded-full border font-medium flex items-center gap-1 ${
+                                  item.meetsMoq 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                }`}>
+                                  {item.meetsMoq ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                                  {item.status}
+                                </span>
+
+                                {item.meetsMoq ? (
+                                  <button 
+                                    onClick={() => generatePIFromConsolidation(item)}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-medium transition flex items-center gap-1 shadow"
+                                  >
+                                    <span>Place Order & Generate PI</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-slate-500 italic">Holding until further orders received</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
+            )}
 
-              {/* Inventory Table */}
-              <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
+            {/* 3. STOCK LEDGER */}
+            {adminTab === 'inventory' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-white">Stock Ledger & Valuation</h2>
+                    <p className="text-sm text-slate-400">Available supplier warehouse stock across multiple international countries.</p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <button 
+                      onClick={() => exportToCSV('inventory')}
+                      className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm border border-slate-700 transition"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                      <span>Export CSV</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const name = prompt("Enter Item Name:");
+                        const country = prompt("Enter Supplier Country:", "Turkey");
+                        const supplier = prompt("Enter Supplier Name:", "Global Supplier FZE");
+                        const stock = parseFloat(prompt("Enter Initial Stock:", "500") || 0);
+                        const unitCost = parseFloat(prompt("Enter Unit Cost (AED):", "10") || 0);
+                        const moq = parseFloat(prompt("Enter Supplier MOQ:", "500") || 100);
+                        if (name) {
+                          setInventory([...inventory, {
+                            id: `SKU-880${inventory.length + 1}`,
+                            name,
+                            category: 'Raw Materials',
+                            country,
+                            supplier,
+                            stock,
+                            unit: 'pcs',
+                            unitCost,
+                            moq,
+                            allowedBranches: ['Branch A', 'Branch B']
+                          }]);
+                        }
+                      }}
+                      className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Catalog Item</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-xl">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-900/80 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                         <th className="p-4">SKU & Item Name</th>
-                        <th className="p-4">Category</th>
-                        <th className="p-4">Stock Quantity</th>
+                        <th className="p-4">Supplier & Country</th>
+                        <th className="p-4">Available Stock</th>
                         <th className="p-4">Unit Cost (AED)</th>
                         <th className="p-4">Total Value (AED)</th>
-                        <th className="p-4">Supplier / Warehouse</th>
+                        <th className="p-4">MOQ</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 text-sm">
-                      {filteredInventory.map((item) => {
+                      {inventory.map((item) => {
                         const totalVal = item.stock * item.unitCost;
                         return (
                           <tr key={item.id} className="hover:bg-slate-900/40 transition">
@@ -284,310 +418,223 @@ export default function AITPortal() {
                               <div className="text-xs text-blue-400 font-mono">{item.id}</div>
                             </td>
                             <td className="p-4">
-                              <span className="bg-slate-800 text-slate-300 text-xs px-2.5 py-1 rounded-md border border-slate-700">
-                                {item.category}
-                              </span>
+                              <div className="text-slate-200">{item.supplier}</div>
+                              <div className="text-xs text-slate-500">{item.country}</div>
                             </td>
-                            <td className="p-4 font-mono font-medium text-slate-200">
-                              {item.stock.toLocaleString()} {item.unit}
-                            </td>
-                            <td className="p-4 font-mono text-slate-300">
-                              {item.unitCost.toFixed(2)}
-                            </td>
-                            <td className="p-4 font-mono font-semibold text-emerald-400">
-                              {totalVal.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                            </td>
-                            <td className="p-4 text-xs text-slate-400">
-                              <div>{item.supplier}</div>
-                              <div className="text-slate-500 font-mono">{item.warehouse}</div>
-                            </td>
+                            <td className="p-4 font-mono text-slate-200">{item.stock.toLocaleString()} {item.unit}</td>
+                            <td className="p-4 font-mono text-slate-300">{item.unitCost.toFixed(2)}</td>
+                            <td className="p-4 font-mono font-semibold text-emerald-400">{totalVal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td className="p-4 font-mono text-slate-300">{item.moq}</td>
                           </tr>
                         );
                       })}
-                      {filteredInventory.length === 0 && (
-                        <tr>
-                          <td colSpan="6" className="p-8 text-center text-slate-500">
-                            No inventory items found matching your filters.
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 2: PROFORMA INVOICES */}
-          {activeTab === 'invoices' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-white">Proforma Invoice (PI) Ledger</h2>
-                  <p className="text-sm text-slate-400">Track outward proforma shipments, client orders, and billing statuses.</p>
-                </div>
-                <div className="flex items-center space-x-3">
+            {/* 4. PROFORMA INVOICES */}
+            {adminTab === 'invoices' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-white">Proforma Invoice (PI) Ledger</h2>
+                    <p className="text-sm text-slate-400">Generated from consolidated branch orders meeting supplier MOQs.</p>
+                  </div>
                   <button 
                     onClick={() => exportToCSV('invoices')}
-                    className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm border border-slate-700 transition shadow-sm"
+                    className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm border border-slate-700"
                   >
                     <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                    <span>Export CSV</span>
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const client = prompt("Enter Client Name:");
-                      const amount = parseFloat(prompt("Enter Total Amount (AED):", "10000") || 0);
-                      if (client && amount) {
-                        setInvoices([...invoices, {
-                          piNumber: `PI-2026-${904 + invoices.length}`,
-                          client,
-                          date: new Date().toISOString().slice(0, 10),
-                          totalAmount: amount,
-                          status: 'Draft'
-                        }]);
-                      }
-                    }}
-                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-blue-600/20"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Create New PI</span>
+                    <span>Export PIs</span>
                   </button>
                 </div>
-              </div>
 
-              <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-xl">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-900/80 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                      <th className="p-4">PI Reference</th>
-                      <th className="p-4">Client Name</th>
-                      <th className="p-4">Date</th>
-                      <th className="p-4">Total Amount (AED)</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-sm">
-                    {invoices.map((inv, idx) => (
-                      <tr key={idx} className="hover:bg-slate-900/40 transition">
-                        <td className="p-4 font-mono font-semibold text-blue-400">{inv.piNumber}</td>
-                        <td className="p-4 font-medium text-white">{inv.client}</td>
-                        <td className="p-4 text-slate-400">{inv.date}</td>
-                        <td className="p-4 font-mono font-semibold text-slate-200">
-                          {inv.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                        </td>
-                        <td className="p-4">
-                          <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
-                            inv.status === 'Confirmed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                            inv.status === 'Dispatched' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                            'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          }`}>
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <button 
-                            onClick={() => alert(`Generating formal printable Proforma Invoice view for ${inv.piNumber}`)}
-                            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded border border-slate-700 transition"
-                          >
-                            Print PI
-                          </button>
-                        </td>
+                <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-xl">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900/80 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        <th className="p-4">PI Number</th>
+                        <th className="p-4">Supplier</th>
+                        <th className="p-4">Date Issued</th>
+                        <th className="p-4">Total Amount (AED)</th>
+                        <th className="p-4">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-sm">
+                      {invoices.map((inv, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/40 transition">
+                          <td className="p-4 font-mono font-semibold text-blue-400">{inv.piNumber}</td>
+                          <td className="p-4 font-medium text-white">{inv.supplier}</td>
+                          <td className="p-4 text-slate-400">{inv.date}</td>
+                          <td className="p-4 font-mono font-semibold text-emerald-400">
+                            AED {inv.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                          </td>
+                          <td className="p-4">
+                            <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-full font-medium">
+                              {inv.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 3: CONTAINER CAPACITY CALCULATOR */}
-          {activeTab === 'container' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">Container Capacity & Utilization Checker</h2>
-                <p className="text-sm text-slate-400">Optimize freight loading configurations and check CBM/Weight restrictions.</p>
+            {/* 5. SHIPMENTS TRACKER */}
+            {adminTab === 'shipments' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight text-white">Shipments & Logistics Tracker</h2>
+                  <p className="text-sm text-slate-400">Track containers and dispatches corresponding to confirmed PIs.</p>
+                </div>
+                <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-xl">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900/80 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        <th className="p-4">Tracking ID</th>
+                        <th className="p-4">PI Reference</th>
+                        <th className="p-4">Origin / Route</th>
+                        <th className="p-4">Volume / Weight</th>
+                        <th className="p-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-sm">
+                      {shipments.map((shp, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/40 transition">
+                          <td className="p-4 font-mono font-semibold text-blue-400">{shp.trackingId}</td>
+                          <td className="p-4 font-mono text-slate-300">{shp.piNumber}</td>
+                          <td className="p-4 text-slate-300">{shp.origin} ➔ {shp.destination}</td>
+                          <td className="p-4 font-mono text-xs text-slate-400">{shp.cbm} CBM | {shp.weight} kg</td>
+                          <td className="p-4">
+                            <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-full font-medium">
+                              {shp.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+            )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Configuration Panel */}
-                <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4 lg:col-span-1 shadow-xl">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Truck className="w-5 h-5 text-blue-400" />
-                    <span>Container Specifications</span>
-                  </h3>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Select Container Type</label>
-                    <select 
-                      value={containerType}
-                      onChange={(e) => setContainerType(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition"
-                    >
-                      <option value="20ft">Standard 20ft (Max 33 CBM / 28,000 kg)</option>
-                      <option value="40ft">Standard 40ft (Max 67 CBM / 29,000 kg)</option>
-                      <option value="40ftHC">40ft High Cube (Max 76 CBM / 28,500 kg)</option>
-                    </select>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-800 space-y-3">
-                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Container Limits</div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Max Volume:</span>
-                      <span className="font-mono font-bold text-white">{currentLimit.maxCbm} CBM</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Max Weight:</span>
-                      <span className="font-mono font-bold text-white">{currentLimit.maxWeight.toLocaleString()} kg</span>
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={() => {
-                      const sku = prompt("Enter SKU Code to add to container calculation:", "SKU-8802");
-                      const qty = parseFloat(prompt("Enter Quantity:", "500") || 0);
-                      if (sku && qty) {
-                        setSelectedItemsForContainer([...selectedItemsForContainer, { sku, qty, cbmPerUnit: 0.05, weightPerUnit: 12 }]);
-                      }
-                    }}
-                    className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Item to Container</span>
-                  </button>
+            {/* 6. MASTER SETUP & BRANCH RESTRICTIONS */}
+            {adminTab === 'setup' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight text-white">Master Setup & Branch Visibility Control</h2>
+                  <p className="text-sm text-slate-400">Configure item catalog access restrictions for individual branches.</p>
                 </div>
 
-                {/* Utilization Meters */}
-                <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 lg:col-span-2 space-y-6 shadow-xl">
-                  <h3 className="text-base font-bold text-white">Current Load Utilization</h3>
-
-                  <div className="space-y-4">
-                    {/* Volume Meter */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-400">Volume Utilization (CBM)</span>
-                        <span className="font-mono font-semibold text-slate-200">
-                          {containerTotals.totalCbm.toFixed(1)} / {currentLimit.maxCbm} CBM ({cbmPercentage}%)
-                        </span>
+                <div className="bg-slate-950 rounded-xl border border-slate-800 p-6 space-y-4">
+                  {inventory.map((item) => (
+                    <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 p-4 rounded-lg border border-slate-800 gap-4">
+                      <div>
+                        <div className="font-bold text-white">{item.name} <span className="font-mono text-xs text-blue-400">({item.id})</span></div>
+                        <div className="text-xs text-slate-400 mt-1">Supplier: {item.supplier} | Country: {item.country} | MOQ: {item.moq}</div>
                       </div>
-                      <div className="w-full bg-slate-900 rounded-full h-3 border border-slate-800 overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-500 ${cbmPercentage > 90 ? 'bg-amber-500' : 'bg-blue-600'}`}
-                          style={{ width: `${cbmPercentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    {/* Weight Meter */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-400">Weight Utilization (KG)</span>
-                        <span className="font-mono font-semibold text-slate-200">
-                          {containerTotals.totalWeight.toLocaleString()} / {currentLimit.maxWeight.toLocaleString()} kg ({weightPercentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-900 rounded-full h-3 border border-slate-800 overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-500 ${weightPercentage > 90 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                          style={{ width: `${weightPercentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Loaded Items Table */}
-                  <div className="pt-4 border-t border-slate-800">
-                    <h4 className="text-sm font-semibold text-slate-300 mb-3">Manifest Breakdown</h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-800 text-xs text-slate-500 uppercase">
-                            <th className="pb-2">SKU</th>
-                            <th className="pb-2">Quantity</th>
-                            <th className="pb-2">Est. Volume</th>
-                            <th className="pb-2">Est. Weight</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/40">
-                          {selectedItemsForContainer.map((item, idx) => (
-                            <tr key={idx} className="font-mono text-xs">
-                              <td className="py-2.5 text-blue-400 font-semibold">{item.sku}</td>
-                              <td className="py-2.5 text-slate-200">{item.qty.toLocaleString()} units</td>
-                              <td className="py-2.5 text-slate-300">{(item.qty * item.cbmPerUnit).toFixed(1)} CBM</td>
-                              <td className="py-2.5 text-slate-300">{(item.qty * item.weightPerUnit).toLocaleString()} kg</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: WAREHOUSE ANALYTICS */}
-          {activeTab === 'analytics' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">Warehouse & Inventory Analytics</h2>
-                <p className="text-sm text-slate-400">High-level financial KPIs and category asset distribution.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Portfolio Valuation</div>
-                  <div className="text-2xl font-bold font-mono text-emerald-400">
-                    AED {totalValuation.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-2">Aggregated across all regional warehouses</div>
-                </div>
-
-                <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Active SKUs</div>
-                  <div className="text-2xl font-bold font-mono text-blue-400">
-                    {inventory.length} Items
-                  </div>
-                  <div className="text-xs text-slate-500 mt-2">Monitored via LAN inventory sync</div>
-                </div>
-
-                <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-lg">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Pending Proforma Orders</div>
-                  <div className="text-2xl font-bold font-mono text-amber-400">
-                    {invoices.filter(i => i.status !== 'Confirmed').length} PIs
-                  </div>
-                  <div className="text-xs text-slate-500 mt-2">Awaiting final client confirmation</div>
-                </div>
-              </div>
-
-              <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 shadow-xl space-y-4">
-                <h3 className="text-base font-bold text-white">Category Valuation Breakdown</h3>
-                <div className="space-y-3">
-                  {['Raw Materials', 'Polymers', 'Components', 'Electrical'].map((cat) => {
-                    const catTotal = inventory.filter(i => i.category === cat).reduce((acc, i) => acc + (i.stock * i.unitCost), 0);
-                    const percentage = totalValuation > 0 ? Math.round((catTotal / totalValuation) * 100) : 0;
-                    return (
-                      <div key={cat} className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-300 font-medium">{cat}</span>
-                          <span className="font-mono text-slate-400">
-                            AED {catTotal.toLocaleString(undefined, {minimumFractionDigits: 2})} ({percentage}%)
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">Visible Branches:</span>
+                        {item.allowedBranches.map(b => (
+                          <span key={b} className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs px-2 py-0.5 rounded font-mono">
+                            {b}
                           </span>
-                        </div>
-                        <div className="w-full bg-slate-900 rounded-full h-2 border border-slate-800 overflow-hidden">
-                          <div className="bg-blue-600 h-full rounded-full" style={{ width: `${percentage}%` }}></div>
-                        </div>
+                        ))}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-        </main>
-      </div>
+          </main>
+        </div>
+      ) : (
+        /* ==================== BRANCH ORDER FORM LINK VIEW (RESTRICTED) ==================== */
+        <div className="flex-1 p-6 overflow-y-auto bg-slate-900 max-w-5xl mx-auto w-full space-y-6">
+          <div className="bg-blue-950/40 border border-blue-800/50 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-8 h-8 text-blue-400" />
+              <div>
+                <h2 className="text-lg font-bold text-white">Branch Order Requisition Link</h2>
+                <p className="text-xs text-slate-300">Submit order quantities for items available at global supplier warehouses.</p>
+              </div>
+            </div>
+            
+            {/* Branch Selector Simulation */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-slate-300">Logged-in Branch:</label>
+              <select 
+                value={currentBranch}
+                onChange={(e) => setCurrentBranch(e.target.value)}
+                className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500"
+              >
+                <option value="Branch A">Branch A (Dubai Hub)</option>
+                <option value="Branch B">Branch B (Jebel Ali Hub)</option>
+              </select>
+            </div>
+          </div>
+
+          <form onSubmit={submitBranchOrder} className="bg-slate-950 rounded-xl border border-slate-800 p-6 shadow-xl space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white">Restricted Catalog for {currentBranch}</h3>
+                <p className="text-xs text-slate-400">You can only view and order items assigned specifically to your branch permissions.</p>
+              </div>
+              <div className="text-xs bg-slate-900 text-slate-300 px-3 py-1 rounded border border-slate-800">
+                Active Orders Logged: <span className="font-mono text-emerald-400">{Object.keys(branchOrders[currentBranch] || {}).length} SKUs</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {inventory
+                .filter(item => item.allowedBranches.includes(currentBranch))
+                .map((item) => {
+                  const currentOrderedQty = branchOrders[currentBranch]?.[item.id] || 0;
+                  return (
+                    <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/60 p-4 rounded-lg border border-slate-800 gap-4">
+                      <div>
+                        <div className="font-semibold text-white">{item.name}</div>
+                        <div className="text-xs text-slate-400 font-mono mt-0.5">
+                          SKU: {item.id} | Supplier: {item.supplier} ({item.country}) | Supplier MOQ: {item.moq}
+                        </div>
+                        <div className="text-xs text-emerald-400 mt-1">
+                          Previously Submitted Qty: {currentOrderedQty} units
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <label className="text-xs text-slate-400 whitespace-nowrap">Order Qty:</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder="0"
+                          defaultValue={currentOrderedQty}
+                          onChange={(e) => handleBranchQtyChange(item.id, e.target.value)}
+                          className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-mono w-28 focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 flex justify-end">
+              <button 
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition shadow-lg shadow-blue-600/20 flex items-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                <span>Submit Branch Order Requisition</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
