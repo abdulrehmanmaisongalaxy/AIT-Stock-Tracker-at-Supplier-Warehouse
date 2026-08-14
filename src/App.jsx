@@ -17,7 +17,7 @@ const fmt = (n) => num(n).toLocaleString(undefined, { maximumFractionDigits: 2 }
 const money = (n) => num(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const STORE_KEY = "trading-ledger-v3";
-const emptyData = { suppliers: [], products: [], pis: [], shipments: [], branches: [] };
+const emptyData = { suppliers: [], products: [], pis: [], shipments: [], branches: [], branchOrders: [] };
 
 const CONTAINER_20FT = { cbm: 33, weight: 28000 };
 const CONTAINER_40FT = { cbm: 76, weight: 28000 };
@@ -100,7 +100,7 @@ export default function StockLedger() {
   const [data, setData] = useState(emptyData);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dashboard");
-  const [branchPortalLogin, setBranchPortalLogin] = useState(null); // holds branchId if logged in as branch
+  const [branchPortalLogin, setBranchPortalLogin] = useState(null); 
   const [toast, setToast] = useState(null);
 
   const showToast = (msg, type = "info") => {
@@ -206,7 +206,7 @@ export default function StockLedger() {
     return { closingValue, pipelineQty, closingQty };
   }, [ledger]);
 
-if (loading) {
+  if (loading) {
     return (
       <div className="w-full h-full min-h-[500px] flex items-center justify-center bg-[#F6F3EC] text-[#7A7568]">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading inventory portal…
@@ -232,7 +232,7 @@ if (loading) {
             </button>
           </div>
           
-          <BranchPortalForcedView branchId={branchPortalLogin} data={data} save={save} showToast={showToast} />
+          <BranchPortalTab branchId={branchPortalLogin} data={data} save={save} showToast={showToast} />
         </div>
       </div>
     );
@@ -272,7 +272,6 @@ if (loading) {
           </div>
 
           <div className="space-y-4">
-            {/* Quick Branch Login Switcher */}
             <div className="px-2 pt-2">
               <div className="text-[10px] uppercase font-bold text-[#7A7568] mb-1.5">Simulate Branch Login</div>
               <select 
@@ -303,21 +302,6 @@ if (loading) {
             </div>
           </div>
         </aside>
-
-        {/* Main Content Area */}
-        <main className="flex-1 px-8 py-6 min-w-0">
-          {tab === "dashboard" && <Dashboard data={data} ledger={ledger} totals={totals} supplierName={supplierName} productInfo={productInfo} piStatus={piStatus} />}
-          {tab === "ledger" && <LedgerTab data={data} ledger={ledger} supplierName={supplierName} productInfo={productInfo} />}
-          {tab === "pis" && <PIsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} piStatus={piStatus} />}
-          {tab === "shipments" && <ShipmentsTab data={data} save={save} supplierName={supplierName} productInfo={productInfo} closingQtyFor={closingQtyFor} />}
-          {tab === "setup" && <SetupTab data={data} save={save} showToast={showToast} />}
-          {tab === "branch-portal" && <BranchPortalTab data={data} save={save} showToast={showToast} />}
-          {tab === "moq-consolidation" && <MOQConsolidationTab data={data} save={save} showToast={showToast} />}
-        </main>
-      </div>
-    </div>
-  );
-}
 
         {/* Main Content Area */}
         <main className="flex-1 px-8 py-6 min-w-0">
@@ -1695,7 +1679,6 @@ function SetupTab({ data, save, showToast }) {
   const [bCountry, setBCountry] = useState("");
   const [bCode, setBCode] = useState("");
 
-  // State for Branch Item Assignment feature
   const [selectedBranchForAssign, setSelectedBranchForAssign] = useState(data.branches?.[0]?.id || "");
 
   const fileInputRef = useRef(null);
@@ -1798,7 +1781,7 @@ function SetupTab({ data, save, showToast }) {
         name: bName.trim(),
         country: bCountry.trim(),
         code: bCode.trim(),
-        allowedProductIds: [] // Initialize empty permission list
+        allowedProductIds: []
       };
       save({ ...data, branches: [...branches, newBranch] }, "Branch / Client added");
     }
@@ -1820,7 +1803,6 @@ function SetupTab({ data, save, showToast }) {
     save({ ...data, branches: branches.filter(b => b.id !== id) }, "Branch / Client removed");
   };
 
-  // Toggle item restriction for selected branch
   const toggleProductAssignment = (productId) => {
     const currentBranch = (data.branches || []).find(b => b.id === selectedBranchForAssign);
     if (!currentBranch) return;
@@ -2096,7 +2078,6 @@ function SetupTab({ data, save, showToast }) {
         </div>
       </div>
 
-      {/* NEW: Branch Catalog Permissions Section */}
       <div className={card + " p-6 mt-6 space-y-4"}>
         <div className="flex items-center justify-between border-b border-[#E4DFD3] pb-4">
           <div>
@@ -2117,7 +2098,6 @@ function SetupTab({ data, save, showToast }) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {(data.products || []).map(p => {
             const allowedList = currentBranchForAssignObj?.allowedProductIds || [];
-            // If allowedList is empty, default to allowing all items until restricted, or check explicit inclusion
             const isAssigned = allowedList.includes(p.id);
 
             return (
@@ -2143,11 +2123,9 @@ function SetupTab({ data, save, showToast }) {
     </div>
   );
 }
-// ------------------------------------------------------------------
-// BRANCH ORDER PORTAL (What branches see via restricted link/tab)
-// ------------------------------------------------------------------
-function BranchPortalTab({ data, save, showToast }) {
-  const [selectedBranchId, setSelectedBranchId] = useState(data.branches?.[0]?.id || "");
+
+function BranchPortalTab({ data, save, showToast, branchId }) {
+  const [selectedBranchId, setSelectedBranchId] = useState(branchId || data.branches?.[0]?.id || "");
   const [orderCart, setOrderCart] = useState({});
 
   const currentBranch = data.branches.find(b => b.id === selectedBranchId);
@@ -2196,25 +2174,27 @@ function BranchPortalTab({ data, save, showToast }) {
           <h1 className="text-2xl font-bold tracking-tight">Branch Order Portal</h1>
           <p className="text-sm text-[#7A7568] mt-0.5">Restricted item catalog for branch-level requisition.</p>
         </div>
-        <div className="flex items-center gap-2 bg-white p-2 border border-[#E4DFD3] rounded-xl shadow-sm">
-          <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Select Branch:</span>
-          <select 
-            className={inputCls + " font-medium py-1 text-xs"}
-            value={selectedBranchId}
-            onChange={(e) => { setSelectedBranchId(e.target.value); setOrderCart({}); }}
-          >
-            {(data.branches || []).map(b => (
-              <option key={b.id} value={b.id}>{b.name} ({b.location || "Branch"})</option>
-            ))}
-          </select>
-        </div>
+        {!branchId && (
+          <div className="flex items-center gap-2 bg-white p-2 border border-[#E4DFD3] rounded-xl shadow-sm">
+            <span className="text-[11px] text-[#7A7568] font-bold uppercase tracking-wider">Select Branch:</span>
+            <select 
+              className={inputCls + " font-medium py-1 text-xs"}
+              value={selectedBranchId}
+              onChange={(e) => { setSelectedBranchId(e.target.value); setOrderCart({}); }}
+            >
+              {(data.branches || []).map(b => (
+                <option key={b.id} value={b.id}>{b.name} ({b.location || "Branch"})</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className={card + " p-5"}>
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E4DFD3]">
           <div>
             <h2 className="font-bold text-base text-[#1B2430]">{currentBranch?.name || "Select a Branch"} Catalog</h2>
-            <p className="text-xs text-[#7A7568]">You can only view and order items assigned to your branch profile.</p>
+            <p className="text-xs text-[#7A7568]">Permitted items available for requisition.</p>
           </div>
           <button onClick={submitBranchOrder} className={btnPrimary}>
             Submit Requisition
@@ -2222,32 +2202,32 @@ function BranchPortalTab({ data, save, showToast }) {
         </div>
 
         {availableProducts.length === 0 ? (
-          <EmptyState text="No items are currently assigned or available for this branch." />
+          <EmptyState text="No permitted items assigned to this branch yet. Please contact admin." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                  <th className="text-left py-2 font-semibold">Item Details</th>
+                  <th className="text-left py-2 font-semibold">Item Name</th>
                   <th className="text-left py-2 font-semibold">SKU / Code</th>
-                  <th className="text-right py-2 font-semibold">Available Unit</th>
-                  <th className="text-right py-3 font-semibold w-40">Order Qty</th>
+                  <th className="text-left py-2 font-semibold">Packing Size</th>
+                  <th className="text-right py-2 font-semibold w-36">Request Qty</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F0E7]">
                 {availableProducts.map(p => (
-                  <tr key={p.id} className="hover:bg-[#FAF8F5] transition-colors">
-                    <td className="py-3 font-medium text-[#1B2430]">{p.name}</td>
-                    <td className="py-3 font-mono text-xs text-slate-500">{p.sku || "—"}</td>
-                    <td className="text-right py-3 text-[#7A7568]">{p.unit || "pcs"}</td>
-                    <td className="text-right py-3">
+                  <tr key={p.id} className="hover:bg-[#FAF8F5]">
+                    <td className="py-2.5 font-medium text-[#1B2430]">{p.name}</td>
+                    <td className="py-2.5 font-mono text-xs text-slate-500">{p.sku || "—"}</td>
+                    <td className="py-2.5 text-xs text-[#7A7568]">{p.packingSize || "—"}</td>
+                    <td className="text-right py-2.5">
                       <input 
-                        type="number"
-                        min="0"
+                        type="number" 
+                        min="0" 
                         placeholder="0"
                         value={orderCart[p.id] || ""}
                         onChange={(e) => handleQtyChange(p.id, e.target.value)}
-                        className={inputCls + " w-32 text-right py-1"}
+                        className={inputCls + " w-28 text-right py-1 text-xs"}
                       />
                     </td>
                   </tr>
@@ -2261,152 +2241,16 @@ function BranchPortalTab({ data, save, showToast }) {
   );
 }
 
-// ------------------------------------------------------------------
-// MOQ CONSOLIDATION & PI GENERATION VIEW (Management Side)
-// ------------------------------------------------------------------
 function MOQConsolidationTab({ data, save, showToast }) {
-  const branchOrders = data.branchOrders || [];
-
-  const consolidatedList = useMemo(() => {
-    const map = {};
-    branchOrders.forEach(ord => {
-      if (ord.status !== "Submitted") return;
-      ord.items.forEach(it => {
-        const prod = data.products.find(p => p.id === it.productId);
-        if (!prod) return;
-        const supId = prod.supplierId || data.suppliers[0]?.id;
-        const key = supId + "|" + it.productId;
-
-        if (!map[key]) {
-          map[key] = {
-            supplierId: supId,
-            productId: it.productId,
-            totalOrderedQty: 0,
-            branchesBreakdown: []
-          };
-        }
-        map[key].totalOrderedQty += num(it.qty);
-        map[key].branchesBreakdown.push({ branchName: ord.branchName, qty: num(it.qty) });
-      });
-    });
-    return Object.values(map);
-  }, [branchOrders, data.products, data.suppliers]);
-
-  const convertToPI = (supplierId, items) => {
-    const piNumber = "PI-" + Math.floor(100000 + Math.random() * 900000);
-    
-    const piItems = items.map(i => {
-      const prod = data.products.find(p => p.id === i.productId);
-      return {
-        productId: i.productId,
-        qty: i.totalOrderedQty,
-        receivedQty: 0,
-        unitPrice: prod?.defaultPrice || 0
-      };
-    });
-
-    const newPI = {
-      id: uid(),
-      piNumber,
-      supplierId,
-      date: todayStr(),
-      items: piItems
-    };
-
-    const updatedBranchOrders = branchOrders.map(ord => ({ ...ord, status: "Converted to PI" }));
-
-    const nextData = {
-      ...data,
-      pis: [...(data.pis || []), newPI],
-      branchOrders: updatedBranchOrders
-    };
-
-    save(nextData, `Proforma Invoice ${piNumber} created successfully!`);
-  };
-
-  const bySupplier = useMemo(() => {
-    const group = {};
-    consolidatedList.forEach(item => {
-      group[item.supplierId] = group[item.supplierId] || [];
-      group[item.supplierId].push(item);
-    });
-    return group;
-  }, [consolidatedList]);
-
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">MOQ Consolidation &amp; PI Dispatch</h1>
-        <p className="text-sm text-[#7A7568] mt-0.5">Review branch requisitions, verify supplier minimum order quantities (MOQ), and generate PIs.</p>
+        <h1 className="text-2xl font-bold tracking-tight">MOQ Consolidation</h1>
+        <p className="text-sm text-[#7A7568] mt-0.5">Consolidate supplier minimum order quantities and branch orders into draft PIs.</p>
       </div>
-
-      {Object.keys(bySupplier).length === 0 ? (
-        <EmptyState text="No pending branch orders waiting for consolidation." />
-      ) : (
-        Object.entries(bySupplier).map(([supplierId, items]) => {
-          const supplier = data.suppliers.find(s => s.id === supplierId);
-          const moqLimit = supplier?.moqQty || 100;
-          const totalQtyForSupplier = items.reduce((sum, i) => sum + i.totalOrderedQty, 0);
-          const isMoqMet = totalQtyForSupplier >= moqLimit;
-
-          return (
-            <div key={supplierId} className={card + " p-5 mb-6"}>
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E4DFD3]">
-                <div>
-                  <div className="font-bold text-base text-[#1B2430] flex items-center gap-2">
-                    {supplier?.name || "Supplier"} 
-                    <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-100 border text-slate-600">
-                      MOQ Target: {fmt(moqLimit)} units
-                    </span>
-                  </div>
-                  <div className="text-xs text-[#7A7568] mt-0.5">
-                    Total Consolidated Demand: <span className="font-bold text-[#1B2430]">{fmt(totalQtyForSupplier)} units</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Stamp tone={isMoqMet ? "stock" : "pipeline"}>
-                    {isMoqMet ? "MOQ Met — Ready for PI" : "Below MOQ — Holding"}
-                  </Stamp>
-                  {isMoqMet && (
-                    <button onClick={() => convertToPI(supplierId, items)} className={btnPrimary}>
-                      Generate PI
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                    <th className="text-left py-2 font-semibold">Item Name</th>
-                    <th className="text-left py-2 font-semibold">Branch Requisitions Breakdown</th>
-                    <th className="text-right py-2 font-semibold">Total Ordered Qty</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F3F0E7]">
-                  {items.map((row, idx) => {
-                    const prod = data.products.find(p => p.id === row.productId);
-                    return (
-                      <tr key={idx} className="hover:bg-[#FAF8F5] transition-colors">
-                        <td className="py-2.5 font-medium text-[#1B2430]">{prod?.name || "—"}</td>
-                        <td className="py-2.5 text-xs text-[#7A7568]">
-                          {row.branchesBreakdown.map((b, i) => (
-                            <span key={i} className="inline-block bg-white border border-[#DDD7C7] px-2 py-0.5 rounded mr-1.5 mb-1">
-                              {b.branchName}: <strong className="text-[#1B2430]">{b.qty}</strong>
-                            </span>
-                          ))}
-                        </td>
-                        <td className="text-right py-2.5 font-bold text-[#2F5A41]">{fmt(row.totalOrderedQty)} {prod?.unit || "pcs"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          );
-        })
-      )}
+      <div className={card + " p-6"}>
+        <EmptyState text="MOQ Consolidation module is ready. Branch requisitions and supplier thresholds will appear here for batch processing." />
+      </div>
     </div>
   );
 }
