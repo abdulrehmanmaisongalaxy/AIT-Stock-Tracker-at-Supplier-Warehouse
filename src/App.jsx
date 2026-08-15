@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { MasterSetup } from './components/MasterSetup';
-// Import your other components here if you have separate files:
-// import { ExecutiveDashboard } from './components/ExecutiveDashboard';
-// import { StockLedger } from './components/StockLedger';
-// import { OrderConsolidation } from './components/OrderConsolidation';
-// import { ProformaInvoices } from './components/ProformaInvoices';
-// import { ShipmentsContainers } from './components/ShipmentsContainers';
-// import { BranchManagementLinks } from './components/BranchManagementLinks';
 
 // Branch Login Security Guard Component
 function BranchLoginGuard({ branchId, children, branches }) {
@@ -79,7 +72,6 @@ function BranchLoginGuard({ branchId, children, branches }) {
 }
 
 export default function App() {
-  // Application State
   const [branches, setBranches] = useState([
     { id: 'Branch-A', name: 'Dubai Mall Branch', secretPin: 'dubai123' },
     { id: 'Branch-B', name: 'Marina Walk Branch', secretPin: 'marina123' }
@@ -95,11 +87,9 @@ export default function App() {
   
   const [currentTab, setCurrentTab] = useState('dashboard');
 
-  // Check URL parameters for branch routing (e.g. ?branch=Branch-B)
   const urlParams = new URLSearchParams(window.location.search);
   const branchParam = urlParams.get('branch');
 
-  // If a branch link is accessed, render the secure branch view
   if (branchParam) {
     return (
       <BranchLoginGuard branchId={branchParam} branches={branches}>
@@ -116,19 +106,32 @@ export default function App() {
               Lock / Logout
             </button>
           </header>
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm text-center space-y-2">
+          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-[#1B2430]">Branch Requisition & Ordering Dashboard</h2>
-            <p className="text-xs text-[#7A7568]">Branch ordering interface active. You are securely isolated from Admin settings.</p>
+            <p className="text-xs text-[#7A7568]">Select items from active suppliers below to submit branch replenishment orders.</p>
+            <div className="border border-[#E4DFD3] rounded-xl p-4 bg-[#FAF8F5]">
+              <h3 className="text-xs font-bold text-[#1B2430] mb-2">Available Master Items</h3>
+              <div className="space-y-2">
+                {items.map(item => (
+                  <div key={item.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-[#E4DFD3] text-xs">
+                    <div>
+                      <span className="font-bold">{item.name}</span> ({item.supplier}) - MOQ: {item.moq} {item.unit}
+                    </div>
+                    <button className="bg-[#1B2430] text-white px-3 py-1.5 rounded-lg font-medium cursor-pointer">
+                      Request Order
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </BranchLoginGuard>
     );
   }
 
-  // Main Admin View (Default if no branch parameter is passed)
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#1B2430] flex flex-col">
-      {/* Top Navigation Bar */}
       <header className="bg-[#1B2430] text-white px-6 py-4 flex justify-between items-center shadow-md">
         <div>
           <h1 className="text-base font-bold">AIT Supplier & Inventory Control Portal</h1>
@@ -137,7 +140,6 @@ export default function App() {
         <span className="bg-emerald-600 text-white text-[10px] px-3 py-1 rounded-full font-semibold shadow-inner">Admin Mode Active</span>
       </header>
 
-      {/* Navigation Tabs */}
       <nav className="bg-white border-b border-[#E4DFD3] px-6 flex gap-6 text-xs font-semibold overflow-x-auto">
         {[
           { id: 'dashboard', label: 'Executive Dashboard' },
@@ -159,8 +161,90 @@ export default function App() {
         ))}
       </nav>
 
-      {/* Main Content Body */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+        {currentTab === 'dashboard' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+                <p className="text-xs text-[#7A7568] font-semibold">Total Active Items</p>
+                <h3 className="text-xl font-bold text-[#1B2430] mt-1">{items.length}</h3>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+                <p className="text-xs text-[#7A7568] font-semibold">Registered Suppliers</p>
+                <h3 className="text-xl font-bold text-[#1B2430] mt-1">{suppliers.length}</h3>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+                <p className="text-xs text-[#7A7568] font-semibold">Active Branches</p>
+                <h3 className="text-xl font-bold text-[#1B2430] mt-1">{branches.length}</h3>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+                <p className="text-xs text-[#7A7568] font-semibold">System Status</p>
+                <h3 className="text-xl font-bold text-emerald-600 mt-1">Operational</h3>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-3">
+              <h2 className="text-sm font-bold text-[#1B2430]">Executive Overview & Inventory Valuation</h2>
+              <p className="text-xs text-[#7A7568]">Monitor stock velocity, container shipments, and branch consolidation thresholds from this central hub.</p>
+            </div>
+          </div>
+        )}
+
+        {currentTab === 'ledger' && (
+          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-[#1B2430]">Stock Ledger & Multi-Warehouse Tracking</h2>
+            <p className="text-xs text-[#7A7568]">Real-time visibility into stock distributed across regional warehouses.</p>
+            <div className="border border-[#E4DFD3] rounded-xl p-4 bg-[#FAF8F5] text-xs text-[#7A7568]">
+              Ledger tracking is synced with active master items and supplier inbound shipments.
+            </div>
+          </div>
+        )}
+
+        {currentTab === 'orders' && (
+          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-[#1B2430]">Order Consolidation & MOQ Optimizer</h2>
+            <p className="text-xs text-[#7A7568]">Review branch requisitions and consolidate them to meet supplier minimum order quantities.</p>
+          </div>
+        )}
+
+        {currentTab === 'proforma' && (
+          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-[#1B2430]">Proforma Invoices</h2>
+            <p className="text-xs text-[#7A7568]">Manage supplier invoices, advance payments, and financial clearance status.</p>
+          </div>
+        )}
+
+        {currentTab === 'shipments' && (
+          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-[#1B2430]">Shipments & Maritime Containers</h2>
+            <p className="text-xs text-[#7A7568]">Track container stuffing, CBM capacities, and estimated time of arrival (ETA).</p>
+          </div>
+        )}
+
+        {currentTab === 'branches' && (
+          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-[#1B2430]">Branch Management & Secure Links</h2>
+            <p className="text-xs text-[#7A7568]">Direct branch portal URLs with PIN authentication:</p>
+            <div className="space-y-3">
+              {branches.map(b => (
+                <div key={b.id} className="p-4 bg-[#FAF8F5] border border-[#E4DFD3] rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs">
+                  <div>
+                    <span className="font-bold text-[#1B2430]">{b.name} ({b.id})</span>
+                    <p className="text-[#7A7568]">PIN: <code className="bg-white px-2 py-0.5 border rounded">{b.secretPin}</code></p>
+                  </div>
+                  <a 
+                    href={`?branch=${b.id}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="bg-[#1B2430] text-white px-3 py-1.5 rounded-lg font-medium hover:bg-[#2B3848]"
+                  >
+                    Open Branch Portal ↗
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {currentTab === 'master' && (
           <MasterSetup 
             items={items} 
@@ -170,46 +254,11 @@ export default function App() {
             branches={branches} 
           />
         )}
-        {currentTab === 'dashboard' && (
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
-            <h2 className="text-base font-bold text-[#1B2430] mb-2">Executive Dashboard</h2>
-            <p className="text-xs text-[#7A7568]">Overview of inventory valuation, stock levels, and active orders.</p>
-          </div>
-        )}
-        {currentTab === 'ledger' && (
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
-            <h2 className="text-base font-bold text-[#1B2430] mb-2">Stock Ledger</h2>
-            <p className="text-xs text-[#7A7568]">Real-time multi-warehouse inventory tracking.</p>
-          </div>
-        )}
-        {currentTab === 'orders' && (
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
-            <h2 className="text-base font-bold text-[#1B2430] mb-2">Order Consolidation & MOQ</h2>
-            <p className="text-xs text-[#7A7568]">Consolidate branch requests to meet supplier MOQ thresholds.</p>
-          </div>
-        )}
-        {currentTab === 'proforma' && (
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
-            <h2 className="text-base font-bold text-[#1B2430] mb-2">Proforma Invoices</h2>
-            <p className="text-xs text-[#7A7568]">Manage supplier proforma invoices and cost allocations.</p>
-          </div>
-        )}
-        {currentTab === 'shipments' && (
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
-            <h2 className="text-base font-bold text-[#1B2430] mb-2">Shipments & Containers</h2>
-            <p className="text-xs text-[#7A7568]">Track maritime containers, CBM capacity, and logistics milestones.</p>
-          </div>
-        )}
-        {currentTab === 'branches' && (
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
-            <h2 className="text-base font-bold text-[#1B2430] mb-2">Branch Management & Links</h2>
-            <p className="text-xs text-[#7A7568]">Generate secure branch access URLs and PINs.</p>
-          </div>
-        )}
+
         {currentTab === 'hub' && (
-          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
-            <h2 className="text-base font-bold text-[#1B2430] mb-2">Branch Login Hub</h2>
-            <p className="text-xs text-[#7A7568]">Overview of all active branch portals.</p>
+          <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-[#1B2430]">Branch Login Hub</h2>
+            <p className="text-xs text-[#7A7568]">Central overview of active branch user sessions and access logs.</p>
           </div>
         )}
       </main>
