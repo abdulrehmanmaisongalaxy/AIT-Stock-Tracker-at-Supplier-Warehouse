@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export function Shipments({ shipments, setShipments, branches, items, suppliers, proformaInvoices }) {
+export function Shipments({ shipments, setShipments, branches, proformaInvoices }) {
   const [form, setForm] = useState({ trackingNo: '', piId: '', branchId: '', containerType: '40FT', eta: '', status: 'In Transit' });
 
   const handleSubmit = (e) => {
@@ -11,6 +11,12 @@ export function Shipments({ shipments, setShipments, branches, items, suppliers,
     alert('Shipment tracking added successfully!');
   };
 
+  const handleDelete = (id) => {
+    if (window.confirm('Delete this shipment?')) {
+      setShipments(shipments.filter(s => s.id !== id));
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm h-fit">
@@ -18,7 +24,7 @@ export function Shipments({ shipments, setShipments, branches, items, suppliers,
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
             <label className="block text-[#7A7568] mb-1">Bill of Lading / Tracking No</label>
-            <input type="text" required placeholder="BL-982341" value={form.trackingNo} onChange={e => setForm({...form, trackingNo: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
+            <input type="text" required placeholder="AIT-12345" value={form.trackingNo} onChange={e => setForm({...form, trackingNo: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
           </div>
           <div>
             <label className="block text-[#7A7568] mb-1">Associated Proforma Invoice</label>
@@ -40,7 +46,6 @@ export function Shipments({ shipments, setShipments, branches, items, suppliers,
               <select value={form.containerType} onChange={e => setForm({...form, containerType: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl bg-white">
                 <option value="20FT">20FT Container</option>
                 <option value="40FT">40FT Container</option>
-                <option value=" LCL">LCL Consolidation</option>
               </select>
             </div>
             <div>
@@ -62,7 +67,7 @@ export function Shipments({ shipments, setShipments, branches, items, suppliers,
                 <th className="p-3">Destination Branch</th>
                 <th className="p-3">Container</th>
                 <th className="p-3">ETA Date</th>
-                <th className="p-3 text-right">Status</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E4DFD3]">
@@ -78,11 +83,14 @@ export function Shipments({ shipments, setShipments, branches, items, suppliers,
                     <td className="p-3 font-medium">{shp.containerType}</td>
                     <td className="p-3 text-[#7A7568]">{shp.eta || 'TBD'}</td>
                     <td className="p-3 text-right">
-                      <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-[10px] font-semibold">{shp.status}</span>
+                      <button onClick={() => handleDelete(shp.id)} className="text-rose-600 font-semibold cursor-pointer">Delete</button>
                     </td>
                   </tr>
                 );
               })}
+              {shipments.length === 0 && (
+                <tr><td colSpan="5" className="text-center py-8 text-gray-400">No active shipments.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
