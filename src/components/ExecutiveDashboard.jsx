@@ -1,77 +1,76 @@
 import React from 'react';
-import { Package, Truck, Layers, Building2 } from 'lucide-react';
 
-export function ExecutiveDashboard({ data, card, sectionLabel, fmt, Stamp }) {
-  const totalProducts = data.products?.length || 0;
-  const totalSuppliers = data.suppliers?.length || 0;
-  const totalBranches = data.branches?.length || 0;
-  const activeOrders = data.branchOrders?.length || 0;
+export function ExecutiveDashboard({ items, suppliers, requisitions, proformaInvoices, shipments }) {
+  const totalItems = items.length;
+  const pendingReqs = requisitions.filter(r => r.status === 'Pending').length;
+  const activePis = proformaInvoices.filter(pi => pi.status !== 'Completed').length;
+  const totalShipments = shipments.length;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Executive Dashboard</h1>
-        <p className="text-sm text-[#7A7568] mt-0.5">Global overview of inventory, active requisitions, and multi-country logistics.</p>
+        <h2 className="text-xl font-bold text-[#1B2430]">Executive Summary & Operations Dashboard</h2>
+        <p className="text-xs text-[#7A7568]">Real-time overview of supplier warehouse stock, active PIs, and regional branch orders.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className={card + " p-4 flex items-center justify-between"}>
-          <div>
-            <div className="text-xs font-bold text-[#7A7568] uppercase tracking-wider">Total Master Items</div>
-            <div className="text-2xl font-extrabold text-[#1B2430] mt-1">{totalProducts}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#C98A3E] flex items-center justify-center">
-            <Package className="w-5 h-5" />
-          </div>
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Registered Items</div>
+          <div className="text-2xl font-black text-[#1B2430] mt-2">{totalItems}</div>
+          <div className="text-xs text-emerald-600 mt-1 font-medium">Across {suppliers.length} Suppliers</div>
         </div>
 
-        <div className={card + " p-4 flex items-center justify-between"}>
-          <div>
-            <div className="text-xs font-bold text-[#7A7568] uppercase tracking-wider">Active Suppliers</div>
-            <div className="text-2xl font-extrabold text-[#1B2430] mt-1">{totalSuppliers}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <Truck className="w-5 h-5" />
-          </div>
+        <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Pending Branch Requisitions</div>
+          <div className="text-2xl font-black text-[#D97706] mt-2">{pendingReqs}</div>
+          <div className="text-xs text-[#7A7568] mt-1">Awaiting consolidation & MOQ check</div>
         </div>
 
-        <div className={card + " p-4 flex items-center justify-between"}>
-          <div>
-            <div className="text-xs font-bold text-[#7A7568] uppercase tracking-wider">Registered Branches</div>
-            <div className="text-2xl font-extrabold text-[#1B2430] mt-1">{totalBranches}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Building2 className="w-5 h-5" />
-          </div>
+        <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Active Proforma Invoices</div>
+          <div className="text-2xl font-black text-[#1B2430] mt-2">{activePis}</div>
+          <div className="text-xs text-blue-600 mt-1 font-medium">In Production / At Warehouse</div>
         </div>
 
-        <div className={card + " p-4 flex items-center justify-between"}>
-          <div>
-            <div className="text-xs font-bold text-[#7A7568] uppercase tracking-wider">Pending Requisitions</div>
-            <div className="text-2xl font-extrabold text-[#1B2430] mt-1">{activeOrders}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <Layers className="w-5 h-5" />
-          </div>
+        <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Containers Dispatched</div>
+          <div className="text-2xl font-black text-[#1B2430] mt-2">{totalShipments}</div>
+          <div className="text-xs text-emerald-600 mt-1 font-medium">Exported to Africa Branches</div>
         </div>
       </div>
 
-      <div className={card + " p-5"}>
-        <div className={sectionLabel}>Recent Proforma Invoices &amp; Shipments Status</div>
-        <div className="space-y-3 mt-3">
-          {(data.pis || []).length === 0 ? (
-            <div className="text-xs text-[#7A7568] py-4 text-center">No proforma invoices generated yet. Use MOQ Consolidation to create PIs.</div>
-          ) : (
-            data.pis.slice(-5).map(pi => (
-              <div key={pi.id} className="p-3 bg-[#FAF8F5] border border-[#EFEAE0] rounded-xl flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-bold text-[#1B2430]">{pi.piNumber}</span>
-                  <span className="text-[#7A7568] ml-2">({pi.date})</span>
-                </div>
-                <Stamp tone="stock">{pi.items?.length || 0} items</Stamp>
-              </div>
-            ))
-          )}
+      {/* Quick Activity Summary Table */}
+      <div className="bg-white rounded-2xl border border-[#E4DFD3] p-6 shadow-sm">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A7568] mb-4">Recent Supplier Proforma Invoices</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-[#E4DFD3] text-[#7A7568]">
+                <th className="pb-3 font-semibold">PI Reference</th>
+                <th className="pb-3 font-semibold">Supplier</th>
+                <th className="pb-3 font-semibold">Date</th>
+                <th className="pb-3 font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E4DFD3]">
+              {proformaInvoices.map((pi) => {
+                const sup = suppliers.find(s => s.id === pi.supplierId);
+                return (
+                  <tr key={pi.id} className="hover:bg-[#FAF8F5]">
+                    <td className="py-3 font-bold text-[#1B2430]">{pi.id}</td>
+                    <td className="py-3 text-[#1B2430]">{sup ? sup.name : pi.supplierId}</td>
+                    <td className="py-3 text-[#7A7568]">{pi.date}</td>
+                    <td className="py-3">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                        {pi.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
