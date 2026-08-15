@@ -3,16 +3,15 @@ import React, { useState } from 'react';
 export function ProformaInvoices({ proformaInvoices, setProformaInvoices, suppliers, items }) {
   const [selectedPi, setSelectedPi] = useState(proformaInvoices[0] || null);
 
-  const handleStatusChange = (piId, newStatus) => {
-    setProformaInvoices(proformaInvoices.map(pi => pi.id === piId ? { ...pi, status: newStatus } : pi));
-    if (selectedPi && selectedPi.id === piId) {
-      setSelectedPi({ ...selectedPi, status: newStatus });
+  const handleDeletePi = (piId) => {
+    if (window.confirm('Delete this Proforma Invoice?')) {
+      setProformaInvoices(proformaInvoices.filter(pi => pi.id !== piId));
+      setSelectedPi(null);
     }
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* PI List */}
       <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-3">
         <h2 className="text-xs font-bold text-[#1B2430] uppercase tracking-wider">Proforma Invoices ({proformaInvoices.length})</h2>
         <div className="space-y-2">
@@ -30,14 +29,13 @@ export function ProformaInvoices({ proformaInvoices, setProformaInvoices, suppli
                   <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">{pi.status}</span>
                 </div>
                 <p className="text-[11px] text-[#7A7568]">{sup?.name || pi.supplierId}</p>
-                <p className="text-[10px] text-gray-400 mt-1">Date: {pi.date}</p>
               </div>
             );
           })}
+          {proformaInvoices.length === 0 && <p className="text-xs text-gray-400">No Proforma Invoices created yet.</p>}
         </div>
       </div>
 
-      {/* PI Details */}
       <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-6">
         {selectedPi ? (
           <>
@@ -46,18 +44,9 @@ export function ProformaInvoices({ proformaInvoices, setProformaInvoices, suppli
                 <h3 className="text-sm font-bold text-[#1B2430]">{selectedPi.id} Details</h3>
                 <p className="text-xs text-[#7A7568]">Supplier: {suppliers.find(s => s.id === selectedPi.supplierId)?.name}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <select 
-                  value={selectedPi.status} 
-                  onChange={e => handleStatusChange(selectedPi.id, e.target.value)}
-                  className="p-2 border border-[#E4DFD3] rounded-xl text-xs font-semibold bg-gray-50"
-                >
-                  <option value="Draft Issued">Draft Issued</option>
-                  <option value="In Production">In Production</option>
-                  <option value="Shipped">Shipped</option>
-                  <option value="Completed">Completed</option>
-                </select>
-              </div>
+              <button onClick={() => handleDeletePi(selectedPi.id)} className="bg-rose-50 text-rose-700 text-xs px-3 py-1.5 rounded-xl font-semibold cursor-pointer">
+                Delete PI
+              </button>
             </div>
 
             <div className="overflow-x-auto">
