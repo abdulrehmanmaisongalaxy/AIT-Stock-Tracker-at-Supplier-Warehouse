@@ -1,137 +1,116 @@
-import React, { useState, useMemo } from 'react';
-import { CheckSquare } from 'lucide-react';
+import React, { useState } from 'react';
 
-export function MOQConsolidationTab({ data, save, showToast, card, sectionLabel, inputCls, btnPrimary, EmptyState, Stamp, fmt, num, uid, todayStr }) {
-  const [selectedSupplierId, setSelectedSupplierId] = useState(data.suppliers[0]?.id || "");
-
-  const supplierOrders = useMemo(() => {
-    if (!selectedSupplierId) return [];
-    const orders = data.branchOrders || [];
-    const supplierProducts = new Set(
-      data.products.filter(p => p.supplierId === selectedSupplierId).map(p => p.id)
-    );
-
-    const consolidatedMap = {};
-    orders.forEach(ord => {
-      ord.items.forEach(it => {
-        if (supplierProducts.has(it.productId)) {
-          consolidatedMap[it.productId] = (consolidatedMap[it.productId] || 0) + num(it.qty);
-        }
-      });
+export function OrderConsolidation({ items, suppliers, requisitions, setProformaInvoices, setRequisitions }) {
+  // Consolidate pending requisitions by Item ID
+  const consolidatedMap = {};
+  requisitions.filter(r => r.status === 'Pending').forEach(req => {
+    req.items.forEach(it => {
+      if (!consolidatedMap[it.itemId]) {
+        consolidatedMap[it.itemId] = 0;
+      }
+      consolidatedMap[it.itemId] += Number(it.qty || 0);
     });
+  });
 
-    return Object.entries(consolidatedMap).map(([productId, totalQty]) => {
-      const p = data.products.find(prod => prod.id === productId);
-      const moq = num(p?.moq || 100); 
-      return {
-        productId,
-        productName: p?.name || "—",
-        sku: p?.sku || "—",
-        unit: p?.unit || "pcs",
-        totalQty,
-        moq,
-        met: totalQty >= moq
-      };
-    });
-  }, [data, selectedSupplierId]);
+  const consolidatedList = Object.keys(consolidatedMap).map(itemId => {
+    const item = items.find(i => i.id === itemId) || { name: itemId, moq: 1000, supplier: 'General Supplier' };
+    const totalQty = consolidatedMap[itemId];
+    const meetsMOQ = totalQty >= (item.moq || 0);
+    return {
+      itemId,
+      itemName: item.name,
+      supplier: item.supplier,
+      moq: item.moq || 1000,
+      totalQty,
+      meetsMOQ
+    };
+  });
 
-  const convertToPI = () => {
-    const validItems = supplierOrders
-      .filter(o => o.totalQty > 0)
-      .map(o => ({
-        productId: o.productId,
-        qty: o.totalQty,
-        unitPrice: 0,
-        receivedQty: 0
-      }));
-
-    if (validItems.length === 0) {
-      showToast("No quantities available to convert into PI", "error");
+  const handleConvertToPI = (supplierName) => {
+    const supplierItems = consolidatedList.filter(i => i.supplier === supplierName && i.meetsMOQ);
+    if (supplierItems.length === 0) {
+      alert("No items meet the MOQ requirement for this supplier.");
       return;
     }
 
-    const newPI = {
-      id: uid(),
-      supplierId: selectedSupplierId,
-      piNumber: `PI-CONSOL-${Math.floor(Math.random() * 8999 + 1000)}`,
-      date: todayStr(),
-      items: validItems
+    const newPiId = `PI-2026-${Math.floor(100 + Math.random() * 900)}` ;
+    const supObj = suppliers.find(s => s.name === supplierName) || { id: 'SUP-01' };
+    
+    const piItems = supplierItems.map(i => ({
+      itemId: i.itemId,
+      qty: i.totalQty,
+      unitPrice: 2.5 // Default placeholder price
+    }));
+
+    const newPi = {
+      id: newPiId,
+      supplierId: supObj.id,
+      date: new Date().toISOString().split('T')[0],
+      status: 'In Production',
+      items: piItems
     };
 
-    const nextData = {
-      ...data,
-      pis: [...data.pis, newPI],
-      branchOrders: []
-    };
+    setProformaInvoices(prev => [newPi, ...prev]);
 
-    save(nextData, "Successfully consolidated branch orders into a new Proforma Invoice!");
+    // Mark requisitions as processed
+    setRequisitions(prev => prev.map(r => ({ ...r, status: 'Converted to PI' })));
+    alert(`Successfully generated Proforma Invoice ${newPiId} for ${supplierName}!`);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">MOQ Consolidation &amp; Procurement</h1>
-          <p className="text-sm text-[#7A7568] mt-0.5">Consolidate multi-branch requisitions against supplier Minimum Order Quantities (MOQ).</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <select 
-            className={inputCls + " font-medium text-xs py-1.5"}
-            value={selectedSupplierId}
-            onChange={(e) => setSelectedSupplierId(e.target.value)}
-          >
-            {data.suppliers.map(s => (
-              <option key={s.id} value={s.id}>{s.name} ({s.country || "General"})</option>
-            ))}
-          </select>
-
-          <button onClick={convertToPI} className={btnPrimary}>
-            <CheckSquare className="w-4 h-4 text-[#C98A3E]" /> Convert to Purchase Order (PI)
-          </button>
-        </div>
+      <div>
+        <h2 className="text-xl font-bold text-[#1B2430]">Order Consolidation & MOQ Check</h2>
+        <p className="text-xs text-[#7A7568]">Consolidating branch order requisitions and checking supplier Minimum Order Quantities (MOQ).</p>
       </div>
 
-      <div className={card + " p-5"}>
-        <div className={sectionLabel}>Consolidated Demand vs. MOQ Threshold</div>
-        {supplierOrders.length === 0 ? (
-          <EmptyState text="No branch requisitions found for this supplier." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10.5px] uppercase tracking-[0.06em] text-[#9C9788] border-b border-[#EFEAE0]">
-                  <th className="text-left py-2 font-semibold">Item Name &amp; Code</th>
-                  <th className="text-right py-2 font-semibold">Total Branch Demand</th>
-                  <th className="text-right py-2 font-semibold">Target MOQ</th>
-                  <th className="text-center py-2 font-semibold">MOQ Status</th>
+      <div className="bg-white rounded-2xl border border-[#E4DFD3] p-6 shadow-sm space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Consolidated Branch Demand vs. Supplier MOQ</h3>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-[#E4DFD3] text-[#7A7568]">
+                <th className="pb-3 font-semibold">Item Code</th>
+                <th className="pb-3 font-semibold">Item Name</th>
+                <th className="pb-3 font-semibold">Supplier</th>
+                <th className="pb-3 font-semibold text-right">Required MOQ</th>
+                <th className="pb-3 font-semibold text-right">Total Ordered Qty</th>
+                <th className="pb-3 font-semibold text-center">MOQ Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E4DFD3]">
+              {consolidatedList.map((row) => (
+                <tr key={row.itemId} className="hover:bg-[#FAF8F5]">
+                  <td className="py-3 font-bold text-[#1B2430]">{row.itemId}</td>
+                  <td className="py-3 text-[#1B2430]">{row.itemName}</td>
+                  <td className="py-3 text-[#7A7568]">{row.supplier}</td>
+                  <td className="py-3 text-right font-medium">{row.moq}</td>
+                  <td className="py-3 text-right font-bold text-[#1B2430]">{row.totalQty}</td>
+                  <td className="py-3 text-center">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${row.meetsMOQ ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                      {row.meetsMOQ ? 'MOQ Met ✓' : 'Below MOQ ⚠'}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F3F0E7]">
-                {supplierOrders.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-[#FAF8F5] transition-colors">
-                    <td className="py-2.5 font-medium">
-                      {row.productName} {row.sku && <span className="text-xs text-[#7A7568] font-mono">({row.sku})</span>}
-                    </td>
-                    <td className="text-right py-2.5 font-bold text-[#1B2430]">
-                      {fmt(row.totalQty)} {row.unit}
-                    </td>
-                    <td className="text-right py-2.5 text-[#7A7568]">
-                      {fmt(row.moq)} {row.unit}
-                    </td>
-                    <td className="text-center py-2.5">
-                      {row.met ? (
-                        <Stamp tone="stock">MOQ Met ✓</Stamp>
-                      ) : (
-                        <Stamp tone="low">Below MOQ</Stamp>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Action Panel */}
+        <div className="pt-4 border-t border-[#E4DFD3] flex justify-between items-center">
+          <span className="text-xs text-[#7A7568]">Suppliers with met MOQs can be instantly converted into Proforma Invoices.</span>
+          {suppliers.map(sup => (
+            <button
+              key={sup.id}
+              onClick={() => handleConvertToPI(sup.name)}
+              className="bg-[#1B2430] hover:bg-[#2B3848] text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer shadow-sm"
+            >
+              Convert {sup.name} to PI
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
