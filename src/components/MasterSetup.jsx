@@ -214,23 +214,24 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Header & Download/Upload Action Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-[#1B2430]">Master Setup, Countries & Imports</h2>
-          <p className="text-xs text-[#7A7568]">Manage supplier countries, register items/suppliers manually, or upload via CSV templates.</p>
+          <p className="text-xs text-[#7A7568]">Manage global supplier countries, download CSV templates, or bulk import items and suppliers.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => downloadTemplate('items')} className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+          <button onClick={() => downloadTemplate('items')} className="bg-[#FAF8F5] border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-100 cursor-pointer">
             📥 Download Item Template
           </button>
-          <label className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+          <label className="bg-[#1B2430] text-white px-3 py-2 rounded-xl text-xs font-semibold hover:bg-[#2B3848] cursor-pointer">
             📂 Import Items CSV
             <input type="file" accept=".csv" onChange={handleItemFileUpload} className="hidden" />
           </label>
-          <button onClick={() => downloadTemplate('suppliers')} className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+          <button onClick={() => downloadTemplate('suppliers')} className="bg-[#FAF8F5] border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-100 cursor-pointer">
             📥 Download Supplier Template
           </button>
-          <label className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+          <label className="bg-[#1B2430] text-white px-3 py-2 rounded-xl text-xs font-semibold hover:bg-[#2B3848] cursor-pointer">
             📂 Import Suppliers CSV
             <input type="file" accept=".csv" onChange={handleSupplierFileUpload} className="hidden" />
           </label>
@@ -239,18 +240,18 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
 
       {/* Country Management Section */}
       <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Manage Supplier Countries</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Manage Supplier Countries (Unlimited Countries)</h3>
         <div className="flex gap-2 max-w-md">
           <input 
             type="text" 
             value={newCountry} 
             onChange={e => setNewCountry(e.target.value)} 
-            placeholder="Enter new country (e.g. Vietnam, India)..." 
+            placeholder="Add new country (e.g. Vietnam, India, Turkey)..." 
             className="flex-1 bg-[#FAF8F5] border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" 
           />
           <button 
             type="button" 
-            onClick={() => { if(newCountry) { setCountries([...countries, newCountry]); setNewCountry(''); } }} 
+            onClick={() => { if(newCountry.trim()) { setCountries([...countries, newCountry.trim()]); setNewCountry(''); } }} 
             className="bg-[#1B2430] text-white px-4 py-2 rounded-xl text-xs font-medium cursor-pointer"
           >
             Add Country
@@ -258,9 +259,9 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
         </div>
         <div className="flex flex-wrap gap-2">
           {countries.map(c => (
-            <span key={c} className="bg-[#FAF8F5] px-3 py-1 rounded-lg border border-[#E4DFD3] text-xs font-medium flex items-center gap-2">
-              {c}
-              <button onClick={() => setCountries(countries.filter(item => item !== c))} className="text-rose-500 hover:font-bold">×</button>
+            <span key={c} className="bg-[#FAF8F5] px-3 py-1.5 rounded-lg border border-[#E4DFD3] text-xs font-medium flex items-center gap-2">
+              🌍 {c}
+              <button onClick={() => setCountries(countries.filter(item => item !== c))} className="text-rose-500 font-bold hover:scale-110">×</button>
             </span>
           ))}
         </div>
@@ -353,12 +354,12 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[#7A7568] mb-1">Warehouse Location</label>
-                <input type="text" value={supWarehouse} onChange={e => setSupWarehouse(e.target.value)} placeholder="Hub #1" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" />
+                <input type="text" value={supWarehouse} onChange={e => setSupWarehouse(e.target.value)} className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" placeholder="Hub #1" />
               </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#7A7568] mb-1">Contact Person</label>
-              <input type="text" value={supContact} onChange={e => setSupContact(e.target.value)} placeholder="Mr. Nguyen" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" />
+              <input type="text" value={supContact} onChange={e => setSupContact(e.target.value)} className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" placeholder="Mr. Nguyen" />
             </div>
             <div className="flex gap-2">
               <button type="submit" className="flex-1 bg-[#1B2430] hover:bg-[#2B3848] text-white text-xs font-medium py-2 rounded-xl cursor-pointer">
