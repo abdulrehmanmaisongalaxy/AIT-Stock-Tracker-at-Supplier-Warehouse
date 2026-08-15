@@ -28,10 +28,10 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
     let fileName = "";
     
     if (type === 'items') {
-      csvContent = "Item Code,Item Name,Category,Supplier Name,MOQ,Pack Size,Weight,CBM\nITM-101,Example Product,General,Example Supplier,1000,24 Pcs/CTN,10.5,0.04";[cite: 1]
+      csvContent = "Item Code,Item Name,Category,Supplier Name,MOQ,Pack Size,Weight,CBM\nITM-101,Example Product,General,Example Supplier,1000,24 Pcs/CTN,10.5,0.04";
       fileName = "item_import_template.csv";
     } else {
-      csvContent = "Supplier Name,Country,Warehouse Location,Contact Person\nExample Supplier,Vietnam,Ho Chi Minh Hub,Mr. Nguyen";[cite: 1]
+      csvContent = "Supplier Name,Country,Warehouse Location,Contact Person\nExample Supplier,Vietnam,Ho Chi Minh Hub,Mr. Nguyen";
       fileName = "supplier_import_template.csv";
     }
     
