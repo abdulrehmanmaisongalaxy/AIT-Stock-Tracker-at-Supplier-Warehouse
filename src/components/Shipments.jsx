@@ -165,20 +165,27 @@ export function Shipments({ shipments, setShipments, branches, items, suppliers,
         <div className="bg-white rounded-2xl border border-[#E4DFD3] p-6 shadow-sm space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Dispatched Containers</h3>
           <div className="space-y-3">
-            {shipments.map(shp => {
-              const b = branches.find(br => br.id === shp.branchId);
-              return (
-                <div key={shp.id} className="p-3 border border-[#E4DFD3] rounded-xl space-y-1 bg-[#FAF8F5] text-xs">
-                  <div className="font-bold text-[#1B2430]">{shp.containerNo}</div>
-                  <div className="text-[#7A7568]">To: {b ? b.name : shp.branchId}</div>
-                  <div className="flex gap-2 pt-2">
-                    <button onClick={() => alert("Downloading Excel Packing List...")} className="bg-white border px-2.5 py-1 rounded-md text-[11px] cursor-pointer">Excel</button>
-                    <button onClick={() => alert("Downloading PDF Packing List...")} className="bg-white border px-2.5 py-1 rounded-md text-[11px] cursor-pointer">PDF</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+  {shipments.map(shp => {
+    const b = branches.find(br => br.id === shp.branchId);
+    return (
+      <div key={shp.id} className="p-3 border border-[#E4DFD3] rounded-xl space-y-1 bg-[#FAF8F5] text-xs">
+        <div className="font-bold text-[#1B2430] flex justify-between">
+          <span>{shp.containerNo}</span>
+          <button onClick={() => {
+            if (confirm("Delete this shipment record?")) {
+              setShipments(shipments.filter(s => s.id !== shp.id));
+            }
+          }} className="text-rose-600 hover:underline">Delete</button>
+        </div>
+        <div className="text-[#7A7568]">To: {b ? b.name : shp.branchId} ({shp.date})</div>
+        <div className="flex gap-2 pt-2">
+          <button onClick={() => alert("Downloading Excel Packing List...")} className="bg-white border px-2.5 py-1 rounded-md text-[11px] cursor-pointer">Excel</button>
+          <button onClick={() => alert("Downloading PDF Packing List...")} className="bg-white border px-2.5 py-1 rounded-md text-[11px] cursor-pointer">PDF</button>
+        </div>
+      </div>
+    );
+  })}
+</div>
         </div>
       </div>
     </div>
