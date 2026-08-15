@@ -1,76 +1,19 @@
 import React, { useState } from 'react';
 
-export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches }) {
+export function MasterSetup({ items, setItems, suppliers, setSuppliers }) {
   const [activeTab, setActiveTab] = useState('items');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Item Form State
-  const [itemForm, setItemForm] = useState({ id: '', name: '', category: '', unit: 'Pcs', supplier: '', moq: 500, packSize: '', weightKg: 1, cbm: 0.01, allowedBranches: [] });
+  const [itemForm, setItemForm] = useState({ id: '', name: '', category: '', unit: 'Pcs', supplier: '', moq: 500, packSize: '', weightKg: 1, cbm: 0.01 });
   const [editingItemId, setEditingItemId] = useState(null);
 
-  // Supplier Form State
   const [supplierForm, setSupplierForm] = useState({ id: '', name: '', country: '', warehouse: '', contact: '' });
   const [editingSupplierId, setEditingSupplierId] = useState(null);
 
-  // Handle Item Submit
-  const handleItemSubmit = (e) => {
-    e.preventDefault();
-    if (editingItemId) {
-      setItems(items.map(i => i.id === editingItemId ? { ...itemForm } : i));
-      setEditingItemId(null);
-    } else {
-      const newItem = { ...itemForm, id: itemForm.id || `ITM-${Date.now().toString().slice(-4)}` };
-      setItems([...items, newItem]);
-    }
-    setItemForm({ id: '', name: '', category: '', unit: 'Pcs', supplier: '', moq: 500, packSize: '', weightKg: 1, cbm: 0.01, allowedBranches: [] });
-  };
-
-  const handleEditItem = (item) => {
-    setItemForm(item);
-    setEditingItemId(item.id);
-  };
-
-  const handleDeleteItem = (id) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      setItems(items.filter(i => i.id !== id));
-    }
-  };
-
-  // Handle Supplier Submit
-  const handleSupplierSubmit = (e) => {
-    e.preventDefault();
-    if (editingSupplierId) {
-      setSuppliers(suppliers.map(s => s.id === editingSupplierId ? { ...supplierForm } : s));
-      setEditingSupplierId(null);
-    } else {
-      const newSup = { ...supplierForm, id: supplierForm.id || `SUP-${Date.now().toString().slice(-4)}` };
-      setSuppliers([...suppliers, newSup]);
-    }
-    setSupplierForm({ id: '', name: '', country: '', warehouse: '', contact: '' });
-  };
-
-  const handleEditSupplier = (sup) => {
-    setSupplierForm(sup);
-    setEditingSupplierId(sup.id);
-  };
-
-  const handleDeleteSupplier = (id) => {
-    if (window.confirm('Are you sure you want to delete this supplier?')) {
-      setSuppliers(suppliers.filter(s => s.id !== id));
-    }
-  };
-
-  // CSV Template Downloader
+  // CSV Template & Importer
   const downloadCsvTemplate = (type) => {
-    let headers = '';
-    let sample = '';
-    if (type === 'items') {
-      headers = 'id,name,category,unit,supplier,moq,packSize,weightKg,cbm\n';
-      sample = 'ITM-105,Organic Honey Jar,Grocery,Pcs,Saigon Manufacturing Ltd,500,12 Pcs/CTN,5,0.02\n';
-    } else {
-      headers = 'id,name,country,warehouse,contact\n';
-      sample = 'SUP-03,Global Trading FZE,UAE,Jebel Ali Free Zone,Mr. Ahmed\n';
-    }
+    let headers = type === 'items' ? 'id,name,category,unit,supplier,moq,packSize,weightKg,cbm\n' : 'id,name,country,warehouse,contact\n';
+    let sample = type === 'items' ? 'ITM-101,Organic Honey,Grocery,Pcs,Global Trading,500,12 Pcs/CTN,5,0.02\n' : 'SUP-01,Global Trading FZE,UAE,Jebel Ali,Mr. Ahmed\n';
     const blob = new Blob([headers + sample], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -79,39 +22,106 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
     a.click();
   };
 
+  const handleFileUpload = (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const lines = text.split('\n').filter(l => l.trim() !== '');
+      const rows = lines.slice(1).map(line => line.split(','));
+
+      if (type === 'items') {
+        const newItems = rows.map(r => ({
+          id: r[0]?.trim() || `ITM-${Math.floor(100+Math.random()*900)}`,
+          name: r[1]?.trim() || '',
+          category: r[2]?.trim() || '',
+          unit: r[3]?.trim() || 'Pcs',
+          supplier: r[4]?.trim() || '',
+          moq: Number(r[5]) || 500,
+          packSize: r[6]?.trim() || '',
+          weightKg: Number(r[7]) || 1,
+          cbm: Number(r[8]) || 0.01
+        }));
+        setItems([...items, ...newItems]);
+        alert(`Successfully imported ${newItems.length} items!`);
+      } else {
+        const newSups = rows.map(r => ({
+          id: r[0]?.trim() || `SUP-${Math.floor(100+Math.random()*900)}`,
+          name: r[1]?.trim() || '',
+          country: r[2]?.trim() || '',
+          warehouse: r[3]?.trim() || '',
+          contact: r[4]?.trim() || ''
+        }));
+        setSuppliers([...suppliers, ...newSups]);
+        alert(`Successfully imported ${newSups.length} suppliers!`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Item Submit & Actions
+  const handleItemSubmit = (e) => {
+    e.preventDefault();
+    if (editingItemId) {
+      setItems(items.map(i => i.id === editingItemId ? { ...itemForm } : i));
+      setEditingItemId(null);
+    } else {
+      setItems([...items, { ...itemForm, id: itemForm.id || `ITM-${Math.floor(100+Math.random()*900)}` }]);
+    }
+    setItemForm({ id: '', name: '', category: '', unit: 'Pcs', supplier: '', moq: 500, packSize: '', weightKg: 1, cbm: 0.01 });
+  };
+
+  const handleDeleteItem = (id) => {
+    if (window.confirm('Delete this item?')) setItems(items.filter(i => i.id !== id));
+  };
+
+  // Supplier Submit & Actions
+  const handleSupplierSubmit = (e) => {
+    e.preventDefault();
+    if (editingSupplierId) {
+      setSuppliers(suppliers.map(s => s.id === editingSupplierId ? { ...supplierForm } : s));
+      setEditingSupplierId(null);
+    } else {
+      setSuppliers([...suppliers, { ...supplierForm, id: supplierForm.id || `SUP-${Math.floor(100+Math.random()*900)}` }]);
+    }
+    setSupplierForm({ id: '', name: '', country: '', warehouse: '', contact: '' });
+  };
+
+  const handleDeleteSupplier = (id) => {
+    if (window.confirm('Delete this supplier?')) setSuppliers(suppliers.filter(s => s.id !== id));
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-[#E4DFD3] shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-2xl border border-[#E4DFD3] shadow-sm gap-4">
         <div className="flex gap-2">
-          <button 
-            onClick={() => setActiveTab('items')} 
-            className={`px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer ${activeTab === 'items' ? 'bg-[#1B2430] text-white' : 'bg-gray-100 text-[#7A7568]'}`}
-          >
+          <button onClick={() => setActiveTab('items')} className={`px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer ${activeTab === 'items' ? 'bg-[#1B2430] text-white' : 'bg-gray-100 text-[#7A7568]'}`}>
             Manage Master Items ({items.length})
           </button>
-          <button 
-            onClick={() => setActiveTab('suppliers')} 
-            className={`px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer ${activeTab === 'suppliers' ? 'bg-[#1B2430] text-white' : 'bg-gray-100 text-[#7A7568]'}`}
-          >
+          <button onClick={() => setActiveTab('suppliers')} className={`px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer ${activeTab === 'suppliers' ? 'bg-[#1B2430] text-white' : 'bg-gray-100 text-[#7A7568]'}`}>
             Manage Suppliers ({suppliers.length})
           </button>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => downloadCsvTemplate(activeTab)} className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl font-medium cursor-pointer">
+        <div className="flex items-center gap-3">
+          <button onClick={() => downloadCsvTemplate(activeTab)} className="text-xs bg-gray-100 text-[#1B2430] border border-[#E4DFD3] px-3 py-2 rounded-xl font-medium cursor-pointer">
             Download CSV Template
           </button>
+          <label className="text-xs bg-emerald-600 text-white px-3 py-2 rounded-xl font-medium cursor-pointer shadow-sm hover:bg-emerald-700">
+            Upload & Import CSV
+            <input type="file" accept=".csv" onChange={(e) => handleFileUpload(e, activeTab)} className="hidden" />
+          </label>
         </div>
       </div>
 
       {activeTab === 'items' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form */}
           <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm h-fit">
             <h2 className="text-xs font-bold text-[#1B2430] mb-4 uppercase tracking-wider">{editingItemId ? 'Edit Master Item' : 'Add New Master Item'}</h2>
             <form onSubmit={handleItemSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="block text-[#7A7568] mb-1">Item ID</label>
-                <input type="text" required placeholder="ITM-103" value={itemForm.id} onChange={e => setItemForm({...itemForm, id: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl bg-gray-50" />
+                <input type="text" placeholder="ITM-101" value={itemForm.id} onChange={e => setItemForm({...itemForm, id: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
               </div>
               <div>
                 <label className="block text-[#7A7568] mb-1">Item Name</label>
@@ -154,13 +164,12 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" className="flex-1 bg-[#1B2430] text-white py-2.5 rounded-xl font-semibold cursor-pointer">{editingItemId ? 'Update Item' : 'Save Item'}</button>
-                {editingItemId && <button type="button" onClick={() => { setEditingItemId(null); setItemForm({ id: '', name: '', category: '', unit: 'Pcs', supplier: '', moq: 500, packSize: '', weightKg: 1, cbm: 0.01, allowedBranches: [] }); }} className="bg-gray-200 px-3 py-2.5 rounded-xl">Cancel</button>}
+                {editingItemId && <button type="button" onClick={() => { setEditingItemId(null); setItemForm({ id: '', name: '', category: '', unit: 'Pcs', supplier: '', moq: 500, packSize: '', weightKg: 1, cbm: 0.01 }); }} className="bg-gray-200 px-3 py-2.5 rounded-xl">Cancel</button>}
               </div>
             </form>
           </div>
 
-          {/* List */}
-          <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm overflow-hidden flex flex-col">
+          <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm flex flex-col">
             <div className="mb-4 flex justify-between items-center">
               <h2 className="text-xs font-bold text-[#1B2430] uppercase tracking-wider">Item Master Registry</h2>
               <input type="text" placeholder="Search items..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border border-[#E4DFD3] rounded-xl text-xs w-64" />
@@ -187,11 +196,14 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
                       <td className="p-2.5 font-medium">{item.moq} {item.unit}</td>
                       <td className="p-2.5 text-[11px] text-[#7A7568]">{item.weightKg} kg / {item.cbm} cbm</td>
                       <td className="p-2.5 text-right space-x-2">
-                        <button onClick={() => handleEditItem(item)} className="text-indigo-600 font-semibold cursor-pointer">Edit</button>
+                        <button onClick={() => { setItemForm(item); setEditingItemId(item.id); }} className="text-indigo-600 font-semibold cursor-pointer">Edit</button>
                         <button onClick={() => handleDeleteItem(item.id)} className="text-rose-600 font-semibold cursor-pointer">Delete</button>
                       </td>
                     </tr>
                   ))}
+                  {items.length === 0 && (
+                    <tr><td colSpan="5" className="text-center py-8 text-gray-400">No items found. Add manually or import via CSV.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -199,13 +211,12 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Supplier Form */}
           <div className="bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm h-fit">
             <h2 className="text-xs font-bold text-[#1B2430] mb-4 uppercase tracking-wider">{editingSupplierId ? 'Edit Supplier' : 'Add New Supplier'}</h2>
             <form onSubmit={handleSupplierSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="block text-[#7A7568] mb-1">Supplier ID</label>
-                <input type="text" required placeholder="SUP-03" value={supplierForm.id} onChange={e => setSupplierForm({...supplierForm, id: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl bg-gray-50" />
+                <input type="text" placeholder="SUP-01" value={supplierForm.id} onChange={e => setSupplierForm({...supplierForm, id: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
               </div>
               <div>
                 <label className="block text-[#7A7568] mb-1">Supplier Name</label>
@@ -214,16 +225,16 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[#7A7568] mb-1">Country</label>
-                  <input type="text" placeholder="Vietnam" value={supplierForm.country} onChange={e => setSupplierForm({...supplierForm, country: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
+                  <input type="text" placeholder="UAE" value={supplierForm.country} onChange={e => setSupplierForm({...supplierForm, country: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
                 </div>
                 <div>
                   <label className="block text-[#7A7568] mb-1">Warehouse Hub</label>
-                  <input type="text" placeholder="Ho Chi Minh Hub" value={supplierForm.warehouse} onChange={e => setSupplierForm({...supplierForm, warehouse: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
+                  <input type="text" placeholder="Jebel Ali" value={supplierForm.warehouse} onChange={e => setSupplierForm({...supplierForm, warehouse: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
                 </div>
               </div>
               <div>
                 <label className="block text-[#7A7568] mb-1">Contact Person</label>
-                <input type="text" placeholder="Mr. Nguyen" value={supplierForm.contact} onChange={e => setSupplierForm({...supplierForm, contact: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
+                <input type="text" placeholder="Mr. Ahmed" value={supplierForm.contact} onChange={e => setSupplierForm({...supplierForm, contact: e.target.value})} className="w-full p-2 border border-[#E4DFD3] rounded-xl" />
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" className="flex-1 bg-[#1B2430] text-white py-2.5 rounded-xl font-semibold cursor-pointer">{editingSupplierId ? 'Update Supplier' : 'Save Supplier'}</button>
@@ -232,8 +243,7 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
             </form>
           </div>
 
-          {/* Supplier List */}
-          <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm overflow-hidden">
+          <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[#E4DFD3] shadow-sm">
             <h2 className="text-xs font-bold text-[#1B2430] mb-4 uppercase tracking-wider">Supplier Registry</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -258,11 +268,14 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
                       </td>
                       <td className="p-2.5 text-[#7A7568]">{sup.contact}</td>
                       <td className="p-2.5 text-right space-x-2">
-                        <button onClick={() => handleEditSupplier(sup)} className="text-indigo-600 font-semibold cursor-pointer">Edit</button>
+                        <button onClick={() => { setSupplierForm(sup); setEditingSupplierId(sup.id); }} className="text-indigo-600 font-semibold cursor-pointer">Edit</button>
                         <button onClick={() => handleDeleteSupplier(sup.id)} className="text-rose-600 font-semibold cursor-pointer">Delete</button>
                       </td>
                     </tr>
                   ))}
+                  {suppliers.length === 0 && (
+                    <tr><td colSpan="4" className="text-center py-8 text-gray-400">No suppliers found. Add manually or import via CSV.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
