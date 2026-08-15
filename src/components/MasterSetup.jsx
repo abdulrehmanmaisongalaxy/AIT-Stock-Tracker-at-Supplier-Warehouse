@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 
 export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches }) {
+  // Dynamic Country Master List
+  const [countries, setCountries] = useState(['China', 'Thailand', 'UAE', 'Vietnam', 'India']);
+  const [newCountry, setNewCountry] = useState('');
+
+  // Item Form State
   const [itemName, setItemName] = useState('');
   const [category, setCategory] = useState('Cosmetics');
   const [supplier, setSupplier] = useState(suppliers[0]?.name || '');
@@ -8,17 +13,39 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
   const [packSize, setPackSize] = useState('24 Pcs/CTN');
   const [weightKg, setWeightKg] = useState(12);
   const [cbm, setCbm] = useState(0.045);
-  
-  // Supplier form state
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Supplier Form State
   const [supName, setSupName] = useState('');
-  const [supCountry, setSupCountry] = useState('China');
+  const [supCountry, setSupCountry] = useState(countries[0] || 'China');
   const [supWarehouse, setSupWarehouse] = useState('');
   const [supContact, setSupContact] = useState('');
-
-  // Editing states
-  const [editingItem, setEditingItem] = useState(null);
   const [editingSupplier, setEditingSupplier] = useState(null);
 
+  // Download CSV Templates
+  const downloadTemplate = (type) => {
+    let csvContent = "";
+    let fileName = "";
+    
+    if (type === 'items') {
+      csvContent = "Item Code,Item Name,Category,Supplier Name,MOQ,Pack Size,Weight,CBM\nITM-101,Example Product,General,Example Supplier,1000,24 Pcs/CTN,10.5,0.04";[cite: 1]
+      fileName = "item_import_template.csv";
+    } else {
+      csvContent = "Supplier Name,Country,Warehouse Location,Contact Person\nExample Supplier,Vietnam,Ho Chi Minh Hub,Mr. Nguyen";[cite: 1]
+      fileName = "supplier_import_template.csv";
+    }
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Handle Item Submit (Create or Update)
   const handleAddItem = (e) => {
     e.preventDefault();
     if (!itemName) return;
@@ -63,7 +90,6 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
     setSupplier(item.supplier);
     setMoq(item.moq);
     setPackSize(item.packSize);
-    setWeightKg(item.weightKg);
     setWeightKg(item.weightKg || 12);
     setCbm(item.cbm || 0.04);
   };
@@ -74,6 +100,7 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
     }
   };
 
+  // Handle Supplier Submit (Create or Update)
   const handleAddSupplier = (e) => {
     e.preventDefault();
     if (!supName) return;
@@ -119,11 +146,124 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
     }
   };
 
+  // CSV File Parsers
+  const handleItemFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split('\n');
+        const newItems = [...items];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          if (cols.length >= 6) {
+            newItems.push({
+              id: cols[0].trim() || `ITM-00${newItems.length + 1}`,
+              name: cols[1].trim(),
+              category: cols[2].trim() || 'General',
+              unit: 'Pcs',
+              supplier: cols[3].trim() || (suppliers[0]?.name ?? ''),
+              moq: Number(cols[4]) || 1000,
+              packSize: cols[5].trim() || '24 Pcs/CTN',
+              weightKg: Number(cols[6]) || 12,
+              cbm: Number(cols[7]) || 0.04,
+              allowedBranches: branches.map(b => b.id)
+            });
+          }
+        }
+        setItems(newItems);
+        alert("Batch items imported successfully!");
+      } catch (err) {
+        alert("Error parsing item file format.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSupplierFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split('\n');
+        const newSuppliers = [...suppliers];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          if (cols.length >= 4) {
+            newSuppliers.push({
+              id: `SUP-0${newSuppliers.length + 1}`,
+              name: cols[0].trim(),
+              country: cols[1].trim(),
+              warehouse: cols[2].trim() || 'Hub',
+              contact: cols[3].trim() || 'N/A'
+            });
+          }
+        }
+        setSuppliers(newSuppliers);
+        alert("Batch suppliers imported successfully!");
+      } catch (err) {
+        alert("Error parsing supplier file format.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-[#1B2430]">Master Setup, Suppliers & Items</h2>
-        <p className="text-xs text-[#7A7568]">Register, edit, or delete items and supplier profiles.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-[#1B2430]">Master Setup, Countries & Imports</h2>
+          <p className="text-xs text-[#7A7568]">Manage supplier countries, register items/suppliers manually, or upload via CSV templates.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => downloadTemplate('items')} className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+            📥 Download Item Template
+          </button>
+          <label className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+            📂 Import Items CSV
+            <input type="file" accept=".csv" onChange={handleItemFileUpload} className="hidden" />
+          </label>
+          <button onClick={() => downloadTemplate('suppliers')} className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+            📥 Download Supplier Template
+          </button>
+          <label className="bg-white border border-[#E4DFD3] text-[#1B2430] px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-50 cursor-pointer">
+            📂 Import Suppliers CSV
+            <input type="file" accept=".csv" onChange={handleSupplierFileUpload} className="hidden" />
+          </label>
+        </div>
+      </div>
+
+      {/* Country Management Section */}
+      <div className="bg-white p-6 rounded-2xl border border-[#E4DFD3] shadow-sm space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A7568]">Manage Supplier Countries</h3>
+        <div className="flex gap-2 max-w-md">
+          <input 
+            type="text" 
+            value={newCountry} 
+            onChange={e => setNewCountry(e.target.value)} 
+            placeholder="Enter new country (e.g. Vietnam, India)..." 
+            className="flex-1 bg-[#FAF8F5] border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" 
+          />
+          <button 
+            type="button" 
+            onClick={() => { if(newCountry) { setCountries([...countries, newCountry]); setNewCountry(''); } }} 
+            className="bg-[#1B2430] text-white px-4 py-2 rounded-xl text-xs font-medium cursor-pointer"
+          >
+            Add Country
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {countries.map(c => (
+            <span key={c} className="bg-[#FAF8F5] px-3 py-1 rounded-lg border border-[#E4DFD3] text-xs font-medium flex items-center gap-2">
+              {c}
+              <button onClick={() => setCountries(countries.filter(item => item !== c))} className="text-rose-500 hover:font-bold">×</button>
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -202,25 +342,23 @@ export function MasterSetup({ items, setItems, suppliers, setSuppliers, branches
             </h3>
             <div>
               <label className="block text-xs font-semibold text-[#7A7568] mb-1">Supplier Name</label>
-              <input type="text" value={supName} onChange={e => setSupName(e.target.value)} placeholder="e.g. Guangzhou Beauty Ltd" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" required />
+              <input type="text" value={supName} onChange={e => setSupName(e.target.value)} placeholder="e.g. Saigon Manufacturing Ltd" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" required />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-semibold text-[#7A7568] mb-1">Country</label>
                 <select value={supCountry} onChange={e => setSupCountry(e.target.value)} className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs">
-                  <option value="China">China</option>
-                  <option value="Thailand">Thailand</option>
-                  <option value="UAE">UAE</option>
+                  {countries.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#7A7568] mb-1">Warehouse Name</label>
-                <input type="text" value={supWarehouse} onChange={e => setSupWarehouse(e.target.value)} placeholder="Whse #1" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" />
+                <label className="block text-xs font-semibold text-[#7A7568] mb-1">Warehouse Location</label>
+                <input type="text" value={supWarehouse} onChange={e => setSupWarehouse(e.target.value)} placeholder="Hub #1" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" />
               </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#7A7568] mb-1">Contact Person</label>
-              <input type="text" value={supContact} onChange={e => setSupContact(e.target.value)} placeholder="Mr. Chen" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" />
+              <input type="text" value={supContact} onChange={e => setSupContact(e.target.value)} placeholder="Mr. Nguyen" className="w-full bg-white border border-[#E4DFD3] rounded-xl px-3 py-2 text-xs" />
             </div>
             <div className="flex gap-2">
               <button type="submit" className="flex-1 bg-[#1B2430] hover:bg-[#2B3848] text-white text-xs font-medium py-2 rounded-xl cursor-pointer">
