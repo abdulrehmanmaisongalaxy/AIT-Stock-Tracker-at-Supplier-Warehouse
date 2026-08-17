@@ -3,51 +3,61 @@ import React, { useState } from 'react';
 export default function ProformaInvoices({ proformaInvoices, setProformaInvoices, suppliers }) {
   const [piRef, setPiRef] = useState('');
   const [supplierName, setSupplierName] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amountLCY, setAmountLCY] = useState('');
+
+  const selectedSupObj = suppliers.find(s => s.name === supplierName);
+  const currency = selectedSupObj ? selectedSupObj.currency : 'USD';
+  const exRate = selectedSupObj ? selectedSupObj.exchangeRate : 1;
+  const calculatedUSD = amountLCY ? (parseFloat(amountLCY) / exRate).toFixed(2) : '0.00';
 
   const handleCreatePI = (e) => {
     e.preventDefault();
-    if (!piRef || !supplierName) return;
+    if (!piRef || !supplierName || !amountLCY) return;
+
     const newPI = {
       piId: piRef,
-      branchName: 'HQ Direct',
+      branchName: 'HQ Central',
       supplierName,
-      totalAmount: amount,
+      currency,
+      exchangeRate: exRate,
+      totalAmountLCY: parseFloat(amountLCY),
+      totalAmountUSD: parseFloat(calculatedUSD),
       status: 'Pending Clearance',
       items: []
     };
+
     setProformaInvoices([...proformaInvoices, newPI]);
     setPiRef('');
     setSupplierName('');
-    setAmount('');
-    alert('Proforma Invoice created successfully!');
+    setAmountLCY('');
+    alert('Proforma Invoice created with LCY and USD conversion!');
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Create Proforma Invoice</h3>
+        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Create Proforma Invoice (LCY & USD)</h3>
         <form onSubmit={handleCreatePI} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: '16px', alignItems: 'flex-end' }}>
           <div>
-            <label style={labelStyle}>Invoice Reference No.</label>
+            <label style={labelStyle}>PI Reference No.</label>
             <input type="text" value={piRef} onChange={(e) => setPiRef(e.target.value)} placeholder="e.g. PINV-2026-001" required style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Supplier Name</label>
             <select value={supplierName} onChange={(e) => setSupplierName(e.target.value)} required style={inputStyle}>
               <option value="">Select supplier...</option>
-              {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              {suppliers.map(s => <option key={s.id} value={s.name}>{s.name} ({s.currency})</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Total Amount ($)</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
+            <label style={labelStyle}>Amount in LCY ({currency})</label>
+            <input type="number" step="0.01" value={amountLCY} onChange={(e) => setAmountLCY(e.target.value)} placeholder="0.00" required style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Status</label>
-            <input type="text" value="Pending Clearance" disabled style={{ ...inputStyle, background: '#f1f5f9' }} />
+            <label style={labelStyle}>Converted to USD ($)</label>
+            <input type="text" value={`$${calculatedUSD} (Rate: ${exRate})`} disabled style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', color: '#16a34a' }} />
           </div>
-          <button type="submit" style={btnPrimary}>+ Save Proforma Invoice</button>
+          <button type="submit" style={btnPrimary}>+ Save PI</button>
         </form>
       </div>
 
@@ -61,7 +71,8 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 <th style={thStyle}>PI Reference</th>
                 <th style={thStyle}>Supplier</th>
-                <th style={thStyle}>Branch / Source</th>
+                <th style={thStyle}>Amount LCY</th>
+                <th style={thStyle}>Converted USD</th>
                 <th style={thStyle}>Status</th>
               </tr>
             </thead>
@@ -69,9 +80,10 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
               {proformaInvoices.map((pi, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={tdStyle}><b>{pi.piId}</b></td>
-                  <td style={tdStyle}>{pi.supplierName || pi.items?.[0]?.supplier || 'N/A'}</td>
-                  <td style={tdStyle}>{pi.branchName}</td>
-                  <td style={tdStyle}><span style={{ color: '#2563eb', fontWeight: '600' }}>{pi.status}</span></td>
+                  <td style={tdStyle}>{pi.supplierName}</td>
+                  <td style={tdStyle}>{pi.currency} {(pi.totalAmountLCY || 0).toLocaleString()}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', color: '#2563eb' }}>${(pi.totalAmountUSD || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td style={tdStyle}><span style={{ color: '#16a34a', fontWeight: '600' }}>{pi.status}</span></td>
                 </tr>
               ))}
             </tbody>
