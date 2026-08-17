@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function BranchManagementTab({ branches, newBranch, setNewBranch, handleAddBranch, handleDeleteBranch }) {
+export default function BranchHandling({ branches, newBranch, setNewBranch, handleAddBranch, handleDeleteBranch }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg">
