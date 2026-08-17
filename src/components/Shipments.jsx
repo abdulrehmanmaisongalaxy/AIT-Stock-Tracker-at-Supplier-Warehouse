@@ -5,17 +5,15 @@ export default function Shipments({ shipments, setShipments }) {
   const [containerType, setContainerType] = useState('40FT Container (Max ~58 CBM)');
   const [totalCbm, setTotalCbm] = useState('');
   const [totalWeight, setTotalWeight] = useState('');
-  const [eta, setEta] = useState('');
 
   const handleSaveShipment = (e) => {
     e.preventDefault();
     if (!shpRef) return;
-    const newShp = { id: shpRef, containerType, totalCbm, totalWeight, eta, status: 'Draft' };
+    const newShp = { id: shpRef, containerType, cbm: parseFloat(totalCbm) || 0, weight: parseFloat(totalWeight) || 0, status: 'In Transit' };
     setShipments([...shipments, newShp]);
     setShpRef('');
     setTotalCbm('');
     setTotalWeight('');
-    setEta('');
     alert('Shipment created successfully!');
   };
 
@@ -25,7 +23,7 @@ export default function Shipments({ shipments, setShipments }) {
         <h3 style={{ marginTop: 0, color: '#0f172a' }}>New Shipment & Container Setup</h3>
         <form onSubmit={handleSaveShipment} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: '16px', alignItems: 'flex-end' }}>
           <div>
-            <label style={labelStyle}>Shipment / Ref No.</label>
+            <label style={labelStyle}>Shipment Ref No.</label>
             <input type="text" value={shpRef} onChange={(e) => setShpRef(e.target.value)} placeholder="e.g. SHP-SZ-001" required style={inputStyle} />
           </div>
           <div>
@@ -36,7 +34,7 @@ export default function Shipments({ shipments, setShipments }) {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Total CBM</label>
+            <label style={labelStyle}>Total CBM (m³)</label>
             <input type="number" step="0.01" value={totalCbm} onChange={(e) => setTotalCbm(e.target.value)} placeholder="0.00" style={inputStyle} />
           </div>
           <div>
@@ -48,7 +46,7 @@ export default function Shipments({ shipments, setShipments }) {
       </div>
 
       <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Active Shipments & Container Fill Ratio</h3>
+        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Active Shipments Directory</h3>
         {shipments.length === 0 ? (
           <p style={{ color: '#94a3b8' }}>No shipments created yet.</p>
         ) : (
@@ -56,7 +54,7 @@ export default function Shipments({ shipments, setShipments }) {
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 <th style={thStyle}>Shipment Ref</th>
-                <th style={thStyle}>Container</th>
+                <th style={thStyle}>Container Type</th>
                 <th style={thStyle}>CBM / Weight</th>
                 <th style={thStyle}>Status</th>
               </tr>
@@ -66,8 +64,8 @@ export default function Shipments({ shipments, setShipments }) {
                 <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={tdStyle}><b>{s.id}</b></td>
                   <td style={tdStyle}>{s.containerType}</td>
-                  <td style={tdStyle}>{s.cbm} CBM / {s.weight} kg</td>
-                  <td style={tdStyle}>{s.status}</td>
+                  <td style={tdStyle}>{s.cbm} m³ / {s.weight} kg</td>
+                  <td style={{ ...tdStyle, color: '#16a34a', fontWeight: '600' }}>{s.status}</td>
                 </tr>
               ))}
             </tbody>
