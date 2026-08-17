@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function ProformaInvoicesTab({ proformaInvoices, piSupplierFilter, setPiSupplierFilter }) {
+export default function ProformaInvoices({ proformaInvoices, piSupplierFilter, setPiSupplierFilter }) {
   const filteredPIs = proformaInvoices.filter(pi => {
     if (piSupplierFilter !== 'ALL' && pi.supplier !== piSupplierFilter) return false;
     return true;
