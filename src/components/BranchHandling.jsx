@@ -1,50 +1,84 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-export default function BranchHandling({ branches, newBranch, setNewBranch, handleAddBranch, handleDeleteBranch }) {
+export default function BranchHandling({ branches, setBranches, items }) {
+  const [branchName, setBranchName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [selectedItems, setSelectedItems] = useState([]);
+
+  const handleCreateBranch = (e) => {
+    e.preventDefault();
+    if (!branchName || !username || !password) return;
+    const newBranch = {
+      id: Date.now(),
+      name: branchName,
+      username,
+      password,
+      allowedItems: selectedItems.length > 0 ? selectedItems : items.map(i => i.code)
+    };
+    setBranches([...branches, newBranch]);
+    setBranchName('');
+    setUsername('');
+    setPassword('');
+    setSelectedItems([]);
+    alert('Branch created successfully with login credentials and secure access link!');
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg">
-        <h2 className="text-md font-bold mb-4">REGISTER NEW BRANCH</h2>
-        <form onSubmit={handleAddBranch} className="space-y-4">
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Create Branch User & Access Link</h3>
+        <form onSubmit={handleCreateBranch} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Branch Code ID</label>
-            <input type="text" value={newBranch.code} onChange={e => setNewBranch({...newBranch, code: e.target.value})} placeholder="KIN-123" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" required />
+            <label style={labelStyle}>Branch Name / Location</label>
+            <input type="text" value={branchName} onChange={(e) => setBranchName(e.target.value)} placeholder="e.g. Branch B - Kampala" required style={inputStyle} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Branch Name</label>
-            <input type="text" value={newBranch.name} onChange={e => setNewBranch({...newBranch, name: e.target.value})} placeholder="MG Kinshasa" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" required />
+            <label style={labelStyle}>Branch Username</label>
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. branch_b" required style={inputStyle} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Country</label>
-            <input type="text" value={newBranch.country} onChange={e => setNewBranch({...newBranch, country: e.target.value})} placeholder="Congo" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" required />
+            <label style={labelStyle}>Branch Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required style={inputStyle} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Username</label>
-            <input type="text" value={newBranch.username} onChange={e => setNewBranch({...newBranch, username: e.target.value})} placeholder="matadi" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
+            <label style={labelStyle}>Restricted Item View (Select items visible to this branch)</label>
+            <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #cbd5e1', padding: '8px', borderRadius: '6px' }}>
+              {items.map(item => (
+                <label key={item.code} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginBottom: '4px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedItems.includes(item.code)}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedItems([...selectedItems, item.code]);
+                      else setSelectedItems(selectedItems.filter(c => c !== item.code));
+                    }}
+                  />
+                  <b>{item.code}</b> - {item.name}
+                </label>
+              ))}
+            </div>
           </div>
-          <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded text-sm transition-colors shadow">Add Branch</button>
+          <button type="submit" style={btnPrimary}>Generate Branch Login & Link</button>
         </form>
       </div>
 
-      <div className="lg:col-span-2 space-y-4">
-        <h2 className="text-md font-bold">ACTIVE BRANCHES & SECURE DIRECT URLS</h2>
-        {branches.map(b => {
-          const directUrl = `${window.location.origin}${window.location.pathname}?branch=${b.code}`;
-          return (
-            <div key={b.code} className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex justify-between items-center shadow">
-              <div>
-                <h3 className="font-bold text-sm">{b.name} ({b.country})</h3>
-                <p className="text-xs text-gray-400">Login: {b.username}</p>
-                <div className="mt-2 bg-gray-900 px-3 py-1 rounded text-xs text-blue-400 select-all font-mono">{directUrl}</div>
-              </div>
-              <div className="flex space-x-2">
-                <button onClick={() => navigator.clipboard.writeText(directUrl)} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded text-xs font-medium">Copy URL</button>
-                <button onClick={() => handleDeleteBranch(b.code)} className="bg-red-900/40 text-red-400 hover:bg-red-900/60 px-3 py-1.5 rounded text-xs font-medium">Delete</button>
-              </div>
+      <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Active Branch Direct Links</h3>
+        {branches.map(b => (
+          <div key={b.id} style={{ background: '#f8fafc', padding: '16px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
+            <div style={{ fontWeight: 'bold', color: '#0f172a', marginBottom: '4px' }}>{b.name}</div>
+            <div style={{ fontSize: '13px', color: '#475569', marginBottom: '8px' }}>Username: <b>{b.username}</b> | Password: <b>{b.password}</b></div>
+            <div style={{ fontSize: '12px', background: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', wordBreak: 'break-all' }}>
+              🔗 Login Link: <a href={`${window.location.origin}/?branch=${b.username}`} target="_blank" rel="noreferrer">{window.location.origin}/?branch={b.username}</a>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
+const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' };
+const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' };
+const btnPrimary = { background: '#2563eb', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' };
