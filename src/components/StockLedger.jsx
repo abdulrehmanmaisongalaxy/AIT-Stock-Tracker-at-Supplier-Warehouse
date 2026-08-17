@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function StockLedgerTab({ items, setItems, requisitions, ledgerSupplierFilter, setLedgerSupplierFilter, ledgerCountryFilter, setLedgerCountryFilter }) {
+export default function StockLedger({ items, setItems, requisitions, ledgerSupplierFilter, setLedgerSupplierFilter, ledgerCountryFilter, setLedgerCountryFilter }) {
   const getTotalPiOrdered = (itemId) => {
     return Object.values(requisitions).reduce((sum, branchReqs) => sum + (Number(branchReqs[itemId]) || 0), 0);
   };
