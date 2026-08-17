@@ -1,86 +1,180 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-export default function MasterSetup({ items, newItem, setNewItem, handleAddItem, handleDeleteItem, suppliers }) {
+export default function MasterSetup({ items, setItems, suppliers, setSuppliers }) {
+  // New Item State
+  const [itemName, setItemName] = useState('');
+  const [itemCode, setItemCode] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [packSize, setPackSize] = useState('');
+  const [moq, setMoq] = useState('');
+  const [weight, setWeight] = useState('');
+  const [cbm, setCbm] = useState('');
+  const [stock, setStock] = useState('');
+
+  // New Supplier State
+  const [supName, setSupName] = useState('');
+  const [country, setCountry] = useState('China');
+
+  const handleRegisterItem = (e) => {
+    e.preventDefault();
+    if (!itemCode || !itemName) return;
+    const newItem = {
+      code: itemCode,
+      name: itemName,
+      supplier: supplier || suppliers[0]?.name || 'Global Chem China',
+      packSize: parseInt(packSize) || 24,
+      moq: parseInt(moq) || 100,
+      weight: parseFloat(weight) || 10,
+      cbm: parseFloat(cbm) || 0.04,
+      stock: parseInt(stock) || 0
+    };
+    setItems([...items, newItem]);
+    setItemCode('');
+    setItemName('');
+    setPackSize('');
+    setMoq('');
+    setWeight('');
+    setCbm('');
+    setStock('');
+    alert('Item successfully registered into Item Master!');
+  };
+
+  const handleRegisterSupplier = (e) => {
+    e.preventDefault();
+    if (!supName) return;
+    setSuppliers([...suppliers, { id: Date.now(), name: supName, country }]);
+    setSupName('');
+    alert('Supplier added successfully!');
+  };
+
+  const downloadTemplate = (type) => {
+    let headers = type === 'items' ? 'code,name,supplier,packSize,weight,cbm,moq,stock\n' : 'name,country\n';
+    let sample = type === 'items' ? 'COS-103,Herbal Shampoo,Global Chem China,24,10,0.04,500,1000\n' : 'Global Chem China,China\n';
+    const blob = new Blob([headers + sample], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${type}_template.csv`;
+    link.click();
+  };
+
+  const handleCSVImport = (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const lines = event.target.result.split('\n').filter(l => l.trim() !== '');
+      if (type === 'items') {
+        const newItems = [...items];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim());
+          if (cols.length >= 8) {
+            newItems.push({
+              code: cols[0], name: cols[1], supplier: cols[2],
+              packSize: parseInt(cols[3]) || 24, weight: parseFloat(cols[4]) || 10,
+              cbm: parseFloat(cols[5]) || 0.04, moq: parseInt(cols[6]) || 100, stock: parseInt(cols[7]) || 0
+            });
+          }
+        }
+        setItems(newItems);
+        alert('Items imported successfully from CSV!');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg">
-        <h2 className="text-md font-bold mb-4">ADD NEW MASTER ITEM</h2>
-        <form onSubmit={handleAddItem} className="space-y-4">
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">Item ID</label>
-            <input type="text" value={newItem.id} onChange={e => setNewItem({...newItem, id: e.target.value})} placeholder="ITM-101" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" required />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">Item Name</label>
-            <input type="text" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} placeholder="Product Description" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" required />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">Category</label>
-            <input type="text" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} placeholder="Cosmetics" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">Supplier</label>
-            <select value={newItem.supplier} onChange={e => setNewItem({...newItem, supplier: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" required>
-              <option value="">Select Supplier</option>
-              {suppliers.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">MOQ</label>
-              <input type="number" value={newItem.moq} onChange={e => setNewItem({...newItem, moq: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">Weight (Kg)</label>
-              <input type="number" step="0.1" value={newItem.weight} onChange={e => setNewItem({...newItem, weight: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">CBM</label>
-              <input type="number" step="0.0001" value={newItem.cbm} onChange={e => setNewItem({...newItem, cbm: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">Pack Size</label>
-              <input type="text" value={newItem.packSize} onChange={e => setNewItem({...newItem, packSize: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
-            </div>
-          </div>
-          <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded text-sm transition-colors shadow">Add Item</button>
-        </form>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Top Banner for Templates & Import */}
+      <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Master Setup, Countries & Imports</h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Download CSV templates or bulk import items and suppliers.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={() => downloadTemplate('items')} style={btnSecondary}>Download Item Template</button>
+          <label style={btnUpload}>
+            Import Items CSV
+            <input type="file" accept=".csv" onChange={(e) => handleCSVImport(e, 'items')} style={{ display: 'none' }} />
+          </label>
+          <button onClick={() => downloadTemplate('suppliers')} style={btnSecondary}>Download Supplier Template</button>
+        </div>
       </div>
 
-      <div className="lg:col-span-2 bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg">
-        <h2 className="text-md font-bold mb-4">ITEM MASTER REGISTRY ({items.length})</h2>
-        <div className="overflow-x-auto max-h-[500px]">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-gray-700 text-gray-400 bg-gray-900/40">
-                <th className="p-3">ID / Name</th>
-                <th className="p-3">Supplier</th>
-                <th className="p-3">MOQ</th>
-                <th className="p-3">Wt / CBM</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => (
-                <tr key={item.id} className="border-b border-gray-700/60 hover:bg-gray-700/20">
-                  <td className="p-3">
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-xs text-gray-400">{item.id} • {item.category}</div>
-                  </td>
-                  <td className="p-3 text-gray-300">{item.supplier}</td>
-                  <td className="p-3 text-gray-300">{item.moq} PCS</td>
-                  <td className="p-3 text-gray-400 text-xs">{item.weight} kg / {item.cbm} cbm</td>
-                  <td className="p-3 text-right">
-                    <button onClick={() => handleDeleteItem(item.id)} className="text-red-400 hover:text-red-300 text-xs font-semibold">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        {/* Register Item */}
+        <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <h3 style={{ marginTop: 0, color: '#0f172a' }}>Add New Item</h3>
+          <form onSubmit={handleRegisterItem} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Item Code</label>
+              <input type="text" value={itemCode} onChange={(e) => setItemCode(e.target.value)} placeholder="e.g. COS-103" required style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Item Name</label>
+              <input type="text" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Glowing Foundation" required style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Supplier Warehouse</label>
+              <select value={supplier} onChange={(e) => setSupplier(e.target.value)} style={inputStyle}>
+                {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={labelStyle}>Pack Size (Pcs/CTN)</label>
+                <input type="number" value={packSize} onChange={(e) => setPackSize(e.target.value)} placeholder="24" required style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>MOQ</label>
+                <input type="number" value={moq} onChange={(e) => setMoq(e.target.value)} placeholder="500" required style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={labelStyle}>Weight (kg)</label>
+                <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="10" required style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>CBM (m³)</label>
+                <input type="number" step="0.001" value={cbm} onChange={(e) => setCbm(e.target.value)} placeholder="0.04" required style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Initial Stock Qty</label>
+                <input type="number" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="1000" required style={inputStyle} />
+              </div>
+            </div>
+            <button type="submit" style={btnPrimary}>Register Item</button>
+          </form>
+        </div>
+
+        {/* Register Supplier */}
+        <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <h3 style={{ marginTop: 0, color: '#0f172a' }}>Add New Supplier</h3>
+          <form onSubmit={handleRegisterSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Supplier Name</label>
+              <input type="text" value={supName} onChange={(e) => setSupName(e.target.value)} placeholder="e.g. Bangkok Beauty Thai" required style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Country</label>
+              <select value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle}>
+                <option value="China">China</option>
+                <option value="Thailand">Thailand</option>
+                <option value="UAE">UAE</option>
+                <option value="India">India</option>
+              </select>
+            </div>
+            <button type="submit" style={btnPrimary}>Add Supplier</button>
+          </form>
         </div>
       </div>
     </div>
   );
 }
+
+const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' };
+const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' };
+const btnPrimary = { background: '#0f172a', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' };
+const btnSecondary = { background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '500', cursor: 'pointer' };
+const btnUpload = { background: '#16a34a', color: '#fff', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', display: 'inline-block' };
