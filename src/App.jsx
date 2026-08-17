@@ -23,12 +23,20 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // Master State with LocalStorage
+  // Master State with Persistence
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('ait_items');
     return saved ? JSON.parse(saved) : [
-      { code: 'COS-101', name: 'Hydrating Face Cream 50ml', supplier: 'Global Chem China', packSize: 24, weight: 8.5, cbm: 0.045, moq: 500, stock: 1200 },
-      { code: 'COS-102', name: 'Matte Liquid Lipstick Set', supplier: 'Bangkok Beauty Thai', packSize: 48, weight: 6.2, cbm: 0.025, moq: 300, stock: 850 }
+      { code: 'COS-101', name: 'Hydrating Face Cream 50ml', supplierCode: 'SUP-001', supplier: 'Global Chem China', packSize: 24, weight: 8.5, cbm: 0.045, moq: 500, openingStock: 1000, orderedQty: 200, receivedQty: 100, shippedQty: 100, unitPrice: 12.50 },
+      { code: 'COS-102', name: 'Matte Liquid Lipstick Set', supplierCode: 'SUP-002', supplier: 'Bangkok Beauty Thai', packSize: 48, weight: 6.2, cbm: 0.025, moq: 300, openingStock: 800, orderedQty: 150, receivedQty: 100, shippedQty: 200, unitPrice: 8.00 }
+    ];
+  });
+
+  const [suppliers, setSuppliers] = useState(() => {
+    const saved = localStorage.getItem('ait_suppliers');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, code: 'SUP-001', name: 'Global Chem China', warehouseNo: 'WH-CN-01', country: 'China', currency: 'CNY', exchangeRate: 7.25 },
+      { id: 2, code: 'SUP-002', name: 'Bangkok Beauty Thai', warehouseNo: 'WH-TH-02', country: 'Thailand', currency: 'THB', exchangeRate: 36.50 }
     ];
   });
 
@@ -36,14 +44,6 @@ export default function App() {
     const saved = localStorage.getItem('ait_branches');
     return saved ? JSON.parse(saved) : [
       { id: 1, name: 'Branch A - Nairobi', username: 'branch_a', password: 'password123', allowedItems: ['COS-101', 'COS-102'] }
-    ];
-  });
-
-  const [suppliers, setSuppliers] = useState(() => {
-    const saved = localStorage.getItem('ait_suppliers');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'Global Chem China', country: 'China' },
-      { id: 2, name: 'Bangkok Beauty Thai', country: 'Thailand' }
     ];
   });
 
@@ -65,12 +65,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('ait_current_user', JSON.stringify(currentUser));
     localStorage.setItem('ait_items', JSON.stringify(items));
-    localStorage.setItem('ait_branches', JSON.stringify(branches));
     localStorage.setItem('ait_suppliers', JSON.stringify(suppliers));
+    localStorage.setItem('ait_branches', JSON.stringify(branches));
     localStorage.setItem('ait_requisitions', JSON.stringify(requisitions));
     localStorage.setItem('ait_pis', JSON.stringify(proformaInvoices));
     localStorage.setItem('ait_shipments', JSON.stringify(shipments));
-  }, [currentUser, items, branches, suppliers, requisitions, proformaInvoices, shipments]);
+  }, [currentUser, items, suppliers, branches, requisitions, proformaInvoices, shipments]);
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
@@ -135,7 +135,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Navigation Bar */}
       <nav style={styles.navBar}>
         <button style={activeTab === 'dashboard' ? navActive : navBtn} onClick={() => setActiveTab('dashboard')}>Executive Dashboard</button>
         <button style={activeTab === 'ledger' ? navActive : navBtn} onClick={() => setActiveTab('ledger')}>Stock Ledger</button>
@@ -148,8 +147,8 @@ export default function App() {
 
       <main style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
         {activeTab === 'dashboard' && <ExecutiveDashboard items={items} branches={branches} proformaInvoices={proformaInvoices} />}
-        {activeTab === 'ledger' && <StockLedger items={items} />}
-        {activeTab === 'consolidation' && <OrderConsolidation requisitions={requisitions} setRequisitions={setRequisitions} proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} items={items} setItems={setItems} />}
+        {activeTab === 'ledger' && <StockLedger items={items} suppliers={suppliers} />}
+        {activeTab === 'consolidation' && <OrderConsolidation requisitions={requisitions} setRequisitions={setRequisitions} proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} items={items} setItems={setItems} suppliers={suppliers} />}
         {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} />}
         {activeTab === 'shipments' && <Shipments shipments={shipments} setShipments={setShipments} />}
         {activeTab === 'branches' && <BranchHandling branches={branches} setBranches={setBranches} items={items} />}
