@@ -130,7 +130,7 @@ export default function AITPortal() {
         {isAdminMode ? (
           <>
             {activeTab === 'master' && (
-              <MasterSetupTab 
+              <MasterSetup 
                 items={items} 
                 newItem={newItem} 
                 setNewItem={setNewItem} 
@@ -140,7 +140,7 @@ export default function AITPortal() {
               />
             )}
             {activeTab === 'branches' && (
-              <BranchManagementTab 
+              <BranchHandling 
                 branches={branches} 
                 newBranch={newBranch} 
                 setNewBranch={setNewBranch} 
@@ -148,9 +148,9 @@ export default function AITPortal() {
                 handleDeleteBranch={handleDeleteBranch} 
               />
             )}
-            {activeTab === 'dashboard' && <ExecutiveDashboardTab items={items} requisitions={requisitions} />}
+            {activeTab === 'dashboard' && <ExecutiveDashboard items={items} requisitions={requisitions} />}
             {activeTab === 'ledger' && (
-              <StockLedgerTab 
+              <StockLedger 
                 items={items} 
                 setItems={setItems} 
                 requisitions={requisitions} 
@@ -161,20 +161,20 @@ export default function AITPortal() {
               />
             )}
             {activeTab === 'consolidation' && (
-              <OrderConsolidationTab 
+              <OrderConsolidation 
                 items={items} 
                 requisitions={requisitions} 
                 setProformaInvoices={setProformaInvoices} 
               />
             )}
             {activeTab === 'pi' && (
-              <ProformaInvoicesTab 
+              <ProformaInvoices 
                 proformaInvoices={proformaInvoices} 
                 piSupplierFilter={piSupplierFilter} 
                 setPiSupplierFilter={setPiSupplierFilter} 
               />
             )}
-            {activeTab === 'shipments' && <ShipmentsTab shipments={shipments} setShipments={setShipments} />}
+            {activeTab === 'shipments' && <Shipments shipments={shipments} setShipments={setShipments} proformaInvoices={proformaInvoices} />}
             {activeTab === 'ordering' && (
               <BranchOrderingPortalView 
                 items={items} 
