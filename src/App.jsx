@@ -174,7 +174,13 @@ export default function AITPortal() {
                 setPiSupplierFilter={setPiSupplierFilter} 
               />
             )}
-            {activeTab === 'shipments' && <Shipments shipments={shipments} setShipments={setShipments} proformaInvoices={proformaInvoices} />}
+            {activeTab === 'shipments' && (
+              <Shipments 
+                shipments={shipments} 
+                setShipments={setShipments} 
+                proformaInvoices={proformaInvoices} 
+              />
+            )}
             {activeTab === 'ordering' && (
               <BranchOrderingPortalView 
                 items={items} 
