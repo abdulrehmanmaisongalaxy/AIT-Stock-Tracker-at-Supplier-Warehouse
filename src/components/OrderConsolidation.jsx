@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function OrderConsolidationTab({ items, requisitions, setProformaInvoices }) {
+export default function OrderConsolidation({ items, requisitions, setProformaInvoices }) {
   const [selectedSupplier, setSelectedSupplier] = useState(items[0]?.supplier || '');
   const supplierItems = items.filter(i => i.supplier === selectedSupplier);
 
