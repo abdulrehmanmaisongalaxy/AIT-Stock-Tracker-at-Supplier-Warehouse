@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import MasterSetupTab from './components/MasterSetupTab';
-import BranchManagementTab from './components/BranchManagementTab';
-import ExecutiveDashboardTab from './components/ExecutiveDashboardTab';
-import StockLedgerTab from './components/StockLedgerTab';
-import OrderConsolidationTab from './components/OrderConsolidationTab';
-import ProformaInvoicesTab from './components/ProformaInvoicesTab';
-import ShipmentsTab from './components/ShipmentsTab';
-import BranchOrderingPortalView from './components/BranchOrderingPortalView';
+import MasterSetup from './components/MasterSetup';
+import BranchHandling from './components/BranchHandling';
+import ExecutiveDashboard from './components/ExecutiveDashboard';
+import StockLedger from './components/StockLedger';
+import OrderConsolidation from './components/OrderConsolidation';
+import ProformaInvoices from './components/ProformaInvoices';
+import Shipments from './components/Shipments';
+import BranchOrderingPortalView from './components/BranchPortal';
 
 export default function AITPortal() {
   const [activeTab, setActiveTab] = useState('master');
