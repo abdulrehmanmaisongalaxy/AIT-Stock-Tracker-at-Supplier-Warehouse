@@ -1,32 +1,36 @@
 import React from 'react';
 
-export default function ExecutiveDashboard({ items, requisitions }) {
-  const totalItems = items.length;
-  const totalValue = items.reduce((sum, i) => sum + ((i.openingStock || 0) * (i.unitPrice || 0)), 0);
-  const totalRequisitionsCount = Object.values(requisitions).reduce((sum, branchReqs) => {
-    return sum + Object.values(branchReqs).reduce((a, b) => a + (Number(b) || 0), 0);
-  }, 0);
+export default function ExecutiveDashboard({ items, branches, proformaInvoices }) {
+  const totalStock = items.reduce((acc, item) => acc + (item.stock || 0), 0);
+  const totalValuation = items.reduce((acc, item) => acc + ((item.stock || 0) * (item.price || 10)), 0);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gray-800 p-5 rounded-lg border border-gray-700 shadow">
-          <p className="text-xs text-gray-400">Total Master Items</p>
-          <p className="text-2xl font-bold mt-1 text-emerald-400">{totalItems}</p>
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
+        <div style={cardStyle}>
+          <div style={{ fontSize: '13px', color: '#64748b' }}>Total Active Items</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', marginTop: '8px' }}>{items.length}</div>
         </div>
-        <div className="bg-gray-800 p-5 rounded-lg border border-gray-700 shadow">
-          <p className="text-xs text-gray-400">Total Inventory Valuation</p>
-          <p className="text-2xl font-bold mt-1 text-blue-400">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+        <div style={cardStyle}>
+          <div style={{ fontSize: '13px', color: '#64748b' }}>Total Stock Quantity</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb', marginTop: '8px' }}>{totalStock} Units</div>
         </div>
-        <div className="bg-gray-800 p-5 rounded-lg border border-gray-700 shadow">
-          <p className="text-xs text-gray-400">Total Branch Requisition Units</p>
-          <p className="text-2xl font-bold mt-1 text-amber-400">{totalRequisitionsCount} PCS</p>
+        <div style={cardStyle}>
+          <div style={{ fontSize: '13px', color: '#64748b' }}>Active Proforma Invoices</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a', marginTop: '8px' }}>{proformaInvoices.length}</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={{ fontSize: '13px', color: '#64748b' }}>Active Branches</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', marginTop: '8px' }}>{branches.length}</div>
         </div>
       </div>
-      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-        <h2 className="text-md font-bold mb-2">Executive Overview</h2>
-        <p className="text-sm text-gray-300">Welcome to your multi-warehouse stock tracking and supplier control portal. Use the navigation tabs above to manage inventory master catalogs, configure branch links, track stock ledger values, optimize container MOQ consolidation, and generate supplier Proforma Invoices.</p>
+
+      <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Executive Overview & Inventory Valuation</h3>
+        <p style={{ color: '#64748b', fontSize: '14px' }}>Monitor stock velocity, supplier warehouse balances, and branch order consolidation thresholds from this central hub.</p>
       </div>
     </div>
   );
 }
+
+const cardStyle = { background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' };
