@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function ExecutiveDashboardTab({ items, requisitions }) {
+export default function ExecutiveDashboard({ items, requisitions }) {
   const totalItems = items.length;
   const totalValue = items.reduce((sum, i) => sum + ((i.openingStock || 0) * (i.unitPrice || 0)), 0);
   const totalRequisitionsCount = Object.values(requisitions).reduce((sum, branchReqs) => {
