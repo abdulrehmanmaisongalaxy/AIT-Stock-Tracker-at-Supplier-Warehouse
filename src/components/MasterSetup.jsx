@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function MasterSetupTab({ items, newItem, setNewItem, handleAddItem, handleDeleteItem, suppliers }) {
+export default function MasterSetup({ items, newItem, setNewItem, handleAddItem, handleDeleteItem, suppliers }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg">
