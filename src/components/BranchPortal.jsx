@@ -41,21 +41,21 @@ export default function BranchPortal({ branch, items, requisitions, setRequisiti
 
     const newReq = {
       id: 'REQ-' + Date.now().toString().slice(-6),
-      branchName: branch.name,
+      branchName: `${branch.name} / ${branch.location}`,
       date: new Date().toISOString().split('T')[0],
       items: orderItems,
       status: 'Pending Consolidation'
     };
 
     setRequisitions([...requisitions, newReq]);
-    alert('Requisition submitted successfully!');
+    alert('Requisition submitted successfully to Dubai HQ!');
     setOrderQtys({});
   };
 
   return (
     <form onSubmit={handleSubmitRequisition}>
       <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-        <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>{branch.name} — Order Requisition Form</h2>
+        <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>{branch.name} ({branch.location}) — Order Requisition Form</h2>
         <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Enter quantities for authorized items below.</p>
       </div>
 
@@ -95,7 +95,6 @@ export default function BranchPortal({ branch, items, requisitions, setRequisiti
         </table>
       </div>
 
-      {/* Real-time Container Fill Ratio Footer */}
       <div style={{ background: '#0f172a', color: '#fff', padding: '20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h4 style={{ margin: '0 0 6px 0' }}>📦 Real-Time Container Fill Ratio</h4>
