@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 
-export default function OrderConsolidation({ requisitions, setRequisitions, proformaInvoices, setProformaInvoices, items, setItems, suppliers }) {
+export default function OrderConsolidation({ 
+  requisitions = [], 
+  setRequisitions = () => {}, 
+  proformaInvoices = [], 
+  setProformaInvoices = () => {}, 
+  items = [], 
+  setItems = () => {}, 
+  suppliers = [] 
+}) {
+  const safeRequisitions = requisitions || [];
+  const safeItems = items || [];
+  const safeSuppliers = suppliers || [];
+
   const [actionChoices, setActionChoices] = useState({});
   const [editingReqId, setEditingReqId] = useState(null);
   const [editItemQtyMap, setEditItemQtyMap] = useState({});
@@ -12,14 +24,14 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
   const handleStartEditReq = (req) => {
     setEditingReqId(req.id);
     const map = {};
-    req.items.forEach(i => { map[i.code] = i.orderedQty; });
+    (req.items || []).forEach(i => { map[i.code] = i.orderedQty; });
     setEditItemQtyMap(map);
   };
 
   const handleSaveEditReq = (reqId) => {
-    const updated = requisitions.map(r => {
+    const updated = safeRequisitions.map(r => {
       if (r.id === reqId) {
-        const newItems = r.items.map(item => ({
+        const newItems = (r.items || []).map(item => ({
           ...item,
           orderedQty: parseInt(editItemQtyMap[item.code]) || item.orderedQty
         }));
@@ -34,25 +46,25 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
 
   const handleDeleteReq = (reqId) => {
     if (confirm('Are you sure you want to delete this requisition?')) {
-      setRequisitions(requisitions.filter(r => r.id !== reqId));
+      setRequisitions(safeRequisitions.filter(r => r.id !== reqId));
     }
   };
 
   const handleConvertToPI = (req) => {
-    // Group items by supplier or pick main supplier
-    const firstItem = req.items[0];
-    const masterItemObj = items.find(m => m.code === firstItem?.code);
-    const supplierName = masterItemObj ? masterItemObj.supplier : 'Global Chem China';
-    const supplierObj = suppliers.find(s => s.name === supplierName) || suppliers[0];
+    const reqItems = req.items || [];
+    const firstItem = reqItems[0];
+    const masterItemObj = safeItems.find(m => m.code === firstItem?.code);
+    const supplierName = masterItemObj ? masterItemObj.supplier : (safeSuppliers[0]?.name || 'Global Chem China');
+    const supplierObj = safeSuppliers.find(s => s.name === supplierName) || safeSuppliers[0] || {};
 
-    const currency = supplierObj?.currency || 'CNY';
-    const exRate = supplierObj?.exchangeRate || 7.25;
+    const currency = supplierObj.currency || 'CNY';
+    const exRate = supplierObj.exchangeRate || 7.25;
 
     let totalLCY = 0;
     let totalUSD = 0;
 
-    const piItems = req.items.map(it => {
-      const mItem = items.find(m => m.code === it.code);
+    const piItems = reqItems.map(it => {
+      const mItem = safeItems.find(m => m.code === it.code);
       const unitLCY = mItem ? mItem.unitPriceLCY : 85;
       const unitUSD = mItem ? mItem.unitPriceUSD : 11.72;
       const lineLCY = it.orderedQty * unitLCY;
@@ -67,7 +79,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
       piId: piRef,
       reqId: req.id,
       branchName: req.branchName,
-      supplierName: supplierObj.name,
+      supplierName: supplierObj.name || supplierName,
       currency,
       exchangeRate: exRate,
       totalAmountLCY: totalLCY,
@@ -76,12 +88,12 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
       items: piItems
     };
 
-    setProformaInvoices([...proformaInvoices, newPI]);
-    setRequisitions(requisitions.map(r => r.id === req.id ? { ...r, status: `Converted to PI (${piRef})` } : r));
+    setProformaInvoices([...(proformaInvoices || []), newPI]);
+    setRequisitions(safeRequisitions.map(r => r.id === req.id ? { ...r, status: `Converted to PI (${piRef})` } : r));
 
     // Update items ordered quantity in master
-    const updatedItems = items.map(item => {
-      const matched = req.items.find(i => i.code === item.code);
+    const updatedItems = safeItems.map(item => {
+      const matched = reqItems.find(i => i.code === item.code);
       if (matched) {
         return { ...item, orderedQty: (item.orderedQty || 0) + matched.orderedQty };
       }
@@ -96,13 +108,17 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
       <h2 style={{ marginTop: 0, color: '#0f172a' }}>Order Consolidation & MOQ Planning Hub</h2>
       <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>Review branch requisitions, edit quantities to meet MOQ, and generate Proforma Invoices.</p>
 
-      {requisitions.length === 0 ? (
+      {safeRequisitions.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '6px' }}>
           No branch requisitions available. Submit a test order from a branch portal to view it here.
         </div>
       ) : (
-        requisitions.map(req => {
+        safeRequisitions.map(req => {
           const isEditing = editingReqId === req.id;
+          const reqStatus = req.status || 'Pending';
+          const isConverted = reqStatus.includes('Converted');
+          const reqItems = req.items || [];
+
           return (
             <div key={req.id} style={{ border: '1px solid #cbd5e1', padding: '16px', borderRadius: '6px', marginBottom: '20px', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
@@ -111,10 +127,10 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
                   <span style={{ marginLeft: '12px', color: '#64748b', fontSize: '13px' }}>Date: {req.date}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{ background: req.status.includes('Converted') ? '#dcfce7' : '#fef9c3', color: req.status.includes('Converted') ? '#166534' : '#854d0e', padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                    {req.status}
+                  <span style={{ background: isConverted ? '#dcfce7' : '#fef9c3', color: isConverted ? '#166534' : '#854d0e', padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    {reqStatus}
                   </span>
-                  {!req.status.includes('Converted') && (
+                  {!isConverted && (
                     <>
                       {isEditing ? (
                         <button onClick={() => handleSaveEditReq(req.id)} style={btnGreen}>Save Qty</button>
@@ -139,8 +155,8 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
                   </tr>
                 </thead>
                 <tbody>
-                  {req.items.map((it, idx) => {
-                    const masterItem = items.find(m => m.code === it.code);
+                  {reqItems.map((it, idx) => {
+                    const masterItem = safeItems.find(m => m.code === it.code);
                     const moq = masterItem ? masterItem.moq : 500;
                     const supplierName = masterItem ? masterItem.supplier : 'Global Chem China';
                     const currentQty = isEditing ? (editItemQtyMap[it.code] !== undefined ? editItemQtyMap[it.code] : it.orderedQty) : it.orderedQty;
@@ -175,7 +191,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
                             value={currentChoice} 
                             onChange={(e) => handleChoiceChange(req.id, it.code, e.target.value)}
                             style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                            disabled={req.status.includes('Converted')}
+                            disabled={isConverted}
                           >
                             <option value="Place Order">Place Order</option>
                             <option value="Hold / Increase Qty">Hold / Increase Qty</option>
@@ -188,7 +204,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, prof
                 </tbody>
               </table>
 
-              {!req.status.includes('Converted') && (
+              {!isConverted && (
                 <button onClick={() => handleConvertToPI(req)} style={btnGreen}>
                   Convert to Proforma Invoice (PI) & Place Order
                 </button>
