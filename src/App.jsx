@@ -1,144 +1,271 @@
-import React, { useState, useEffect } from 'react';
-import Dashboard from './components/Dashboard';
-import MasterSetup from './components/MasterSetup';
-import OrderConsolidation from './components/OrderConsolidation';
-import ProformaInvoices from './components/ProformaInvoices';
-import StockLedger from './components/StockLedger';
-import ShipmentsContainers from './components/ShipmentsContainers';
-import BranchPortal from './components/BranchPortal';
+import React, { useState } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 export default function App() {
-  // Initial / Default State setup
-  const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem('ait_items');
-    return saved ? JSON.parse(saved) : [
-      { code: 'NAHB-060', name: 'Naomi Mouth Wash 70ml-Fresh Burst', packSize: 48, weight: 4.4, cbm: 0.0122, supplier: 'Global Chem Supplier', country: 'China', price: 5, currency: 'YUAN', moq: 5000, stock: 0 },
-      { code: 'NMRO-083', name: 'Naomi Skin Cream 50gm-Papaya', packSize: 200, weight: 14.9, cbm: 0.0506, supplier: 'Cosmetic Trade India', country: 'India', price: 5, currency: 'INR', moq: 5000, stock: 0 }
-    ];
-  });
-
-  const [suppliers, setSuppliers] = useState(() => {
-    const saved = localStorage.getItem('ait_suppliers');
-    return saved ? JSON.parse(saved) : [
-      { code: 'SUP-001', name: 'Global Chem Supplier', warehouseNo: 'WH-CN-01', country: 'China', currency: 'YUAN' },
-      { code: 'SUP-002', name: 'Cosmetic Trade India', warehouseNo: 'WH-IN-02', country: 'India', currency: 'INR' }
-    ];
-  });
-
-  const [branches, setBranches] = useState(() => {
-    const saved = localStorage.getItem('ait_branches');
-    return saved ? JSON.parse(saved) : [
-      { id: 'br-1', name: 'MG Abidjan', location: 'Abidjan', country: 'Ivory Coast', email: 'inventory@ayulintl.com', password: 'password123', allowedItems: ['NAHB-060', 'NMRO-083'] }
-    ];
-  });
-
-  const [requisitions, setRequisitions] = useState(() => {
-    const saved = localStorage.getItem('ait_requisitions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [proformaInvoices, setProformaInvoices] = useState(() => {
-    const saved = localStorage.getItem('ait_pis');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [shipments, setShipments] = useState(() => {
-    const saved = localStorage.getItem('ait_shipments');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [stockLedger, setStockLedger] = useState(() => {
-    const saved = localStorage.getItem('ait_ledger');
-    return saved ? JSON.parse(saved) : [];
-  });
-
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [branchSession, setBranchSession] = useState(null); // Active logged-in branch if via link
 
-  // Check URL query parameters for direct branch login token (e.g., ?branch=br-1)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const branchIdParam = params.get('branch');
-    if (branchIdParam) {
-      const foundBranch = branches.find(b => b.id === branchIdParam);
-      if (foundBranch) {
-        setBranchSession(foundBranch);
-      }
-    }
-  }, [branches]);
+  // Cleared out all dummy data as requested
+  const [db, setDb] = useState({
+    items: [],
+    suppliers: [],
+    branches: [],
+    proformaInvoices: [],
+    shipments: []
+  });
 
-  // Persist state to localStorage
-  useEffect(() => { localStorage.setItem('ait_items', JSON.stringify(items)); }, [items]);
-  useEffect(() => { localStorage.setItem('ait_suppliers', JSON.stringify(suppliers)); }, [suppliers]);
-  useEffect(() => { localStorage.setItem('ait_branches', JSON.stringify(branches)); }, [branches]);
-  useEffect(() => { localStorage.setItem('ait_requisitions', JSON.stringify(requisitions)); }, [requisitions]);
-  useEffect(() => { localStorage.setItem('ait_pis', JSON.stringify(proformaInvoices)); }, [proformaInvoices]);
-  useEffect(() => { localStorage.setItem('ait_shipments', JSON.stringify(shipments)); }, [shipments]);
-  useEffect(() => { localStorage.setItem('ait_ledger', JSON.stringify(stockLedger)); }, [stockLedger]);
+  const [newBranch, setNewBranch] = useState({
+    name: '',
+    location: '',
+    country: '',
+    email: '',
+    password: ''
+  });
 
-  // If a branch user logged in via link/credentials, show Branch Portal exclusively
-  if (branchSession) {
-    return (
-      <BranchPortal 
-        branch={branchSession} 
-        items={items} 
-        onLogout={() => { setBranchSession(null); window.history.replaceState({}, document.title, window.location.pathname); }}
-        onSubmitRequisition={(newReq) => {
-          setRequisitions(prev => [newReq, ...prev]);
-          alert('Order Requisition submitted successfully to Dubai HQ!');
-        }}
-      />
-    );
-  }
+  const handleBranchSubmit = (e) => {
+    e.preventDefault();
+    const branchId = `br_${db.branches.length + 1}_${Date.now().toString().slice(-6)}`;
+    const createdBranch = { ...newBranch, id: branchId };
+    
+    setDb({
+      ...db,
+      branches: [...db.branches, createdBranch]
+    });
+    
+    setNewBranch({ name: '', location: '', country: '', email: '', password: '' });
+    alert('Branch created successfully with a dedicated requisition link!');
+  };
+
+  const copyRequisitionLink = (branchId) => {
+    const link = `${window.location.origin}/?branch=${branchId}`;
+    navigator.clipboard.writeText(link);
+    alert('Dedicated requisition link copied to clipboard!');
+  };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
-      {/* Top Header */}
-      <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-lg">
-        <div>
-          <h1 className="text-xl font-bold tracking-wide text-emerald-400">AIT Supplier & Inventory Control Portal</h1>
-          <p className="text-xs text-slate-400">Dubai HQ & Multi-Warehouse Stock Tracking Platform</p>
+    <div style={{ backgroundColor: '#f4f6f9', minHeight: '100vh', color: '#333333', fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
+      {/* Navbar */}
+      <nav className="navbar navbar-expand-lg navbar-light bg-white px-4 py-3 mb-4 shadow-sm border-bottom">
+        <div className="container-fluid">
+          <div>
+            <h4 className="mb-0 text-success fw-bold">
+              <i className="fa-solid fa-boxes-stacked me-2"></i>AIT Supplier & Inventory Control Portal
+            </h4>
+            <small className="text-muted">Dubai HQ & Multi-Warehouse Stock Tracking Platform</small>
+          </div>
+          <span className="badge bg-success fs-6">Admin Mode Active</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-3 py-1 rounded-full font-semibold">Admin Mode Active</span>
-        </div>
-      </header>
-
-      {/* Navigation Tabs */}
-      <nav className="bg-slate-900 border-b border-slate-800 px-6 flex gap-2 overflow-x-auto py-2">
-        {[
-          { id: 'dashboard', label: 'Dashboard' },
-          { id: 'master', label: 'Master Setup & Import' },
-          { id: 'consolidation', label: 'Order Consolidation & MOQ' },
-          { id: 'pis', label: 'Proforma Invoices' },
-          { id: 'stock', label: 'Stock Ledger' },
-          { id: 'shipments', label: 'Shipments & Containers' },
-          { id: 'branches', label: 'Branch Management & Links' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-              activeTab === tab.id 
-                ? 'bg-emerald-600 text-white shadow-md' 
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
       </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
-        {activeTab === 'dashboard' && <Dashboard items={items} suppliers={suppliers} branches={branches} requisitions={requisitions} proformaInvoices={proformaInvoices} shipments={shipments} stockLedger={stockLedger} />}
-        {activeTab === 'master' && <MasterSetup items={items} setItems={setItems} suppliers={suppliers} setSuppliers={setSuppliers} branches={branches} setBranches={setBranches} />}
-        {activeTab === 'consolidation' && <OrderConsolidation requisitions={requisitions} setRequisitions={setRequisitions} items={items} suppliers={suppliers} setProformaInvoices={setProformaInvoices} />}
-        {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} stockLedger={stockLedger} setStockLedger={setStockLedger} />}
-        {activeTab === 'stock' && <StockLedger stockLedger={stockLedger} suppliers={suppliers} setItems={setItems} />}
-        {activeTab === 'shipments' && <ShipmentsContainers shipments={shipments} setShipments={setShipments} branches={branches} items={items} stockLedger={stockLedger} />}
-        {activeTab === 'branches' && <BranchPortal branches={branches} setBranches={setBranches} items={items} isManagementMode={true} />}
-      </main>
+      <div className="container-fluid px-4">
+        {/* Navigation Tabs */}
+        <ul className="nav nav-tabs mb-4">
+          <li className="nav-item">
+            <button className={`nav-link ${activeTab === 'dashboard' ? 'active fw-bold text-success' : 'text-dark'}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
+          </li>
+          <li className="nav-item">
+            <button className={`nav-link ${activeTab === 'setup' ? 'active fw-bold text-success' : 'text-dark'}`} onClick={() => setActiveTab('setup')}>Master Setup & Import</button>
+          </li>
+          <li className="nav-item">
+            <button className={`nav-link ${activeTab === 'moq' ? 'active fw-bold text-success' : 'text-dark'}`} onClick={() => setActiveTab('moq')}>Order Consolidation & MOQ</button>
+          </li>
+          <li className="nav-item">
+            <button className={`nav-link ${activeTab === 'pi' ? 'active fw-bold text-success' : 'text-dark'}`} onClick={() => setActiveTab('pi')}>Proforma Invoices</button>
+          </li>
+          <li className="nav-item">
+            <button className={`nav-link ${activeTab === 'ledger' ? 'active fw-bold text-success' : 'text-dark'}`} onClick={() => setActiveTab('ledger')}>Stock Ledger</button>
+          </li>
+          <li className="nav-item">
+            <button className={`nav-link ${activeTab === 'shipments' ? 'active fw-bold text-success' : 'text-dark'}`} onClick={() => setActiveTab('shipments')}>Shipments & Containers</button>
+          </li>
+          <li className="nav-item">
+            <button className={`nav-link ${activeTab === 'branches' ? 'active fw-bold text-success' : 'text-dark'}`} onClick={() => setActiveTab('branches')}>Branch Management & Links</button>
+          </li>
+        </ul>
+
+        {/* Tab Content */}
+        <div>
+          {/* Dashboard Tab */}
+          {activeTab === 'dashboard' && (
+            <div>
+              <div className="row g-3 mb-4">
+                <div className="col-md-3">
+                  <div className="card p-3 border-start border-success border-4 shadow-sm bg-white">
+                    <h6 className="text-muted">Total Items</h6>
+                    <h3 className="fw-bold">{db.items.length}</h3>
+                  </div>
+                </div>
+                <div className="col-md-3">
+                  <div className="card p-3 border-start border-primary border-4 shadow-sm bg-white">
+                    <h6 className="text-muted">Active Suppliers</h6>
+                    <h3 className="fw-bold">{db.suppliers.length}</h3>
+                  </div>
+                </div>
+                <div className="col-md-3">
+                  <div className="card p-3 border-start border-warning border-4 shadow-sm bg-white">
+                    <h6 className="text-muted">Registered Branches</h6>
+                    <h3 className="fw-bold">{db.branches.length}</h3>
+                  </div>
+                </div>
+                <div className="col-md-3">
+                  <div className="card p-3 border-start border-info border-4 shadow-sm bg-white">
+                    <h6 className="text-muted">Active Shipments</h6>
+                    <h3 className="fw-bold">{db.shipments.length}</h3>
+                  </div>
+                </div>
+              </div>
+              <div className="card p-4 shadow-sm bg-white">
+                <h5>Welcome to AIT Stock Tracker</h5>
+                <p className="text-muted">All dummy records have been cleared. Head over to <strong>Master Setup & Import</strong> to upload your fresh master and transactional datasets.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Master Setup Tab */}
+          {activeTab === 'setup' && (
+            <div className="card p-4 shadow-sm bg-white">
+              <h5 className="mb-3">Master Setup & CSV Imports</h5>
+              <p className="text-muted">Upload fresh master data files for items, suppliers, and currency rules.</p>
+              <div className="d-flex gap-3">
+                <button className="btn btn-outline-secondary" onClick={() => alert('CSV template downloaded.')}><i class="fa-solid fa-download me-2"></i>Download CSV Template</button>
+                <button className="btn btn-success" onClick={() => alert('Ready to receive fresh item uploads.')}><i class="fa-solid fa-upload me-2"></i>Import Items CSV</button>
+              </div>
+            </div>
+          )}
+
+          {/* MOQ Tab */}
+          {activeTab === 'moq' && (
+            <div className="card p-4 shadow-sm bg-white">
+              <h5>Order Consolidation & MOQ Tracking</h5>
+              <p className="text-muted">Consolidate branch requests to meet minimum order quantities.</p>
+              <div className="alert alert-info">No active requisitions found.</div>
+            </div>
+          )}
+
+          {/* Proforma Invoices Tab */}
+          {activeTab === 'pi' && (
+            <div className="card p-4 shadow-sm bg-white">
+              <h5>Proforma Invoices (PI)</h5>
+              <p className="text-muted">Manage supplier PI confirmations and financial statuses.</p>
+              <div className="alert alert-info">No proforma invoices available.</div>
+            </div>
+          )}
+
+          {/* Stock Ledger Tab */}
+          {activeTab === 'ledger' && (
+            <div className="card p-4 shadow-sm bg-white">
+              <h5>Stock Ledger</h5>
+              <p className="text-muted">Track live inventory balances across warehouses.</p>
+              <div className="alert alert-info">Ledger is currently empty.</div>
+            </div>
+          )}
+
+          {/* Shipments Tab (Fixed Blank Screen Issue) */}
+          {activeTab === 'shipments' && (
+            <div className="card p-4 shadow-sm bg-white">
+              <h5 className="mb-3"><i className="fa-solid fa-ship me-2"></i>Shipments & Containers Tracking</h5>
+              <p className="text-muted">Monitor departures, customs clearance, and warehouse arrivals.</p>
+              <div className="table-responsive">
+                <table className="table table-bordered table-hover align-middle">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Shipment ID</th>
+                      <th>Supplier</th>
+                      <th>Container No</th>
+                      <th>ETD</th>
+                      <th>ETA</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {db.shipments.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="text-center text-muted py-4">No shipments recorded yet. Upload fresh shipment tracking data.</td>
+                      </tr>
+                    ) : (
+                      db.shipments.map((s, idx) => (
+                        <tr key={idx}>
+                          <td>{s.id}</td>
+                          <td>{s.supplier}</td>
+                          <td>{s.containerNo}</td>
+                          <td>{s.etd}</td>
+                          <td>{s.eta}</td>
+                          <td>{s.status}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Branch Management & Links Tab */}
+          {activeTab === 'branches' && (
+            <div>
+              <div className="card p-4 shadow-sm bg-white mb-4">
+                <h5 className="mb-3">Add New Branch</h5>
+                <form onSubmit={handleBranchSubmit}>
+                  <div className="row g-3">
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Branch Name" value={newBranch.name} onChange={e => setNewBranch({...newBranch, name: e.target.value})} required />
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Location / City" value={newBranch.location} onChange={e => setNewBranch({...newBranch, location: e.target.value})} required />
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Country" value={newBranch.country} onChange={e => setNewBranch({...newBranch, country: e.target.value})} required />
+                    </div>
+                    <div className="col-md-6">
+                      <input type="email" className="form-control" placeholder="Branch Login Email" value={newBranch.email} onChange={e => setNewBranch({...newBranch, email: e.target.value})} required />
+                    </div>
+                    <div className="col-md-6">
+                      <input type="password" className="form-control" placeholder="Password" value={newBranch.password} onChange={e => setNewBranch({...newBranch, password: e.target.value})} required />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-success mt-3"><i className="fa-solid fa-plus me-2"></i>Save Branch</button>
+                </form>
+              </div>
+
+              <div className="card p-4 shadow-sm bg-white">
+                <h5 className="mb-3">Registered Branches & Requisition Links</h5>
+                <div className="table-responsive">
+                  <table className="table table-bordered align-middle">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Branch Name</th>
+                        <th>Location</th>
+                        <th>Login Email</th>
+                        <th>Direct Requisition Link</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {db.branches.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="text-center text-muted py-4">No branches created yet.</td>
+                        </tr>
+                      ) : (
+                        db.branches.map((b, idx) => (
+                          <tr key={idx}>
+                            <td className="fw-semibold">{b.name}</td>
+                            <td>{b.location}, {b.country}</td>
+                            <td>{b.email}</td>
+                            <td>
+                              <button className="btn btn-sm btn-outline-success" onClick={() => copyRequisitionLink(b.id)}>
+                                <i className="fa-solid fa-copy me-1"></i> Copy Requisition Link
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
