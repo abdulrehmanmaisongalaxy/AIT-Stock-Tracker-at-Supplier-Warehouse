@@ -1,125 +1,123 @@
 import React, { useState } from 'react';
+import BranchRequisitionPortal from './BranchRequisitionPortal';
 
-export default function BranchPortal({ branch, items, requisitions, setRequisitions }) {
-  const allowedItems = items.filter(item => branch.allowedItems.includes(item.code));
-  const [orderQtys, setOrderQtys] = useState({});
+const BranchPortal = () => {
+  // Authentication & Session States
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('Dubai - Al Quoz Branch');
 
-  const handleQtyChange = (code, val) => {
-    setOrderQtys({ ...orderQtys, [code]: Math.max(0, parseInt(val) || 0) });
-  };
-
-  let totalCbm = 0;
-  let totalWeight = 0;
-
-  allowedItems.forEach(item => {
-    const qty = orderQtys[item.code] || 0;
-    if (qty > 0) {
-      totalCbm += qty * (item.cbm || 0.04);
-      totalWeight += qty * (item.weight || 10);
-    }
-  });
-
-  const fill20 = Math.min(100, Math.round((totalCbm / 28) * 100));
-  const fill40 = Math.min(100, Math.round((totalCbm / 58) * 100));
-
-  const handleSubmitRequisition = (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    const orderItems = allowedItems
-      .filter(item => (orderQtys[item.code] || 0) > 0)
-      .map(item => ({
-        code: item.code,
-        name: item.name,
-        supplier: item.supplier,
-        packSize: item.packSize,
-        orderedQty: orderQtys[item.code]
-      }));
-
-    if (orderItems.length === 0) {
-      alert('Please enter order quantities.');
-      return;
+    if (username.trim() && password.trim()) {
+      setIsLoggedIn(true);
+    } else {
+      alert('Please enter valid branch credentials.');
     }
-
-    const newReq = {
-      id: 'REQ-' + Date.now().toString().slice(-6),
-      branchName: `${branch.name} / ${branch.location}`,
-      date: new Date().toISOString().split('T')[0],
-      items: orderItems,
-      status: 'Pending Consolidation'
-    };
-
-    setRequisitions([...requisitions, newReq]);
-    alert('Requisition submitted successfully to Dubai HQ!');
-    setOrderQtys({});
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUsername('');
+    setPassword('');
+  };
+
+  // If NOT logged in, show the Branch Login Portal view
+  if (!isLoggedIn) {
+    return (
+      <div style={styles.loginContainer}>
+        <div style={styles.loginCard}>
+          <h2 style={styles.loginTitle}>Branch Portal Login</h2>
+          <p style={styles.loginSubtitle}>Enter your branch credentials to access requisitioning</p>
+          
+          <form onSubmit={handleLogin} style={styles.form}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Branch User ID</label>
+              <input 
+                type="text" 
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)} 
+                placeholder="e.g., DXB-ALQUOZ-01"
+                style={styles.input}
+                required
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Password</label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                placeholder="••••••••"
+                style={styles.input}
+                required
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Select Branch Location</label>
+              <select 
+                value={selectedBranch} 
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                style={styles.input}
+              >
+                <option value="Dubai - Al Quoz Branch">Dubai - Al Quoz Branch</option>
+                <option value="Sharjah - Al Majaz Branch">Sharjah - Al Majaz Branch</option>
+                <option value="Abu Dhabi - Mussafah Branch">Abu Dhabi - Mussafah Branch</option>
+              </select>
+            </div>
+
+            <button type="submit" style={styles.loginButton}>
+              Login to Portal
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // If logged in, show the dashboard container hosting the Requisition Portal
   return (
-    <form onSubmit={handleSubmitRequisition}>
-      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-        <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>{branch.name} ({branch.location}) — Order Requisition Form</h2>
-        <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Enter quantities for authorized items below.</p>
-      </div>
-
-      <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflowX: 'auto', marginBottom: '24px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-          <thead>
-            <tr style={{ background: '#f1f5f9', color: '#334155' }}>
-              <th style={thStyle}>Item Code</th>
-              <th style={thStyle}>Item Name</th>
-              <th style={thStyle}>Pack Size</th>
-              <th style={thStyle}>Weight (kg)</th>
-              <th style={thStyle}>CBM (m³)</th>
-              <th style={{ ...thStyle, width: '130px' }}>Ordering Qty</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allowedItems.map(item => (
-              <tr key={item.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={tdStyle}><b>{item.code}</b></td>
-                <td style={tdStyle}>{item.name}</td>
-                <td style={tdStyle}>{item.packSize}</td>
-                <td style={tdStyle}>{item.weight}</td>
-                <td style={tdStyle}>{item.cbm}</td>
-                <td style={tdStyle}>
-                  <input 
-                    type="number" 
-                    min="0"
-                    value={orderQtys[item.code] || ''} 
-                    onChange={(e) => handleQtyChange(item.code, e.target.value)}
-                    style={{ width: '90px', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                    placeholder="0"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div style={{ background: '#0f172a', color: '#fff', padding: '20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h4 style={{ margin: '0 0 6px 0' }}>📦 Real-Time Container Fill Ratio</h4>
-          <div style={{ display: 'flex', gap: '20px', fontSize: '13px', color: '#cbd5e1' }}>
-            <span>Gross Weight: <b>{totalWeight.toFixed(1)} kg</b></span>
-            <span>Total CBM: <b>{totalCbm.toFixed(2)} m³</b></span>
-          </div>
+    <div style={styles.dashboardContainer}>
+      <header style={styles.navbar}>
+        <div style={styles.brandArea}>
+          <h2 style={styles.navTitle}>Enterprise Branch Hub</h2>
+          <span style={styles.branchIndicator}>{selectedBranch}</span>
         </div>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <div style={{ background: '#1e293b', padding: '8px 14px', borderRadius: '6px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>20FT Fill (Max 28 CBM)</div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color: fill20 >= 80 ? '#22c55e' : '#facc15' }}>{fill20}%</div>
-          </div>
-          <div style={{ background: '#1e293b', padding: '8px 14px', borderRadius: '6px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>40FT Fill (Max 58 CBM)</div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color: fill40 >= 80 ? '#22c55e' : '#facc15' }}>{fill40}%</div>
-          </div>
-          <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-            Submit Requisition
-          </button>
-        </div>
-      </div>
-    </form>
+        <button onClick={handleLogout} style={styles.logoutButton}>
+          Logout
+        </button>
+      </header>
+
+      <main style={styles.mainContent}>
+        {/* Renders the requisition component you just created */}
+        <BranchRequisitionPortal branchName={selectedBranch} />
+      </main>
+    </div>
   );
-}
+};
 
-const thStyle = { padding: '12px 16px', fontWeight: '600' };
-const tdStyle = { padding: '12px 16px', color: '#475569' };
+// Styling definitions for the login & layout wrapper
+const styles = {
+  loginContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f1f5f9' },
+  loginCard: { background: '#ffffff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', width: '100%', maxWidth: '420px' },
+  loginTitle: { margin: '0 0 8px 0', color: '#1e293b', fontSize: '24px' },
+  loginSubtitle: { color: '#64748b', fontSize: '14px', marginBottom: '24px' },
+  form: { display: 'flex', flexDirection: 'column', gap: '16px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
+  input: { padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' },
+  loginButton: { background: '#0284c7', color: '#ffffff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', marginTop: '10px' },
+  
+  dashboardContainer: { minHeight: '100vh', background: '#f8fafc' },
+  navbar: { background: '#ffffff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' },
+  brandArea: { display: 'flex', alignItems: 'center', gap: '16px' },
+  navTitle: { margin: 0, fontSize: '18px', color: '#1e293b' },
+  branchIndicator: { background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '600' },
+  logoutButton: { background: '#fee2e2', color: '#991b1b', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' },
+  mainContent: { padding: '32px 16px' }
+};
+
+export default BranchPortal;
