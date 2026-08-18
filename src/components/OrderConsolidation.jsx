@@ -1,224 +1,66 @@
 import React, { useState } from 'react';
 
-export default function OrderConsolidation({ 
-  requisitions = [], 
-  setRequisitions = () => {}, 
-  proformaInvoices = [], 
-  setProformaInvoices = () => {}, 
-  items = [], 
-  setItems = () => {}, 
-  suppliers = [] 
-}) {
-  const safeRequisitions = requisitions || [];
-  const safeItems = items || [];
-  const safeSuppliers = suppliers || [];
+export default function OrderConsolidation() {
+  const [requisitions, setRequisitions] = useState([
+    { id: 'REQ-001', branch: 'MG Kinshasa', item: 'Tire 205/55R16', supplier: 'Apex Corp (China)', qty: 10, moq: 25 }
+  ]);
 
-  const [actionChoices, setActionChoices] = useState({});
-  const [editingReqId, setEditingReqId] = useState(null);
-  const [editItemQtyMap, setEditItemQtyMap] = useState({});
-
-  const handleChoiceChange = (reqId, itemCode, choice) => {
-    setActionChoices({ ...actionChoices, [`${reqId}_${itemCode}`]: choice });
+  const handleDelete = (id) => {
+    setRequisitions(requisitions.filter(r => r.id !== id));
   };
 
-  const handleStartEditReq = (req) => {
-    setEditingReqId(req.id);
-    const map = {};
-    (req.items || []).forEach(i => { map[i.code] = i.orderedQty; });
-    setEditItemQtyMap(map);
-  };
-
-  const handleSaveEditReq = (reqId) => {
-    const updated = safeRequisitions.map(r => {
-      if (r.id === reqId) {
-        const newItems = (r.items || []).map(item => ({
-          ...item,
-          orderedQty: parseInt(editItemQtyMap[item.code]) || item.orderedQty
-        }));
-        return { ...r, items: newItems };
-      }
-      return r;
-    });
-    setRequisitions(updated);
-    setEditingReqId(null);
-    alert('Requisition quantities updated successfully!');
-  };
-
-  const handleDeleteReq = (reqId) => {
-    if (confirm('Are you sure you want to delete this requisition?')) {
-      setRequisitions(safeRequisitions.filter(r => r.id !== reqId));
-    }
-  };
-
-  const handleConvertToPI = (req) => {
-    const reqItems = req.items || [];
-    const firstItem = reqItems[0];
-    const masterItemObj = safeItems.find(m => m.code === firstItem?.code);
-    const supplierName = masterItemObj ? masterItemObj.supplier : (safeSuppliers[0]?.name || 'Global Chem China');
-    const supplierObj = safeSuppliers.find(s => s.name === supplierName) || safeSuppliers[0] || {};
-
-    const currency = supplierObj.currency || 'CNY';
-    const exRate = supplierObj.exchangeRate || 7.25;
-
-    let totalLCY = 0;
-    let totalUSD = 0;
-
-    const piItems = reqItems.map(it => {
-      const mItem = safeItems.find(m => m.code === it.code);
-      const unitLCY = mItem ? mItem.unitPriceLCY : 85;
-      const unitUSD = mItem ? mItem.unitPriceUSD : 11.72;
-      const lineLCY = it.orderedQty * unitLCY;
-      const lineUSD = it.orderedQty * unitUSD;
-      totalLCY += lineLCY;
-      totalUSD += lineUSD;
-      return { ...it, supplier: supplierName, unitLCY, unitUSD, lineLCY, lineUSD };
-    });
-
-    const piRef = 'PI-' + Date.now().toString().slice(-6);
-    const newPI = {
-      piId: piRef,
-      reqId: req.id,
-      branchName: req.branchName,
-      supplierName: supplierObj.name || supplierName,
-      currency,
-      exchangeRate: exRate,
-      totalAmountLCY: totalLCY,
-      totalAmountUSD: totalUSD,
-      status: 'Pending Supplier Confirmation',
-      items: piItems
-    };
-
-    setProformaInvoices([...(proformaInvoices || []), newPI]);
-    setRequisitions(safeRequisitions.map(r => r.id === req.id ? { ...r, status: `Converted to PI (${piRef})` } : r));
-
-    // Update items ordered quantity in master
-    const updatedItems = safeItems.map(item => {
-      const matched = reqItems.find(i => i.code === item.code);
-      if (matched) {
-        return { ...item, orderedQty: (item.orderedQty || 0) + matched.orderedQty };
-      }
-      return item;
-    });
-    setItems(updatedItems);
-    alert(`Requisition successfully converted to PI (${piRef})!`);
+  const handleQtyChange = (id, val) => {
+    setRequisitions(requisitions.map(r => r.id === id ? { ...r, qty: Number(val) } : r));
   };
 
   return (
-    <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-      <h2 style={{ marginTop: 0, color: '#0f172a' }}>Order Consolidation & MOQ Planning Hub</h2>
-      <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>Review branch requisitions, edit quantities to meet MOQ, and generate Proforma Invoices.</p>
-
-      {safeRequisitions.length === 0 ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '6px' }}>
-          No branch requisitions available. Submit a test order from a branch portal to view it here.
-        </div>
-      ) : (
-        safeRequisitions.map(req => {
-          const isEditing = editingReqId === req.id;
-          const reqStatus = req.status || 'Pending';
-          const isConverted = reqStatus.includes('Converted');
-          const reqItems = req.items || [];
-
-          return (
-            <div key={req.id} style={{ border: '1px solid #cbd5e1', padding: '16px', borderRadius: '6px', marginBottom: '20px', background: '#fff' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-                <div>
-                  <b style={{ fontSize: '15px', color: '#0f172a' }}>{req.branchName}</b> (Req ID: <b>{req.id}</b>) 
-                  <span style={{ marginLeft: '12px', color: '#64748b', fontSize: '13px' }}>Date: {req.date}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{ background: isConverted ? '#dcfce7' : '#fef9c3', color: isConverted ? '#166534' : '#854d0e', padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                    {reqStatus}
-                  </span>
-                  {!isConverted && (
-                    <>
-                      {isEditing ? (
-                        <button onClick={() => handleSaveEditReq(req.id)} style={btnGreen}>Save Qty</button>
-                      ) : (
-                        <button onClick={() => handleStartEditReq(req)} style={btnSmEdit}>Edit Qty</button>
-                      )}
-                      <button onClick={() => handleDeleteReq(req.id)} style={btnSmDel}>Delete</button>
-                    </>
+    <div className="p-6 bg-white rounded shadow">
+      <h2 className="text-xl font-bold mb-4">Order Consolidation & MOQ Management</h2>
+      <table className="w-full border-collapse border border-gray-200">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border p-2">Req ID</th>
+            <th className="border p-2">Branch</th>
+            <th className="border p-2">Item Name</th>
+            <th className="border p-2">Assigned Supplier</th>
+            <th className="border p-2">Ordered Qty</th>
+            <th className="border p-2">MOQ Status</th>
+            <th className="border p-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {requisitions.length === 0 ? (
+            <tr><td colSpan="7" className="text-center p-4 text-gray-500">No active branch requisitions found.</td></tr>
+          ) : (
+            requisitions.map(r => (
+              <tr key={r.id}>
+                <td className="border p-2 font-bold">{r.id}</td>
+                <td className="border p-2">{r.branch}</td>
+                <td className="border p-2">{r.item}</td>
+                <td className="border p-2 font-semibold text-blue-600">{r.supplier}</td>
+                <td className="border p-2">
+                  <input 
+                    type="number" 
+                    value={r.qty} 
+                    onChange={e => handleQtyChange(r.id, e.target.value)} 
+                    className="w-20 border p-1 rounded text-center" 
+                  />
+                </td>
+                <td className="border p-2">
+                  {r.qty >= r.moq ? (
+                    <span className="text-green-600 font-bold">MOQ Met</span>
+                  ) : (
+                    <span className="text-red-600 font-bold">Below MOQ (Min: {r.moq})</span>
                   )}
-                </div>
-              </div>
-
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '16px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', textAlign: 'left', color: '#475569' }}>
-                    <th style={thStyle}>Item Code & Name</th>
-                    <th style={thStyle}>Assigned Supplier</th>
-                    <th style={thStyle}>Ordered Pcs</th>
-                    <th style={thStyle}>MOQ</th>
-                    <th style={thStyle}>MOQ Status</th>
-                    <th style={thStyle}>HQ Decision</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reqItems.map((it, idx) => {
-                    const masterItem = safeItems.find(m => m.code === it.code);
-                    const moq = masterItem ? masterItem.moq : 500;
-                    const supplierName = masterItem ? masterItem.supplier : 'Global Chem China';
-                    const currentQty = isEditing ? (editItemQtyMap[it.code] !== undefined ? editItemQtyMap[it.code] : it.orderedQty) : it.orderedQty;
-                    const isMet = currentQty >= moq;
-                    const key = `${req.id}_${it.code}`;
-                    const currentChoice = actionChoices[key] || (isMet ? 'Place Order' : 'Hold / Increase Qty');
-
-                    return (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={tdStyle}><b>{it.code}</b><br/>{it.name}</td>
-                        <td style={{ ...tdStyle, fontWeight: '600', color: '#0284c7' }}>{supplierName}</td>
-                        <td style={tdStyle}>
-                          {isEditing ? (
-                            <input 
-                              type="number" 
-                              value={editItemQtyMap[it.code] ?? it.orderedQty} 
-                              onChange={(e) => setEditItemQtyMap({ ...editItemQtyMap, [it.code]: e.target.value })}
-                              style={{ width: '80px', padding: '4px' }}
-                            />
-                          ) : (
-                            <b>{it.orderedQty}</b>
-                          )}
-                        </td>
-                        <td style={tdStyle}>{moq}</td>
-                        <td style={tdStyle}>
-                          <span style={{ color: isMet ? '#16a34a' : '#dc2626', fontWeight: 'bold' }}>
-                            {isMet ? '✅ MOQ Met' : '❌ Below MOQ'}
-                          </span>
-                        </td>
-                        <td style={tdStyle}>
-                          <select 
-                            value={currentChoice} 
-                            onChange={(e) => handleChoiceChange(req.id, it.code, e.target.value)}
-                            style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                            disabled={isConverted}
-                          >
-                            <option value="Place Order">Place Order</option>
-                            <option value="Hold / Increase Qty">Hold / Increase Qty</option>
-                            <option value="Place with Buffer">Place with Buffer</option>
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {!isConverted && (
-                <button onClick={() => handleConvertToPI(req)} style={btnGreen}>
-                  Convert to Proforma Invoice (PI) & Place Order
-                </button>
-              )}
-            </div>
-          );
-        })
-      )}
+                </td>
+                <td className="border p-2 space-x-2 text-center">
+                  <button onClick={() => handleDelete(r.id)} className="bg-red-500 text-white px-2 py-1 rounded text-sm">Delete</button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
-
-const thStyle = { padding: '10px 12px', fontWeight: '600' };
-const tdStyle = { padding: '10px 12px', color: '#475569' };
-const btnGreen = { background: '#16a34a', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' };
-const btnSmEdit = { background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' };
-const btnSmDel = { background: '#fee2e2', color: '#991b1b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' };
