@@ -1,123 +1,178 @@
 import React, { useState } from 'react';
 
-export default function BranchHandling() {
-  const [branches, setBranches] = useState([
-    { id: 1, name: 'MG Kinshasa', location: 'Kinshasa, DRC' }
-  ]);
-  const [selectedBranch, setSelectedBranch] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export default function BranchHandling({ branches, setBranches, items }) {
+  const [name, setName] = useState('');
+  const [location, setLocation] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedSupplierFilter, setSelectedSupplierFilter] = useState('ALL');
+  const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
+  const [allowedItems, setAllowedItems] = useState([]);
+  const [editingIndex, setEditingIndex] = useState(null);
 
-  // Restricted items filtering state
-  const [supplierFilter, setSupplierFilter] = useState('ALL');
-  const [countryFilter, setCountryFilter] = useState('ALL');
-  const [selectAll, setSelectAll] = useState(false);
+  // Extract unique suppliers and countries from items
+  const suppliers = [...new Set(items.map(i => i.supplier))];
+  const countries = [...new Set(items.map(i => i.country))];
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (username.trim() && password.trim()) {
-      setIsAuthenticated(true);
+  const filteredItemsForRestriction = items.filter(i => {
+    if (selectedSupplierFilter !== 'ALL' && i.supplier !== selectedSupplierFilter) return false;
+    if (selectedCountryFilter !== 'ALL' && i.country !== selectedCountryFilter) return false;
+    return true;
+  });
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setAllowedItems(filteredItemsForRestriction.map(i => i.code));
     } else {
-      alert('Please enter valid credentials.');
+      setAllowedItems([]);
     }
   };
 
-  if (selectedBranch && !isAuthenticated) {
-    return (
-      <div className="p-6 max-w-md mx-auto bg-white rounded shadow mt-10">
-        <h2 className="text-xl font-bold mb-4">Branch Login: {selectedBranch.name}</h2>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium">Username</label>
-            <input 
-              type="text" 
-              className="w-full border p-2 rounded" 
-              value={username} 
-              onChange={e => setUsername(e.target.value)} 
-              required 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Password</label>
-            <input 
-              type="password" 
-              className="w-full border p-2 rounded" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              required 
-            />
-          </div>
-          <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-semibold">Login to Requisition Portal</button>
-          <button type="button" onClick={() => setSelectedBranch(null)} className="w-full bg-gray-300 text-gray-700 p-2 rounded mt-2">Cancel / Back</button>
-        </form>
-      </div>
-    );
-  }
+  const handleToggleItem = (code) => {
+    if (allowedItems.includes(code)) {
+      setAllowedItems(allowedItems.filter(c => c !== code));
+    } else {
+      setAllowedItems([...allowedItems, code]);
+    }
+  };
 
-  if (selectedBranch && isAuthenticated) {
-    return (
-      <div className="p-6 bg-white rounded shadow">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Requisition Portal for {selectedBranch.name} ({selectedBranch.location})</h2>
-          <button onClick={() => { setSelectedBranch(null); setIsAuthenticated(false); }} className="bg-gray-500 text-white px-3 py-1 rounded text-sm">Logout</button>
-        </div>
-        <p className="text-green-600 font-medium">Successfully authenticated. Branch order form ready.</p>
-      </div>
-    );
-  }
+  const handleSaveBranch = (e) => {
+    e.preventDefault();
+    if (!name || !location || !username || !password) {
+      alert('Please fill out all branch fields.');
+      return;
+    }
+
+    const newBranch = { name, location, username, password, allowedItems };
+    if (editingIndex !== null) {
+      const updated = [...branches];
+      updated[editingIndex] = newBranch;
+      setBranches(updated);
+      setEditingIndex(null);
+    } else {
+      setBranches([...branches, newBranch]);
+    }
+
+    setName('');
+    setLocation('');
+    setUsername('');
+    setPassword('');
+    setAllowedItems([]);
+  };
+
+  const handleEdit = (idx) => {
+    const b = branches[idx];
+    setName(b.name);
+    setLocation(b.location);
+    setUsername(b.username);
+    setPassword(b.password);
+    setAllowedItems(b.allowedItems || []);
+    setEditingIndex(idx);
+  };
+
+  const handleDelete = (idx) => {
+    if (window.confirm('Are you sure you want to delete this branch?')) {
+      setBranches(branches.filter((_, i) => i !== idx));
+    }
+  };
 
   return (
-    <div className="p-6 bg-white rounded shadow">
-      <h2 className="text-xl font-bold mb-4">Branch Management & Links</h2>
-      <table className="w-full border-collapse border border-gray-200 mb-6">
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <h2>Branch Management & Access Control</h2>
+      
+      <form onSubmit={handleSaveBranch} style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '30px' }}>
+        <h3>{editingIndex !== null ? 'Edit Branch' : 'Add New Branch & Access'}</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Branch Name</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. MG Kinshasa" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Location / Country</label>
+            <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. DRC" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Login Username</label>
+            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. kinshasa_user" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Login Password</label>
+            <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="e.g. securePass123" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+        </div>
+
+        {/* Restricted Items Selection */}
+        <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
+          <h4>Restricted Item View Assignment</h4>
+          <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+            <div>
+              <label style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>Filter by Supplier</label>
+              <select value={selectedSupplierFilter} onChange={e => setSelectedSupplierFilter(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                <option value="ALL">All Suppliers</option>
+                {suppliers.map((s, i) => <option key={i} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>Filter by Country</label>
+              <select value={selectedCountryFilter} onChange={e => setSelectedCountryFilter(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                <option value="ALL">All Countries</option>
+                {countries.map((c, i) => <option key={i} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '500' }}>
+                <input type="checkbox" onChange={handleSelectAll} checked={filteredItemsForRestriction.length > 0 && filteredItemsForRestriction.every(i => allowedItems.includes(i.code))} />
+                Select All Filtered Items
+              </label>
+            </div>
+          </div>
+
+          <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '10px', background: '#f8fafc' }}>
+            {filteredItemsForRestriction.map(item => (
+              <label key={item.code} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={allowedItems.includes(item.code)} 
+                  onChange={() => handleToggleItem(item.code)} 
+                />
+                <span style={{ fontWeight: '500' }}>{item.code}</span> - {item.name} <span style={{ color: '#64748b', fontSize: '12px' }}>({item.supplier})</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <button type="submit" style={{ marginTop: '20px', padding: '10px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+          {editingIndex !== null ? 'Update Branch' : 'Save Branch'}
+        </button>
+      </form>
+
+      {/* Existing Branches List */}
+      <h3>Registered Branches</h3>
+      <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <thead>
-          <tr className="bg-gray-100">
-            <th className="border p-2 text-left">Branch Name</th>
-            <th className="border p-2 text-left">Location</th>
-            <th className="border p-2 text-left">Action Link</th>
+          <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+            <th style={{ padding: '12px' }}>Branch Name</th>
+            <th style={{ padding: '12px' }}>Location</th>
+            <th style={{ padding: '12px' }}>Username</th>
+            <th style={{ padding: '12px' }}>Allowed Items Count</th>
+            <th style={{ padding: '12px', textAlign: 'center' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {branches.map(b => (
-            <tr key={b.id}>
-              <td className="border p-2 font-medium">{b.name}</td>
-              <td className="border p-2">{b.location}</td>
-              <td className="border p-2">
-                <button onClick={() => setSelectedBranch(b)} className="text-blue-600 underline font-medium">Open Portal (Login Gate)</button>
+          {branches.map((b, idx) => (
+            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <td style={{ padding: '12px', fontWeight: '600' }}>{b.name}</td>
+              <td style={{ padding: '12px' }}>{b.location}</td>
+              <td style={{ padding: '12px' }}>{b.username}</td>
+              <td style={{ padding: '12px' }}>{b.allowedItems ? b.allowedItems.length : 0} items</td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <button onClick={() => handleEdit(idx)} style={{ marginRight: '8px', padding: '6px 12px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
+                <button onClick={() => handleDelete(idx)} style={{ padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <div className="border-t pt-4">
-        <h3 className="text-lg font-semibold mb-3">Restricted Item Configuration</h3>
-        <div className="flex gap-4 mb-4 items-center">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Supplier Filter:</label>
-            <select className="border p-2 rounded" value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)}>
-              <option value="ALL">All Suppliers</option>
-              <option value="Apex Corp">Apex Corp</option>
-              <option value="Global Parts">Global Parts</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Country Filter:</label>
-            <select className="border p-2 rounded" value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
-              <option value="ALL">All Countries</option>
-              <option value="China">China</option>
-              <option value="India">India</option>
-            </select>
-          </div>
-          <div className="flex items-end pt-5">
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={selectAll} onChange={e => setSelectAll(e.target.checked)} />
-              <span className="text-sm font-semibold">Select All Filtered Items</span>
-            </label>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
