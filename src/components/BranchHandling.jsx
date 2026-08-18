@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function BranchHandling({ branches, setBranches, items, suppliers }) {
+export default function BranchHandling({ branches = [], setBranches = () => {}, items = [], suppliers = [] }) {
   const [branchName, setBranchName] = useState('');
   const [branchLocation, setBranchLocation] = useState('');
   const [username, setUsername] = useState('');
@@ -12,11 +12,15 @@ export default function BranchHandling({ branches, setBranches, items, suppliers
   const [filterSupplier, setFilterSupplier] = useState('ALL');
   const [filterCountry, setFilterCountry] = useState('ALL');
 
-  const countries = [...new Set(suppliers.map(s => s.country))];
+  const safeSuppliers = suppliers || [];
+  const safeItems = items || [];
+  const safeBranches = branches || [];
 
-  const filteredItemsForRestriction = items.filter(item => {
+  const countries = [...new Set(safeSuppliers.map(s => s.country).filter(Boolean))];
+
+  const filteredItemsForRestriction = safeItems.filter(item => {
     const matchSup = filterSupplier === 'ALL' || item.supplier === filterSupplier;
-    const sObj = suppliers.find(s => s.name === item.supplier);
+    const sObj = safeSuppliers.find(s => s.name === item.supplier);
     const matchCountry = filterCountry === 'ALL' || (sObj && sObj.country === filterCountry);
     return matchSup && matchCountry;
   });
@@ -36,7 +40,7 @@ export default function BranchHandling({ branches, setBranches, items, suppliers
     if (!branchName || !branchLocation || !username || !password) return;
 
     if (editingBranchId) {
-      setBranches(branches.map(b => b.id === editingBranchId ? { ...b, name: branchName, location: branchLocation, username, password, allowedItems: selectedItems } : b));
+      setBranches(safeBranches.map(b => b.id === editingBranchId ? { ...b, name: branchName, location: branchLocation, username, password, allowedItems: selectedItems } : b));
       setEditingBranchId(null);
       alert('Branch updated successfully!');
     } else {
@@ -46,9 +50,9 @@ export default function BranchHandling({ branches, setBranches, items, suppliers
         location: branchLocation,
         username,
         password,
-        allowedItems: selectedItems.length > 0 ? selectedItems : items.map(i => i.code)
+        allowedItems: selectedItems.length > 0 ? selectedItems : safeItems.map(i => i.code)
       };
-      setBranches([...branches, newBranch]);
+      setBranches([...safeBranches, newBranch]);
       alert('Branch created successfully with login credentials!');
     }
     setBranchName('');
@@ -60,15 +64,15 @@ export default function BranchHandling({ branches, setBranches, items, suppliers
 
   const handleEdit = (b) => {
     setEditingBranchId(b.id);
-    setBranchName(b.name);
-    setBranchLocation(b.location);
-    setUsername(b.username);
-    setPassword(b.password);
+    setBranchName(b.name || '');
+    setBranchLocation(b.location || '');
+    setUsername(b.username || '');
+    setPassword(b.password || '');
     setSelectedItems(b.allowedItems || []);
   };
 
   const handleDelete = (id) => {
-    if (confirm('Delete this branch?')) setBranches(branches.filter(b => b.id !== id));
+    if (confirm('Delete this branch?')) setBranches(safeBranches.filter(b => b.id !== id));
   };
 
   return (
@@ -112,7 +116,7 @@ export default function BranchHandling({ branches, setBranches, items, suppliers
                 <label style={{ fontSize: '11px', color: '#64748b' }}>Filter by Supplier</label>
                 <select value={filterSupplier} onChange={(e) => setFilterSupplier(e.target.value)} style={inputStyle}>
                   <option value="ALL">-- All Suppliers --</option>
-                  {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  {safeSuppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
               </div>
             </div>
@@ -148,21 +152,25 @@ export default function BranchHandling({ branches, setBranches, items, suppliers
 
       <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
         <h3 style={{ marginTop: 0, color: '#0f172a' }}>Active Branch Direct Links & Login Credentials</h3>
-        {branches.map(b => (
-          <div key={b.id} style={{ background: '#f8fafc', padding: '16px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '15px' }}>{b.name} / {b.location}</div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleEdit(b)} style={btnSmEdit}>Edit</button>
-                <button onClick={() => handleDelete(b.id)} style={btnSmDel}>Delete</button>
+        {safeBranches.length === 0 ? (
+          <p style={{ color: '#64748b', fontSize: '14px' }}>No active branches created yet.</p>
+        ) : (
+          safeBranches.map(b => (
+            <div key={b.id} style={{ background: '#f8fafc', padding: '16px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '15px' }}>{b.name} / {b.location}</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => handleEdit(b)} style={btnSmEdit}>Edit</button>
+                  <button onClick={() => handleDelete(b.id)} style={btnSmDel}>Delete</button>
+                </div>
+              </div>
+              <div style={{ fontSize: '13px', color: '#475569', marginBottom: '8px' }}>Username: <b>{b.username}</b> | Password: <b>{b.password}</b></div>
+              <div style={{ fontSize: '12px', background: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', wordBreak: 'break-all' }}>
+                🔗 Login Link: <a href={`${window.location.origin}/?branch=${b.username}`} target="_blank" rel="noreferrer">{window.location.origin}/?branch={b.username}</a>
               </div>
             </div>
-            <div style={{ fontSize: '13px', color: '#475569', marginBottom: '8px' }}>Username: <b>{b.username}</b> | Password: <b>{b.password}</b></div>
-            <div style={{ fontSize: '12px', background: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', wordBreak: 'break-all' }}>
-              🔗 Login Link: <a href={`${window.location.origin}/?branch=${b.username}`} target="_blank" rel="noreferrer">{window.location.origin}/?branch={b.username}</a>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
