@@ -92,7 +92,7 @@ const BranchPortal = () => {
       </header>
 
       <main style={styles.mainContent}>
-        {/* Renders the requisition component you just created */}
+        {/* Renders the requisition component */}
         <BranchRequisitionPortal branchName={selectedBranch} />
       </main>
     </div>
@@ -101,17 +101,17 @@ const BranchPortal = () => {
 
 // Styling definitions for the login & layout wrapper
 const styles = {
-  loginContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f1f5f9' },
+  loginContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', background: '#f1f5f9' },
   loginCard: { background: '#ffffff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', width: '100%', maxWidth: '420px' },
   loginTitle: { margin: '0 0 8px 0', color: '#1e293b', fontSize: '24px' },
   loginSubtitle: { color: '#64748b', fontSize: '14px', marginBottom: '24px' },
   form: { display: 'flex', flexDirection: 'column', gap: '16px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
   label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
-  input: { padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' },
+  input: { padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', width: '100%' },
   loginButton: { background: '#0284c7', color: '#ffffff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', marginTop: '10px' },
   
-  dashboardContainer: { minHeight: '100vh', background: '#f8fafc' },
+  dashboardContainer: { minHeight: '80vh', background: '#f8fafc' },
   navbar: { background: '#ffffff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' },
   brandArea: { display: 'flex', alignItems: 'center', gap: '16px' },
   navTitle: { margin: 0, fontSize: '18px', color: '#1e293b' },
