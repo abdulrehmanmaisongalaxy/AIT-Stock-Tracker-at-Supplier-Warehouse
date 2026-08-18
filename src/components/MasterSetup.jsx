@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 export default function MasterSetup({ items, setItems, suppliers, setSuppliers }) {
-  // Item Form State
   const [itemName, setItemName] = useState('');
   const [itemCode, setItemCode] = useState('');
   const [supplier, setSupplier] = useState('');
@@ -9,11 +8,10 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
   const [moq, setMoq] = useState('');
   const [weight, setWeight] = useState('');
   const [cbm, setCbm] = useState('');
-  const [unitPrice, setUnitPrice] = useState('');
+  const [unitPriceLCY, setUnitPriceLCY] = useState('');
   const [openingStock, setOpeningStock] = useState('');
   const [editingItemCode, setEditingItemCode] = useState(null);
 
-  // Supplier Form State
   const [supCode, setSupCode] = useState('');
   const [supName, setSupName] = useState('');
   const [warehouseNo, setWarehouseNo] = useState('');
@@ -27,16 +25,23 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     if (!itemCode || !itemName) return;
 
     const supObj = suppliers.find(s => s.name === supplier) || suppliers[0];
+    const lcyPrice = parseFloat(unitPriceLCY) || 85.00;
+    const exRate = supObj?.exchangeRate || 7.25;
+    const usdPrice = lcyPrice / exRate;
+
     const newItem = {
       code: itemCode,
       name: itemName,
-      supplierCode: supObj?.code || 'SUP-001',
       supplier: supObj?.name || 'Global Chem China',
+      country: supObj?.country || 'China',
+      currency: supObj?.currency || 'CNY',
+      exchangeRate: exRate,
       packSize: parseInt(packSize) || 24,
       moq: parseInt(moq) || 100,
       weight: parseFloat(weight) || 10,
       cbm: parseFloat(cbm) || 0.04,
-      unitPrice: parseFloat(unitPrice) || 10.00,
+      unitPriceLCY: lcyPrice,
+      unitPriceUSD: usdPrice,
       openingStock: parseInt(openingStock) || 0,
       orderedQty: 0,
       receivedQty: 0,
@@ -58,7 +63,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     setMoq('');
     setWeight('');
     setCbm('');
-    setUnitPrice('');
+    setUnitPriceLCY('');
     setOpeningStock('');
   };
 
@@ -73,7 +78,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
       warehouseNo,
       country,
       currency,
-      exchangeRate: parseFloat(exchangeRate) || 1
+      exchangeRate: parseFloat(exchangeRate) || 7.25
     };
 
     if (editingSupId) {
@@ -91,43 +96,12 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     setExchangeRate('');
   };
 
-  const handleEditItem = (item) => {
-    setEditingItemCode(item.code);
-    setItemCode(item.code);
-    setItemName(item.name);
-    setSupplier(item.supplier);
-    setPackSize(item.packSize);
-    setMoq(item.moq);
-    setWeight(item.weight);
-    setCbm(item.cbm);
-    setUnitPrice(item.unitPrice);
-    setOpeningStock(item.openingStock);
-  };
-
-  const handleDeleteItem = (code) => {
-    if (confirm('Delete this item?')) setItems(items.filter(i => i.code !== code));
-  };
-
-  const handleEditSupplier = (sup) => {
-    setEditingSupId(sup.id);
-    setSupCode(sup.code);
-    setSupName(sup.name);
-    setWarehouseNo(sup.warehouseNo);
-    setCountry(sup.country);
-    setCurrency(sup.currency);
-    setExchangeRate(sup.exchangeRate);
-  };
-
-  const handleDeleteSupplier = (id) => {
-    if (confirm('Delete this supplier?')) setSuppliers(suppliers.filter(s => s.id !== id));
-  };
-
   const downloadTemplate = (type) => {
     let headers = type === 'items' 
-      ? 'code,name,supplier,packSize,weight,cbm,moq,unitPrice,openingStock\n' 
+      ? 'code,name,supplier,packSize,weight,cbm,moq,unitPriceLCY,openingStock\n' 
       : 'code,name,warehouseNo,country,currency,exchangeRate\n';
     let sample = type === 'items' 
-      ? 'COS-103,Herbal Shampoo,Global Chem China,24,10,0.04,500,12.50,1000\n' 
+      ? 'COS-103,Herbal Shampoo,Global Chem China,24,10,0.04,500,85.00,1000\n' 
       : 'SUP-003,Global Chem China,WH-CN-01,China,CNY,7.25\n';
 
     const blob = new Blob([headers + sample], { type: 'text/csv;charset=utf-8;' });
@@ -149,12 +123,17 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(',').map(c => c.trim());
           if (cols.length >= 9) {
+            const supName = cols[2];
+            const supObj = suppliers.find(s => s.name === supName);
+            const exRate = supObj?.exchangeRate || 7.25;
+            const lcy = parseFloat(cols[7]) || 85.00;
             newItems.push({
-              code: cols[0], name: cols[1], supplier: cols[2],
+              code: cols[0], name: cols[1], supplier: supName,
+              country: supObj?.country || 'China', currency: supObj?.currency || 'CNY', exchangeRate: exRate,
               packSize: parseInt(cols[3]) || 24, weight: parseFloat(cols[4]) || 10,
               cbm: parseFloat(cols[5]) || 0.04, moq: parseInt(cols[6]) || 100,
-              unitPrice: parseFloat(cols[7]) || 10, openingStock: parseInt(cols[8]) || 0,
-              orderedQty: 0, receivedQty: 0, shippedQty: 0
+              unitPriceLCY: lcy, unitPriceUSD: lcy / exRate,
+              openingStock: parseInt(cols[8]) || 0, orderedQty: 0, receivedQty: 0, shippedQty: 0
             });
           }
         }
@@ -167,7 +146,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
           if (cols.length >= 6) {
             newSups.push({
               id: Date.now() + i, code: cols[0], name: cols[1], warehouseNo: cols[2],
-              country: cols[3], currency: cols[4], exchangeRate: parseFloat(cols[5]) || 1
+              country: cols[3], currency: cols[4], exchangeRate: parseFloat(cols[5]) || 7.25
             });
           }
         }
@@ -180,7 +159,6 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Template Download & CSV Import Toolbar */}
       <div style={{ background: '#fff', padding: '20px 24px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Master Templates & CSV Bulk Imports</h3>
@@ -239,22 +217,18 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                 <input type="number" step="0.001" value={cbm} onChange={(e) => setCbm(e.target.value)} placeholder="0.04" required style={inputStyle} />
               </div>
               <div>
-                <label style={labelStyle}>Unit Price ($)</label>
-                <input type="number" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="12.50" required style={inputStyle} />
+                <label style={labelStyle}>Unit Price (LCY)</label>
+                <input type="number" step="0.01" value={unitPriceLCY} onChange={(e) => setUnitPriceLCY(e.target.value)} placeholder="85.00" required style={inputStyle} />
               </div>
             </div>
             <div>
               <label style={labelStyle}>Opening Stock Qty</label>
               <input type="number" value={openingStock} onChange={(e) => setOpeningStock(e.target.value)} placeholder="1000" required style={inputStyle} />
             </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="submit" style={btnPrimary}>{editingItemCode ? 'Update Item' : 'Register Item'}</button>
-              {editingItemCode && <button type="button" onClick={() => { setEditingItemCode(null); setItemCode(''); setItemName(''); }} style={btnSecondary}>Cancel</button>}
-            </div>
+            <button type="submit" style={btnPrimary}>{editingItemCode ? 'Update Item' : 'Register Item'}</button>
           </form>
 
-          {/* Items Table with Edit/Delete */}
-          <div style={{ marginTop: '24px', maxHeight: '200px', overflowY: 'auto' }}>
+          <div style={{ marginTop: '24px', maxHeight: '180px', overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
               <thead>
                 <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
@@ -269,8 +243,19 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                     <td style={{ padding: '8px' }}><b>{it.code}</b></td>
                     <td style={{ padding: '8px' }}>{it.name}</td>
                     <td style={{ padding: '8px', display: 'flex', gap: '6px' }}>
-                      <button onClick={() => handleEditItem(it)} style={btnSmEdit}>Edit</button>
-                      <button onClick={() => handleDeleteItem(it.code)} style={btnSmDel}>Del</button>
+                      <button onClick={() => {
+                        setEditingItemCode(it.code);
+                        setItemCode(it.code);
+                        setItemName(it.name);
+                        setSupplier(it.supplier);
+                        setPackSize(it.packSize);
+                        setMoq(it.moq);
+                        setWeight(it.weight);
+                        setCbm(it.cbm);
+                        setUnitPriceLCY(it.unitPriceLCY);
+                        setOpeningStock(it.openingStock);
+                      }} style={btnSmEdit}>Edit</button>
+                      <button onClick={() => setItems(items.filter(i => i.code !== it.code))} style={btnSmDel}>Del</button>
                     </td>
                   </tr>
                 ))}
@@ -322,14 +307,10 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
               <label style={labelStyle}>Exchange Rate to USD (1 USD = X LCY)</label>
               <input type="number" step="0.0001" value={exchangeRate} onChange={(e) => setExchangeRate(e.target.value)} placeholder="7.25" required style={inputStyle} />
             </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="submit" style={btnPrimary}>{editingSupId ? 'Update Supplier' : 'Add Supplier'}</button>
-              {editingSupId && <button type="button" onClick={() => { setEditingSupId(null); setSupCode(''); setSupName(''); }} style={btnSecondary}>Cancel</button>}
-            </div>
+            <button type="submit" style={btnPrimary}>{editingSupId ? 'Update Supplier' : 'Add Supplier'}</button>
           </form>
 
-          {/* Suppliers Table with Edit/Delete */}
-          <div style={{ marginTop: '24px', maxHeight: '200px', overflowY: 'auto' }}>
+          <div style={{ marginTop: '24px', maxHeight: '180px', overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
               <thead>
                 <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
@@ -346,8 +327,16 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                     <td style={{ padding: '8px' }}>{sup.name} ({sup.warehouseNo})</td>
                     <td style={{ padding: '8px' }}>{sup.currency} (Ex: {sup.exchangeRate})</td>
                     <td style={{ padding: '8px', display: 'flex', gap: '6px' }}>
-                      <button onClick={() => handleEditSupplier(sup)} style={btnSmEdit}>Edit</button>
-                      <button onClick={() => handleDeleteSupplier(sup.id)} style={btnSmDel}>Del</button>
+                      <button onClick={() => {
+                        setEditingSupId(sup.id);
+                        setSupCode(sup.code);
+                        setSupName(sup.name);
+                        setWarehouseNo(sup.warehouseNo);
+                        setCountry(sup.country);
+                        setCurrency(sup.currency);
+                        setExchangeRate(sup.exchangeRate);
+                      }} style={btnSmEdit}>Edit</button>
+                      <button onClick={() => setSuppliers(suppliers.filter(s => s.id !== sup.id))} style={btnSmDel}>Del</button>
                     </td>
                   </tr>
                 ))}
