@@ -1,25 +1,32 @@
 import React, { useState } from 'react';
 
-export default function StockLedger({ items, suppliers, setItems }) {
+export default function StockLedger({ 
+  items = [], 
+  suppliers = [], 
+  setItems = () => {} 
+}) {
+  const safeItems = items || [];
+  const safeSuppliers = suppliers || [];
+
   const [selectedSupplier, setSelectedSupplier] = useState('ALL');
   const [selectedCountry, setSelectedCountry] = useState('ALL');
   const [receivingModalItem, setReceivingModalItem] = useState(null);
   const [receiveInputQty, setReceiveInputQty] = useState('');
 
-  const countries = [...new Set(suppliers.map(s => s.country))];
+  const countries = [...new Set(safeSuppliers.map(s => s.country).filter(Boolean))];
 
-  const filteredItems = items.filter(item => {
+  const filteredItems = safeItems.filter(item => {
     const matchSupplier = selectedSupplier === 'ALL' || item.supplier === selectedSupplier;
-    const matchCountry = selectedCountry === 'ALL' || item.country === selectedCountry;
+    const matchCountry = selectedCountry === 'ALL' || (item.country || 'China') === selectedCountry;
     return matchSupplier && matchCountry;
   });
 
   const handleReceiveStockSubmit = (e) => {
     e.preventDefault();
     const qty = parseInt(receiveInputQty) || 0;
-    if (qty <= 0) return;
+    if (qty <= 0 || !receivingModalItem) return;
 
-    const updated = items.map(it => {
+    const updated = safeItems.map(it => {
       if (it.code === receivingModalItem.code) {
         return { ...it, receivedQty: (it.receivedQty || 0) + qty };
       }
@@ -64,7 +71,7 @@ export default function StockLedger({ items, suppliers, setItems }) {
           <label style={labelStyle}>Filter by Supplier</label>
           <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} style={inputStyle}>
             <option value="ALL">-- Select All Suppliers --</option>
-            {suppliers.map(s => <option key={s.id} value={s.name}>{s.name} ({s.code})</option>)}
+            {safeSuppliers.map(s => <option key={s.id || s.code} value={s.name}>{s.name} ({s.code})</option>)}
           </select>
         </div>
         <div>
@@ -94,29 +101,37 @@ export default function StockLedger({ items, suppliers, setItems }) {
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map(item => {
-              const closing = (item.openingStock || 0) + (item.receivedQty || 0) - (item.shippedQty || 0);
-              const valLCY = closing * (item.unitPriceLCY || 0);
-              const valUSD = closing * (item.unitPriceUSD || 0);
-              const currency = item.currency || 'CNY';
-              return (
-                <tr key={item.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={tdStyle}><b>{item.code}</b></td>
-                  <td style={tdStyle}>{item.name}</td>
-                  <td style={tdStyle}>{item.supplier} <br/><span style={{ fontSize: '11px', color: '#94a3b8' }}>{item.country || 'China'}</span></td>
-                  <td style={tdStyle}>{item.openingStock || 0}</td>
-                  <td style={tdStyle}>{item.orderedQty || 0}</td>
-                  <td style={{ ...tdStyle, color: '#16a34a', fontWeight: 'bold' }}>{item.receivedQty || 0}</td>
-                  <td style={tdStyle}>{item.shippedQty || 0}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold', color: '#2563eb' }}>{closing}</td>
-                  <td style={tdStyle}>{currency} {(item.unitPriceLCY || 0).toFixed(2)}<br/><span style={{ fontSize: '11px', color: '#64748b' }}>(${(item.unitPriceUSD || 0).toFixed(2)})</span></td>
-                  <td style={tdStyle}>{currency} {valLCY.toLocaleString(undefined, { minimumFractionDigits: 2 })}<br/><b>${valUSD.toLocaleString(undefined, { minimumFractionDigits: 2 })}</b></td>
-                  <td style={tdStyle}>
-                    <button onClick={() => setReceivingModalItem(item)} style={btnReceive}>Receive Stock</button>
-                  </td>
-                </tr>
-              );
-            })}
+            {filteredItems.length === 0 ? (
+              <tr>
+                <td colSpan="11" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  No items found matching the selected filters.
+                </td>
+              </tr>
+            ) : (
+              filteredItems.map(item => {
+                const closing = (item.openingStock || 0) + (item.receivedQty || 0) - (item.shippedQty || 0);
+                const valLCY = closing * (item.unitPriceLCY || 0);
+                const valUSD = closing * (item.unitPriceUSD || 0);
+                const currency = item.currency || 'CNY';
+                return (
+                  <tr key={item.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={tdStyle}><b>{item.code}</b></td>
+                    <td style={tdStyle}>{item.name}</td>
+                    <td style={tdStyle}>{item.supplier} <br/><span style={{ fontSize: '11px', color: '#94a3b8' }}>{item.country || 'China'}</span></td>
+                    <td style={tdStyle}>{item.openingStock || 0}</td>
+                    <td style={tdStyle}>{item.orderedQty || 0}</td>
+                    <td style={{ ...tdStyle, color: '#16a34a', fontWeight: 'bold' }}>{item.receivedQty || 0}</td>
+                    <td style={tdStyle}>{item.shippedQty || 0}</td>
+                    <td style={{ ...tdStyle, fontWeight: 'bold', color: '#2563eb' }}>{closing}</td>
+                    <td style={tdStyle}>{currency} {(item.unitPriceLCY || 0).toFixed(2)}<br/><span style={{ fontSize: '11px', color: '#64748b' }}>(${(item.unitPriceUSD || 0).toFixed(2)})</span></td>
+                    <td style={tdStyle}>{currency} {valLCY.toLocaleString(undefined, { minimumFractionDigits: 2 })}<br/><b>${valUSD.toLocaleString(undefined, { minimumFractionDigits: 2 })}</b></td>
+                    <td style={tdStyle}>
+                      <button onClick={() => setReceivingModalItem(item)} style={btnReceive}>Receive Stock</button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
