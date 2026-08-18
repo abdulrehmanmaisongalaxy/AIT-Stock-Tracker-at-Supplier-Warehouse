@@ -53,7 +53,7 @@ export default function OrderConsolidation() {
                     <span className="text-red-600 font-bold">Below MOQ (Min: {r.moq})</span>
                   )}
                 </td>
-                <td className="border p-2 space-x-2 text-center">
+                <td className="border p-2 text-center">
                   <button onClick={() => handleDelete(r.id)} className="bg-red-500 text-white px-2 py-1 rounded text-sm">Delete</button>
                 </td>
               </tr>
