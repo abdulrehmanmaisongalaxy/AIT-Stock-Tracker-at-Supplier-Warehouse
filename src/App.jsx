@@ -9,6 +9,25 @@ import MasterSetup from './components/MasterSetup';
 import BranchPortal from './components/BranchPortal';
 import BranchRequisitionPortal from './components/BranchRequisitionPortal';
 
+// Initial dummy seed data for robust standalone operation if localStorage is empty
+const initialBranches = [
+  { id: 1, name: 'MG Kinshasa', location: 'Kinshasa, DRC', contact: 'Jean Pierre' },
+  { id: 2, name: 'MG Lubumbashi', location: 'Lubumbashi, DRC', contact: 'Patrick Mwamba' },
+  { id: 3, name: 'MG Kolwezi', location: 'Kolwezi, DRC', contact: 'Alain Kabeya' }
+];
+
+const initialSuppliers = [
+  { id: 1, code: 'SUP-01', name: 'Ningbo Hardware Factory', country: 'China' },
+  { id: 2, code: 'SUP-02', name: 'Guangzhou Auto Parts', country: 'China' },
+  { id: 3, code: 'SUP-03', name: 'Yiwu General Goods', country: 'China' }
+];
+
+const initialItems = [
+  { code: 'ITM-001', name: 'Heavy Duty Brake Pads', supplier: 'Guangzhou Auto Parts', country: 'China', openingStock: 1000, orderedQty: 500, receivedQty: 200, shippedQty: 150, unitPriceLCY: 45.00, unitPriceUSD: 6.20, cbm: 0.05, weight: 12.5 },
+  { code: 'ITM-002', name: 'Industrial Hydraulic Oil (20L)', supplier: 'Ningbo Hardware Factory', country: 'China', openingStock: 500, orderedQty: 300, receivedQty: 300, shippedQty: 100, unitPriceLCY: 120.00, unitPriceUSD: 16.50, cbm: 0.08, weight: 20.0 },
+  { code: 'ITM-003', name: 'LED Floodlight 100W', supplier: 'Yiwu General Goods', country: 'China', openingStock: 2000, orderedQty: 1000, receivedQty: 1000, shippedQty: 400, unitPriceLCY: 35.00, unitPriceUSD: 4.80, cbm: 0.03, weight: 3.5 }
+];
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -22,6 +41,42 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  // Centralized persistent states across all modules
+  const [items, setItems] = useState(() => {
+    const saved = localStorage.getItem('ait_master_items');
+    return saved ? JSON.parse(saved) : initialItems;
+  });
+
+  const [suppliers, setSuppliers] = useState(() => {
+    const saved = localStorage.getItem('ait_master_suppliers');
+    return saved ? JSON.parse(saved) : initialSuppliers;
+  });
+
+  const [branches, setBranches] = useState(() => {
+    const saved = localStorage.getItem('ait_master_branches');
+    return saved ? JSON.parse(saved) : initialBranches;
+  });
+
+  const [purchaseOrders, setPurchaseOrders] = useState(() => {
+    const saved = localStorage.getItem('ait_purchase_orders');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [shipments, setShipments] = useState(() => {
+    const saved = localStorage.getItem('ait_shipments');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [proformaInvoices, setProformaInvoices] = useState(() => {
+    const saved = localStorage.getItem('ait_proforma_invoices');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [requisitions, setRequisitions] = useState(() => {
+    const saved = localStorage.getItem('ait_requisitions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('ait_current_user', JSON.stringify(currentUser));
@@ -30,37 +85,57 @@ export default function App() {
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    localStorage.setItem('ait_master_items', JSON.stringify(items));
+  }, [items]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_master_suppliers', JSON.stringify(suppliers));
+  }, [suppliers]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_master_branches', JSON.stringify(branches));
+  }, [branches]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_purchase_orders', JSON.stringify(purchaseOrders));
+  }, [purchaseOrders]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_shipments', JSON.stringify(shipments));
+  }, [shipments]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_proforma_invoices', JSON.stringify(proformaInvoices));
+  }, [proformaInvoices]);
+
+  useEffect(() => {
+    localStorage.setItem('ait_requisitions', JSON.stringify(requisitions));
+  }, [requisitions]);
+
+  // Render the appropriate component with all necessary shared states
   const renderContent = () => {
-    try {
-      switch (activeTab) {
-        case 'dashboard':
-          return <ExecutiveDashboard />;
-        case 'ledger':
-          return <StockLedger />;
-        case 'consolidation':
-          return <OrderConsolidation />;
-        case 'invoices':
-          return <ProformaInvoices />;
-        case 'shipments':
-          return <Shipments />;
-        case 'branch':
-          return <BranchHandling />;
-        case 'requisition':
-          return <BranchRequisitionPortal />;
-        case 'portal':
-          return <BranchPortal />;
-        case 'setup':
-          return <MasterSetup />;
-        default:
-          return <ExecutiveDashboard />;
-      }
-    } catch (err) {
-      return (
-        <div style={{ padding: '20px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px' }}>
-          <h3>Notice from module: {activeTab}</h3>
-          <p>{err.message || "An error occurred while loading this module."}</p>
-        </div>
-      );
+    switch (activeTab) {
+      case 'dashboard':
+        return <ExecutiveDashboard items={items} shipments={shipments} purchaseOrders={purchaseOrders} branches={branches} />;
+      case 'ledger':
+        return <StockLedger items={items} suppliers={suppliers} setItems={setItems} />;
+      case 'consolidation':
+        return <OrderConsolidation items={items} suppliers={suppliers} purchaseOrders={purchaseOrders} setPurchaseOrders={setPurchaseOrders} setItems={setItems} />;
+      case 'invoices':
+        return <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} items={items} suppliers={suppliers} />;
+      case 'shipments':
+        return <Shipments shipments={shipments} setShipments={setShipments} items={items} setItems={setItems} branches={branches} />;
+      case 'branch':
+        return <BranchHandling shipments={shipments} setShipments={setShipments} branches={branches} />;
+      case 'requisition':
+        return <BranchRequisitionPortal requisitions={requisitions} setRequisitions={setRequisitions} items={items} branches={branches} />;
+      case 'portal':
+        return <BranchPortal branches={branches} shipments={shipments} requisitions={requisitions} setRequisitions={setRequisitions} items={items} />;
+      case 'setup':
+        return <MasterSetup items={items} setItems={setItems} suppliers={suppliers} setSuppliers={setSuppliers} branches={branches} setBranches={setBranches} />;
+      default:
+        return <ExecutiveDashboard items={items} shipments={shipments} purchaseOrders={purchaseOrders} branches={branches} />;
     }
   };
 
