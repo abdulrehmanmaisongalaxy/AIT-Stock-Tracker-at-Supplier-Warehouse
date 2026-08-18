@@ -174,3 +174,4 @@ const btnPrimary = { background: '#2563eb', color: '#fff', border: 'none', paddi
 const btnSecondary = { background: '#cbd5e1', color: '#0f172a', border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' };
 const btnSmEdit = { background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' };
 const btnSmDel = { background: '#fee2e2', color: '#991b1b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' };
+export default BranchHandling;
