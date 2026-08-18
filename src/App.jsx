@@ -6,16 +6,14 @@ import ProformaInvoices from './components/ProformaInvoices';
 import Shipments from './components/Shipments';
 import BranchHandling from './components/BranchHandling';
 import MasterSetup from './components/MasterSetup';
-import BranchPortal from './components/BranchPortal';
+import BranchLoginPortal from './components/BranchLoginPortal';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const branchParam = params.get('branch');
     if (branchParam) {
-      const savedBranches = JSON.parse(localStorage.getItem('ait_branches') || '[]');
-      const found = savedBranches.find(b => b.username === branchParam);
-      if (found) return { role: 'branch', ...found };
+      return { role: 'branch_login_screen', usernameQuery: branchParam };
     }
     const saved = localStorage.getItem('ait_current_user');
     return saved ? JSON.parse(saved) : null;
@@ -23,12 +21,11 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // Master State with Persistence
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('ait_items');
     return saved ? JSON.parse(saved) : [
-      { code: 'COS-101', name: 'Hydrating Face Cream 50ml', supplierCode: 'SUP-001', supplier: 'Global Chem China', packSize: 24, weight: 8.5, cbm: 0.045, moq: 500, openingStock: 1000, orderedQty: 200, receivedQty: 100, shippedQty: 100, unitPrice: 12.50 },
-      { code: 'COS-102', name: 'Matte Liquid Lipstick Set', supplierCode: 'SUP-002', supplier: 'Bangkok Beauty Thai', packSize: 48, weight: 6.2, cbm: 0.025, moq: 300, openingStock: 800, orderedQty: 150, receivedQty: 100, shippedQty: 200, unitPrice: 8.00 }
+      { code: 'COS-101', name: 'Hydrating Face Cream 50ml', supplier: 'Global Chem China', country: 'China', currency: 'CNY', exchangeRate: 7.25, packSize: 24, weight: 8.5, cbm: 0.045, moq: 500, openingStock: 1000, orderedQty: 0, receivedQty: 0, shippedQty: 0, unitPriceLCY: 85.00, unitPriceUSD: 11.72 },
+      { code: 'COS-102', name: 'Matte Liquid Lipstick Set', supplier: 'Bangkok Beauty Thai', country: 'Thailand', currency: 'THB', exchangeRate: 36.50, packSize: 48, weight: 6.2, cbm: 0.025, moq: 300, openingStock: 800, orderedQty: 0, receivedQty: 0, shippedQty: 0, unitPriceLCY: 292.00, unitPriceUSD: 8.00 }
     ];
   });
 
@@ -43,7 +40,7 @@ export default function App() {
   const [branches, setBranches] = useState(() => {
     const saved = localStorage.getItem('ait_branches');
     return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'Branch A - Nairobi', username: 'branch_a', password: 'password123', allowedItems: ['COS-101', 'COS-102'] }
+      { id: 1, name: 'MG Kinshasa', location: 'DRC', username: 'MTD-123', password: '123', allowedItems: ['COS-101', 'COS-102'] }
     ];
   });
 
@@ -105,13 +102,23 @@ export default function App() {
     );
   }
 
+  if (currentUser.role === 'branch_login_screen') {
+    return (
+      <BranchLoginPortal 
+        usernameQuery={currentUser.usernameQuery} 
+        branches={branches} 
+        onLoginSuccess={(branchObj) => setCurrentUser({ role: 'branch', ...branchObj })} 
+      />
+    );
+  }
+
   if (currentUser.role === 'branch') {
     return (
       <div style={styles.appContainer}>
         <header style={styles.header}>
           <div>
             <h1 style={{ fontSize: '18px', margin: 0, color: '#fff' }}>AIT Branch Ordering Portal</h1>
-            <span style={{ fontSize: '12px', color: '#94a3b8' }}>Logged in as: {currentUser.name}</span>
+            <span style={{ fontSize: '12px', color: '#94a3b8' }}>Logged in as: {currentUser.name} ({currentUser.location})</span>
           </div>
           <button onClick={() => { setCurrentUser(null); window.location.href = window.location.pathname; }} style={styles.logoutBtn}>Logout</button>
         </header>
@@ -131,7 +138,7 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <span style={{ background: '#16a34a', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>Admin Mode Active</span>
-          <button onClick={() => setCurrentUser(null)} style={styles.logoutBtn}>Logout</button>
+          <button onClick={() => { localStorage.removeItem('ait_current_user'); setCurrentUser(null); }} style={styles.logoutBtn}>Logout</button>
         </div>
       </header>
 
@@ -147,11 +154,11 @@ export default function App() {
 
       <main style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
         {activeTab === 'dashboard' && <ExecutiveDashboard items={items} branches={branches} proformaInvoices={proformaInvoices} />}
-        {activeTab === 'ledger' && <StockLedger items={items} suppliers={suppliers} />}
+        {activeTab === 'ledger' && <StockLedger items={items} suppliers={suppliers} setItems={setItems} />}
         {activeTab === 'consolidation' && <OrderConsolidation requisitions={requisitions} setRequisitions={setRequisitions} proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} items={items} setItems={setItems} suppliers={suppliers} />}
-        {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} />}
-        {activeTab === 'shipments' && <Shipments shipments={shipments} setShipments={setShipments} />}
-        {activeTab === 'branches' && <BranchHandling branches={branches} setBranches={setBranches} items={items} />}
+        {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} setItems={setItems} />}
+        {activeTab === 'shipments' && <Shipments shipments={shipments} setShipments={setShipments} items={items} setItems={setItems} branches={branches} />}
+        {activeTab === 'branches' && <BranchHandling branches={branches} setBranches={setBranches} items={items} suppliers={suppliers} />}
         {activeTab === 'master' && <MasterSetup items={items} setItems={setItems} suppliers={suppliers} setSuppliers={setSuppliers} />}
       </main>
     </div>
