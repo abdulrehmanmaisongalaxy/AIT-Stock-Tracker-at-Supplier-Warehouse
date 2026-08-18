@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 
-const BranchRequisitionPortal = ({ branchName = "Main Branch" }) => {
-  const [items, setItems] = useState([
+const BranchRequisitionPortal = ({ branchName = "Main Branch", initialItems = [] }) => {
+  const defaultItems = [
     { id: 1, name: 'Standard Office Paper (Ream)', category: 'Stationery', stock: 12, requested: 0 },
     { id: 2, name: 'Thermal Receipt Rolls', category: 'Operations', stock: 5, requested: 0 },
     { id: 3, name: 'Cleaning Solution (5L)', category: 'Maintenance', stock: 2, requested: 0 },
     { id: 4, name: 'Ballpoint Pens (Box of 50)', category: 'Stationery', stock: 25, requested: 0 },
-  ]);
-  
+  ];
+
+  const [items, setItems] = useState(initialItems.length > 0 ? initialItems : defaultItems);
   const [submitted, setSubmitted] = useState(false);
   const [remarks, setRemarks] = useState('');
 
+  const safeItems = items || [];
+
   const handleQuantityChange = (id, delta) => {
-    setItems(items.map(item => {
+    setItems(safeItems.map(item => {
       if (item.id === id) {
-        const newRequested = Math.max(0, item.requested + delta);
+        const currentReq = Number(item.requested) || 0;
+        const newRequested = Math.max(0, currentReq + delta);
         return { ...item, requested: newRequested };
       }
       return item;
@@ -23,7 +27,7 @@ const BranchRequisitionPortal = ({ branchName = "Main Branch" }) => {
 
   const handleSubmitRequisition = (e) => {
     e.preventDefault();
-    const activeRequests = items.filter(i => i.requested > 0);
+    const activeRequests = safeItems.filter(i => (Number(i.requested) || 0) > 0);
     
     if (activeRequests.length === 0) {
       alert("Please select at least one item to request.");
@@ -39,7 +43,7 @@ const BranchRequisitionPortal = ({ branchName = "Main Branch" }) => {
       <div style={styles.card}>
         <h3 style={styles.successTitle}>Requisition Submitted Successfully!</h3>
         <p style={styles.text}>Your order has been logged and sent to the central supply team.</p>
-        <button style={styles.buttonPrimary} onClick={() => { setSubmitted(false); setItems(items.map(i => ({...i, requested: 0}))); setRemarks(''); }}>
+        <button style={styles.buttonPrimary} onClick={() => { setSubmitted(false); setItems(safeItems.map(i => ({...i, requested: 0}))); setRemarks(''); }}>
           Create New Requisition
         </button>
       </div>
@@ -65,15 +69,15 @@ const BranchRequisitionPortal = ({ branchName = "Main Branch" }) => {
               </tr>
             </thead>
             <tbody>
-              {items.map(item => (
+              {safeItems.map(item => (
                 <tr key={item.id} style={styles.tr}>
                   <td style={styles.td}><strong>{item.name}</strong></td>
-                  <td style={styles.td}>{item.category}</td>
-                  <td style={styles.td}>{item.stock}</td>
+                  <td style={styles.td}>{item.category || 'General'}</td>
+                  <td style={styles.td}>{item.stock ?? 0}</td>
                   <td style={styles.td}>
                     <div style={styles.counterWrapper}>
                       <button type="button" style={styles.counterBtn} onClick={() => handleQuantityChange(item.id, -1)}>-</button>
-                      <span style={styles.requestedCount}>{item.requested}</span>
+                      <span style={styles.requestedCount}>{item.requested || 0}</span>
                       <button type="button" style={styles.counterBtn} onClick={() => handleQuantityChange(item.id, 1)}>+</button>
                     </div>
                   </td>
@@ -114,7 +118,7 @@ const styles = {
   requestedCount: { minWidth: '24px', textAlign: 'center', fontWeight: '600' },
   footerSection: { marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' },
   label: { fontSize: '14px', fontWeight: '600', color: '#475569' },
-  textarea: { padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', minHeight: '80px', fontFamily: 'inherit' },
+  textarea: { padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', minHeight: '80px', fontFamily: 'inherit', boxSizing: 'border-box', width: '100%' },
   buttonPrimary: { background: '#0284c7', color: '#ffffff', border: 'none', padding: '12px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', alignSelf: 'flex-end', marginTop: '10px' },
   card: { background: '#ffffff', padding: '40px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', maxWidth: '500px', margin: '40px auto' },
   successTitle: { color: '#16a34a', marginBottom: '10px' },
