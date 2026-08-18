@@ -1,218 +1,173 @@
 import React, { useState } from 'react';
 
-export default function Shipments({ 
-  shipments = [], 
-  setShipments = () => {}, 
-  items = [], 
-  setItems = () => {}, 
-  branches = [] 
-}) {
-  const safeShipments = shipments || [];
-  const safeItems = items || [];
-  const safeBranches = branches || [];
-
-  const [shpRef, setShpRef] = useState('');
-  const [containerType, setContainerType] = useState('40FT Container (Max ~58 CBM)');
-  const [targetBranch, setTargetBranch] = useState(safeBranches[0]?.name || 'MG Kinshasa');
-  const [selectedItemsForShip, setSelectedItemsForShip] = useState({}); // { itemCode: qty }
+export default function Shipments({ branches, stockLedger, shipments, setShipments, items }) {
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [containerType, setContainerType] = useState('20FT');
+  const [shippingItems, setShippingItems] = useState({});
 
   const handleQtyChange = (code, val) => {
-    setSelectedItemsForShip({ ...selectedItemsForShip, [code]: Math.max(0, parseInt(val) || 0) });
+    setShippingItems({ ...shippingItems, [code]: Math.max(0, parseInt(val) || 0) });
   };
 
   let totalCbm = 0;
   let totalWeight = 0;
-  const shipmentItemsList = [];
-
-  safeItems.forEach(item => {
-    const qty = selectedItemsForShip[item.code] || 0;
-    if (qty > 0) {
-      const itemCbm = item.cbm || 0.04;
-      const itemWeight = item.weight || 10;
-      totalCbm += qty * itemCbm;
-      totalWeight += qty * itemWeight;
-      shipmentItemsList.push({ 
-        code: item.code, 
-        name: item.name, 
-        qty, 
-        weight: itemWeight * qty, 
-        cbm: itemCbm * qty 
-      });
+  Object.keys(shippingItems).forEach(code => {
+    const qty = shippingItems[code] || 0;
+    const itemMaster = items.find(i => i.code === code);
+    if (itemMaster) {
+      totalCbm += qty * (itemMaster.cbm || 0);
+      totalWeight += qty * (itemMaster.weight || 0);
     }
   });
 
-  const maxCbm = containerType.includes('20FT') ? 28 : 58;
-  const fillRatio = Math.min(100, Math.round((totalCbm / maxCbm) * 100));
+  const capacityCbm = containerType === '20FT' ? 28 : 58;
+  const fillRatio = Math.min(100, ((totalCbm / capacityCbm) * 100)).toFixed(1);
 
-  const handleSaveShipment = (e) => {
-    e.preventDefault();
-    if (!shpRef || shipmentItemsList.length === 0) {
-      alert('Please enter a shipment reference and select items to ship.');
+  const handleCreateShipment = () => {
+    if (!selectedBranch) {
+      alert('Please select a destination branch.');
+      return;
+    }
+    const shippedList = Object.keys(shippingItems)
+      .filter(code => shippingItems[code] > 0)
+      .map(code => {
+        const im = items.find(i => i.code === code);
+        return { code, name: im ? im.name : code, qty: shippingItems[code] };
+      });
+
+    if (shippedList.length === 0) {
+      alert('Select items to ship.');
       return;
     }
 
-    const newShp = {
-      id: shpRef,
+    const newShipment = {
+      id: 'SHP-' + Math.floor(1000 + Math.random() * 9000),
+      branch: selectedBranch,
       containerType,
-      branch: targetBranch,
-      cbm: totalCbm.toFixed(2),
-      weight: totalWeight.toFixed(1),
+      totalCbm: totalCbm.toFixed(2),
+      totalWeight: totalWeight.toFixed(2),
       fillRatio,
-      status: 'In Transit',
-      items: shipmentItemsList
+      items: shippedList,
+      date: new Date().toISOString().split('T')[0]
     };
 
-    setShipments([...safeShipments, newShp]);
-
-    // Update shipped quantity in master items
-    const updatedItems = safeItems.map(item => {
-      const found = shipmentItemsList.find(s => s.code === item.code);
-      if (found) {
-        return { ...item, shippedQty: (item.shippedQty || 0) + found.qty };
-      }
-      return item;
-    });
-    setItems(updatedItems);
-
-    setShpRef('');
-    setSelectedItemsForShip({});
-    alert('Shipment successfully created and linked to branch with real-time container fill calculation!');
+    setShipments([...shipments, newShipment]);
+    setShippingItems({});
+    alert('Shipment container created successfully!');
   };
 
   const exportPackingListCSV = (shp) => {
-    let csv = `Packing List / Shipment Ref:,${shp.id}\nContainer:,${shp.containerType}\nBranch:,${shp.branch}\nTotal CBM:,${shp.cbm} m3\nTotal Weight:,${shp.weight} kg\n\n`;
-    csv += 'Item Code,Item Name,Shipped Qty,Total Weight (kg),Total CBM (m3)\n';
-    (shp.items || []).forEach(i => {
-      csv += `"${i.code}","${i.name}",${i.qty},${i.weight},${i.cbm}\n`;
+    let csv = 'Item Code,Item Name,Shipped Qty\n';
+    shp.items.forEach(i => {
+      csv += `${i.code},"${i.name}",${i.qty}\n`;
     });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${shp.id}_packing_list.csv`;
-    link.click();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `Packing_List_${shp.id}.csv`);
+    a.click();
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Create New Shipment & Container Packing List</h3>
-        <form onSubmit={handleSaveShipment} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-            <div>
-              <label style={labelStyle}>Shipment Ref No.</label>
-              <input type="text" value={shpRef} onChange={(e) => setShpRef(e.target.value)} placeholder="e.g. SHP-SZ-002" required style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Container Type</label>
-              <select value={containerType} onChange={(e) => setContainerType(e.target.value)} style={inputStyle}>
-                <option>20FT Container (Max ~28 CBM)</option>
-                <option>40FT Container (Max ~58 CBM)</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Target Branch / Destination</label>
-              <select value={targetBranch} onChange={(e) => setTargetBranch(e.target.value)} style={inputStyle}>
-                {safeBranches.map(b => <option key={b.id || b.name} value={b.name}>{b.name} ({b.location})</option>)}
-              </select>
-            </div>
-          </div>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <h2>Shipments & Container Loading</h2>
 
+      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '30px' }}>
+        <h3>Create New Container Shipment</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
           <div>
-            <label style={{ ...labelStyle, marginBottom: '8px' }}>Select Items & Quantities to Ship</label>
-            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
-                    <th style={{ padding: '6px' }}>Code</th>
-                    <th style={{ padding: '6px' }}>Item Name</th>
-                    <th style={{ padding: '6px' }}>Weight / CBM</th>
-                    <th style={{ padding: '6px', width: '120px' }}>Shipping Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {safeItems.map(item => (
-                    <tr key={item.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '6px' }}><b>{item.code}</b></td>
-                      <td style={{ padding: '6px' }}>{item.name}</td>
-                      <td style={{ padding: '6px' }}>{item.weight || 10} kg / {item.cbm || 0.04} m³</td>
-                      <td style={{ padding: '6px' }}>
-                        <input 
-                          type="number" 
-                          min="0"
-                          placeholder="0"
-                          value={selectedItemsForShip[item.code] || ''}
-                          onChange={(e) => handleQtyChange(item.code, e.target.value)}
-                          style={{ width: '90px', padding: '4px' }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Select Destination Branch</label>
+            <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+              <option value="">Select Branch</option>
+              {branches.map((b, idx) => <option key={idx} value={b.name}>{b.name} ({b.location})</option>)}
+            </select>
           </div>
-
-          {/* Real-time Container Filling Ratio Footer Bar */}
-          <div style={{ background: '#0f172a', color: '#fff', padding: '16px 20px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Real-Time Container Filling Ratio</div>
-              <div style={{ fontSize: '14px', marginTop: '2px' }}>
-                Weight: <b>{totalWeight.toFixed(1)} kg</b> | CBM: <b>{totalCbm.toFixed(2)} / {maxCbm} m³</b>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ fontSize: '20px', fontWeight: 'bold', color: fillRatio >= 80 ? '#22c55e' : '#facc15' }}>
-                {fillRatio}% Filled
-              </div>
-              <button type="submit" style={btnPrimaryGreen}>Save & Link Shipment</button>
-            </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Container Type</label>
+            <select value={containerType} onChange={e => setContainerType(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+              <option value="20FT">20FT Container</option>
+              <option value="40FT">40FT Container</option>
+            </select>
           </div>
-        </form>
-      </div>
+        </div>
 
-      {/* Shipments Directory */}
-      <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ marginTop: 0, color: '#0f172a' }}>Active Shipments & Branch Packing Lists</h3>
-        {safeShipments.length === 0 ? (
-          <p style={{ color: '#94a3b8' }}>No shipments created yet.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
-                <th style={thStyle}>Shipment Ref</th>
-                <th style={thStyle}>Target Branch</th>
-                <th style={thStyle}>Container Type</th>
-                <th style={thStyle}>CBM / Weight</th>
-                <th style={thStyle}>Fill Ratio</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Packing List</th>
+        <h4>Select Available Stock Items to Load</h4>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+              <th style={{ padding: '8px' }}>Code</th>
+              <th style={{ padding: '8px' }}>Name</th>
+              <th style={{ padding: '8px' }}>Supplier</th>
+              <th style={{ padding: '8px' }}>Available Stock</th>
+              <th style={{ padding: '8px', width: '120px' }}>Ship Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stockLedger.map((s, idx) => (
+              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '8px', fontWeight: '600' }}>{s.code}</td>
+                <td style={{ padding: '8px' }}>{s.name}</td>
+                <td style={{ padding: '8px' }}>{s.supplier}</td>
+                <td style={{ padding: '8px' }}>{s.closingStock}</td>
+                <td style={{ padding: '8px' }}>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max={s.closingStock} 
+                    value={shippingItems[s.code] || ''} 
+                    onChange={e => handleQtyChange(s.code, e.target.value)}
+                    style={{ width: '100px', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                  />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {safeShipments.map((s, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={tdStyle}><b>{s.id}</b></td>
-                  <td style={tdStyle}>{s.branch}</td>
-                  <td style={tdStyle}>{s.containerType}</td>
-                  <td style={tdStyle}>{s.cbm} m³ / {s.weight} kg</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold', color: '#16a34a' }}>{s.fillRatio}%</td>
-                  <td style={tdStyle}>{s.status}</td>
-                  <td style={tdStyle}>
-                    <button onClick={() => exportPackingListCSV(s)} style={btnSmCSV}>Download Packing List (CSV)</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+            ))}
+          </tbody>
+        </table>
+
+        <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <div>
+            <span>Total CBM: <b>{totalCbm.toFixed(2)} m³</b> | Total Weight: <b>{totalWeight.toFixed(2)} kg</b></span>
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#16a34a' }}>
+            Container Fill Ratio ({containerType}): {fillRatio}%
+          </div>
+        </div>
+
+        <button onClick={handleCreateShipment} style={{ padding: '10px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+          Save Shipment & Generate Packing List
+        </button>
       </div>
+
+      <h3>Active Shipments & Packing Lists</h3>
+      <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <thead>
+          <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+            <th style={{ padding: '12px' }}>Shipment ID</th>
+            <th style={{ padding: '12px' }}>Branch</th>
+            <th style={{ padding: '12px' }}>Container</th>
+            <th style={{ padding: '12px' }}>Total CBM</th>
+            <th style={{ padding: '12px' }}>Fill Ratio</th>
+            <th style={{ padding: '12px', textAlign: 'center' }}>Packing List</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shipments.map((shp, idx) => (
+            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <td style={{ padding: '12px', fontWeight: '600' }}>{shp.id}</td>
+              <td style={{ padding: '12px' }}>{shp.branch}</td>
+              <td style={{ padding: '12px' }}>{shp.containerType}</td>
+              <td style={{ padding: '12px' }}>{shp.totalCbm} m³</td>
+              <td style={{ padding: '12px', fontWeight: 'bold', color: '#16a34a' }}>{shp.fillRatio}%</td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <button onClick={() => exportPackingListCSV(shp)} style={{ padding: '6px 12px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                  Download CSV
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
-
-const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '6px' };
-const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' };
-const btnPrimaryGreen = { background: '#16a34a', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' };
-const btnSmCSV = { background: '#dcfce7', color: '#166534', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' };
-const thStyle = { padding: '12px 16px', fontWeight: '600' };
-const tdStyle = { padding: '12px 16px', color: '#475569' };
