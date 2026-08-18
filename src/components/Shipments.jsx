@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
 
-export default function Shipments({ shipments, setShipments, items, setItems, branches }) {
+export default function Shipments({ 
+  shipments = [], 
+  setShipments = () => {}, 
+  items = [], 
+  setItems = () => {}, 
+  branches = [] 
+}) {
+  const safeShipments = shipments || [];
+  const safeItems = items || [];
+  const safeBranches = branches || [];
+
   const [shpRef, setShpRef] = useState('');
   const [containerType, setContainerType] = useState('40FT Container (Max ~58 CBM)');
-  const [targetBranch, setTargetBranch] = useState(branches[0]?.name || 'MG Kinshasa');
+  const [targetBranch, setTargetBranch] = useState(safeBranches[0]?.name || 'MG Kinshasa');
   const [selectedItemsForShip, setSelectedItemsForShip] = useState({}); // { itemCode: qty }
 
   const handleQtyChange = (code, val) => {
@@ -14,12 +24,20 @@ export default function Shipments({ shipments, setShipments, items, setItems, br
   let totalWeight = 0;
   const shipmentItemsList = [];
 
-  items.forEach(item => {
+  safeItems.forEach(item => {
     const qty = selectedItemsForShip[item.code] || 0;
     if (qty > 0) {
-      totalCbm += qty * (item.cbm || 0.04);
-      totalWeight += qty * (item.weight || 10);
-      shipmentItemsList.push({ code: item.code, name: item.name, qty, weight: item.weight * qty, cbm: item.cbm * qty });
+      const itemCbm = item.cbm || 0.04;
+      const itemWeight = item.weight || 10;
+      totalCbm += qty * itemCbm;
+      totalWeight += qty * itemWeight;
+      shipmentItemsList.push({ 
+        code: item.code, 
+        name: item.name, 
+        qty, 
+        weight: itemWeight * qty, 
+        cbm: itemCbm * qty 
+      });
     }
   });
 
@@ -44,10 +62,10 @@ export default function Shipments({ shipments, setShipments, items, setItems, br
       items: shipmentItemsList
     };
 
-    setShipments([...shipments, newShp]);
+    setShipments([...safeShipments, newShp]);
 
     // Update shipped quantity in master items
-    const updatedItems = items.map(item => {
+    const updatedItems = safeItems.map(item => {
       const found = shipmentItemsList.find(s => s.code === item.code);
       if (found) {
         return { ...item, shippedQty: (item.shippedQty || 0) + found.qty };
@@ -64,7 +82,7 @@ export default function Shipments({ shipments, setShipments, items, setItems, br
   const exportPackingListCSV = (shp) => {
     let csv = `Packing List / Shipment Ref:,${shp.id}\nContainer:,${shp.containerType}\nBranch:,${shp.branch}\nTotal CBM:,${shp.cbm} m3\nTotal Weight:,${shp.weight} kg\n\n`;
     csv += 'Item Code,Item Name,Shipped Qty,Total Weight (kg),Total CBM (m3)\n';
-    shp.items.forEach(i => {
+    (shp.items || []).forEach(i => {
       csv += `"${i.code}","${i.name}",${i.qty},${i.weight},${i.cbm}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -94,7 +112,7 @@ export default function Shipments({ shipments, setShipments, items, setItems, br
             <div>
               <label style={labelStyle}>Target Branch / Destination</label>
               <select value={targetBranch} onChange={(e) => setTargetBranch(e.target.value)} style={inputStyle}>
-                {branches.map(b => <option key={b.id} value={b.name}>{b.name} ({b.location})</option>)}
+                {safeBranches.map(b => <option key={b.id || b.name} value={b.name}>{b.name} ({b.location})</option>)}
               </select>
             </div>
           </div>
@@ -112,11 +130,11 @@ export default function Shipments({ shipments, setShipments, items, setItems, br
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(item => (
+                  {safeItems.map(item => (
                     <tr key={item.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '6px' }}><b>{item.code}</b></td>
                       <td style={{ padding: '6px' }}>{item.name}</td>
-                      <td style={{ padding: '6px' }}>{item.weight} kg / {item.cbm} m³</td>
+                      <td style={{ padding: '6px' }}>{item.weight || 10} kg / {item.cbm || 0.04} m³</td>
                       <td style={{ padding: '6px' }}>
                         <input 
                           type="number" 
@@ -155,7 +173,7 @@ export default function Shipments({ shipments, setShipments, items, setItems, br
       {/* Shipments Directory */}
       <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
         <h3 style={{ marginTop: 0, color: '#0f172a' }}>Active Shipments & Branch Packing Lists</h3>
-        {shipments.length === 0 ? (
+        {safeShipments.length === 0 ? (
           <p style={{ color: '#94a3b8' }}>No shipments created yet.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -171,7 +189,7 @@ export default function Shipments({ shipments, setShipments, items, setItems, br
               </tr>
             </thead>
             <tbody>
-              {shipments.map((s, idx) => (
+              {safeShipments.map((s, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={tdStyle}><b>{s.id}</b></td>
                   <td style={tdStyle}>{s.branch}</td>
