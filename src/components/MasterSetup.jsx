@@ -1,361 +1,214 @@
 import React, { useState } from 'react';
 
-export default function MasterSetup({ items = [], setItems = () => {}, suppliers = [], setSuppliers = () => {} }) {
-  const safeItems = items || [];
-  const safeSuppliers = suppliers || [];
-
-  const [itemName, setItemName] = useState('');
-  const [itemCode, setItemCode] = useState('');
-  const [supplier, setSupplier] = useState('');
-  const [packSize, setPackSize] = useState('');
-  const [moq, setMoq] = useState('');
-  const [weight, setWeight] = useState('');
-  const [cbm, setCbm] = useState('');
-  const [unitPriceLCY, setUnitPriceLCY] = useState('');
-  const [openingStock, setOpeningStock] = useState('');
-  const [editingItemCode, setEditingItemCode] = useState(null);
-
-  const [supCode, setSupCode] = useState('');
+export default function MasterSetup({ items, setItems, suppliers, setSuppliers }) {
+  // Supplier State
   const [supName, setSupName] = useState('');
-  const [warehouseNo, setWarehouseNo] = useState('');
-  const [country, setCountry] = useState('China');
-  const [currency, setCurrency] = useState('CNY');
-  const [exchangeRate, setExchangeRate] = useState('7.25');
-  const [editingSupId, setEditingSupId] = useState(null);
+  const [supCode, setSupCode] = useState('');
+  const [supWarehouse, setSupWarehouse] = useState('');
+  const [supCurrency, setSupCurrency] = useState('USD');
+  const [supCountry, setSupCountry] = useState('');
+  const [editingSupIdx, setEditingSupIdx] = useState(null);
 
-  const handleRegisterItem = (e) => {
+  // Item State
+  const [itemCode, setItemCode] = useState('');
+  const [itemName, setItemName] = useState('');
+  const [itemSupplier, setItemSupplier] = useState('');
+  const [itemCountry, setItemCountry] = useState('');
+  const [itemPackSize, setItemPackSize] = useState('');
+  const [itemWeight, setItemWeight] = useState('');
+  const [itemCbm, setItemCbm] = useState('');
+  const [itemMoq, setItemMoq] = useState('');
+  const [itemUnitRate, setItemUnitRate] = useState('');
+  const [itemInStock, setItemInStock] = useState('');
+  const [editingItemIdx, setEditingItemIdx] = useState(null);
+
+  // Supplier Save
+  const handleSaveSupplier = (e) => {
     e.preventDefault();
-    if (!itemCode || !itemName) return;
+    const newSup = { code: supCode, name: supName, warehouse: supWarehouse, currency: supCurrency, country: supCountry };
+    if (editingSupIdx !== null) {
+      const updated = [...suppliers];
+      updated[editingSupIdx] = newSup;
+      setSuppliers(updated);
+      setEditingSupIdx(null);
+    } else {
+      setSuppliers([...suppliers, newSup]);
+    }
+    setSupName(''); setSupCode(''); setSupWarehouse(''); setSupCurrency('USD'); setSupCountry('');
+  };
 
-    const supObj = safeSuppliers.find(s => s.name === supplier) || safeSuppliers[0];
-    const lcyPrice = parseFloat(unitPriceLCY) || 85.00;
-    const exRate = supObj?.exchangeRate || 7.25;
-    const usdPrice = lcyPrice / exRate;
-
+  // Item Save
+  const handleSaveItem = (e) => {
+    e.preventDefault();
     const newItem = {
       code: itemCode,
       name: itemName,
-      supplier: supObj?.name || 'Global Chem China',
-      country: supObj?.country || 'China',
-      currency: supObj?.currency || 'CNY',
-      exchangeRate: exRate,
-      packSize: parseInt(packSize) || 24,
-      moq: parseInt(moq) || 100,
-      weight: parseFloat(weight) || 10,
-      cbm: parseFloat(cbm) || 0.04,
-      unitPriceLCY: lcyPrice,
-      unitPriceUSD: usdPrice,
-      openingStock: parseInt(openingStock) || 0,
-      orderedQty: 0,
-      receivedQty: 0,
-      shippedQty: 0
+      supplier: itemSupplier,
+      country: itemCountry,
+      packSize: itemPackSize,
+      weight: parseFloat(itemWeight) || 0,
+      cbm: parseFloat(itemCbm) || 0,
+      moq: parseInt(itemMoq) || 0,
+      unitRate: parseFloat(itemUnitRate) || 0,
+      inStock: parseInt(itemInStock) || 0
     };
-
-    if (editingItemCode) {
-      setItems(safeItems.map(i => i.code === editingItemCode ? newItem : i));
-      setEditingItemCode(null);
-      alert('Item updated successfully!');
+    if (editingItemIdx !== null) {
+      const updated = [...items];
+      updated[editingItemIdx] = newItem;
+      setItems(updated);
+      setEditingItemIdx(null);
     } else {
-      setItems([...safeItems, newItem]);
-      alert('Item registered successfully!');
+      setItems([...items, newItem]);
     }
-
-    setItemCode('');
-    setItemName('');
-    setPackSize('');
-    setMoq('');
-    setWeight('');
-    setCbm('');
-    setUnitPriceLCY('');
-    setOpeningStock('');
+    setItemCode(''); setItemName(''); setItemSupplier(''); setItemCountry(''); setItemPackSize(''); setItemWeight(''); setItemCbm(''); setItemMoq(''); setItemUnitRate(''); setItemInStock('');
   };
 
-  const handleRegisterSupplier = (e) => {
-    e.preventDefault();
-    if (!supCode || !supName) return;
-
-    const newSup = {
-      id: editingSupId || Date.now(),
-      code: supCode,
-      name: supName,
-      warehouseNo,
-      country,
-      currency,
-      exchangeRate: parseFloat(exchangeRate) || 7.25
-    };
-
-    if (editingSupId) {
-      setSuppliers(safeSuppliers.map(s => s.id === editingSupId ? newSup : s));
-      setEditingSupId(null);
-      alert('Supplier updated successfully!');
-    } else {
-      setSuppliers([...safeSuppliers, newSup]);
-      alert('Supplier added successfully!');
-    }
-
-    setSupCode('');
-    setSupName('');
-    setWarehouseNo('');
-    setExchangeRate('');
-  };
-
-  const downloadTemplate = (type) => {
-    let headers = type === 'items' 
-      ? 'code,name,supplier,packSize,weight,cbm,moq,unitPriceLCY,openingStock\n' 
-      : 'code,name,warehouseNo,country,currency,exchangeRate\n';
-    let sample = type === 'items' 
-      ? 'COS-103,Herbal Shampoo,Global Chem China,24,10,0.04,500,85.00,1000\n' 
-      : 'SUP-003,Global Chem China,WH-CN-01,China,CNY,7.25\n';
-
-    const blob = new Blob([headers + sample], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${type}_template.csv`;
+  // CSV Template Download
+  const downloadItemTemplate = () => {
+    const csvContent = "data:text/csv;charset=utf-8,code,name,supplier,country,packSize,weight,cbm,moq,unitRate,inStock\nITM001,Example Item,Supplier A,China,Box of 12,1.5,0.02,100,12.50,500";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "item_master_template.csv");
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   };
 
-  const handleCSVImport = (e, type) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const lines = event.target.result.split('\n').filter(l => l.trim() !== '');
-      if (type === 'items') {
-        const newItems = [...safeItems];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map(c => c.trim());
-          if (cols.length >= 9) {
-            const supNameVal = cols[2];
-            const supObj = safeSuppliers.find(s => s.name === supNameVal);
-            const exRate = supObj?.exchangeRate || 7.25;
-            const lcy = parseFloat(cols[7]) || 85.00;
-            newItems.push({
-              code: cols[0], name: cols[1], supplier: supNameVal,
-              country: supObj?.country || 'China', currency: supObj?.currency || 'CNY', exchangeRate: exRate,
-              packSize: parseInt(cols[3]) || 24, weight: parseFloat(cols[4]) || 10,
-              cbm: parseFloat(cols[5]) || 0.04, moq: parseInt(cols[6]) || 100,
-              unitPriceLCY: lcy, unitPriceUSD: lcy / exRate,
-              openingStock: parseInt(cols[8]) || 0, orderedQty: 0, receivedQty: 0, shippedQty: 0
-            });
-          }
-        }
-        setItems(newItems);
-        alert('Items imported successfully from CSV!');
-      } else if (type === 'suppliers') {
-        const newSups = [...safeSuppliers];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map(c => c.trim());
-          if (cols.length >= 6) {
-            newSups.push({
-              id: Date.now() + i, code: cols[0], name: cols[1], warehouseNo: cols[2],
-              country: cols[3], currency: cols[4], exchangeRate: parseFloat(cols[5]) || 7.25
-            });
-          }
-        }
-        setSuppliers(newSups);
-        alert('Suppliers imported successfully from CSV!');
-      }
-    };
-    reader.readAsText(file);
+  const downloadSupplierTemplate = () => {
+    const csvContent = "data:text/csv;charset=utf-8,code,name,warehouseNumber,currency,country\nSUP001,Supplier Alpha,WH-CN-01,USD,China";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "supplier_master_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ background: '#fff', padding: '20px 24px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h3 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Master Templates & CSV Bulk Imports</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Download templates for items or suppliers and upload CSV files.</p>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <h2>Master Setup: Suppliers & Items</h2>
+
+      {/* SUPPLIER SECTION */}
+      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h3>{editingSupIdx !== null ? 'Edit Supplier' : 'Add Supplier'}</h3>
+          <button onClick={downloadSupplierTemplate} style={{ padding: '6px 12px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Download Supplier Template</button>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={() => downloadTemplate('items')} style={btnSecondary}>Download Item Template</button>
-          <label style={btnUpload}>
-            Import Items CSV
-            <input type="file" accept=".csv" onChange={(e) => handleCSVImport(e, 'items')} style={{ display: 'none' }} />
-          </label>
-          <button onClick={() => downloadTemplate('suppliers')} style={btnSecondary}>Download Supplier Template</button>
-          <label style={btnUpload}>
-            Import Suppliers CSV
-            <input type="file" accept=".csv" onChange={(e) => handleCSVImport(e, 'suppliers')} style={{ display: 'none' }} />
-          </label>
-        </div>
+        <form onSubmit={handleSaveSupplier} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr) auto', gap: '10px', alignItems: 'end' }}>
+          <div>
+            <label style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>Supplier Code</label>
+            <input type="text" value={supCode} onChange={e => setSupCode(e.target.value)} placeholder="SUP01" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>Supplier Name</label>
+            <input type="text" value={supName} onChange={e => setSupName(e.target.value)} placeholder="Name" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>Warehouse No.</label>
+            <input type="text" value={supWarehouse} onChange={e => setSupWarehouse(e.target.value)} placeholder="WH-01" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>Local Currency (LCY)</label>
+            <input type="text" value={supCurrency} onChange={e => setSupCurrency(e.target.value)} placeholder="USD / CNY / THB" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>Country</label>
+            <input type="text" value={supCountry} onChange={e => setSupCountry(e.target.value)} placeholder="China" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required />
+          </div>
+          <button type="submit" style={{ padding: '9px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Save</button>
+        </form>
+
+        {/* Suppliers Table */}
+        <table style={{ width: '100%', marginTop: '20px', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+              <th style={{ padding: '10px' }}>Code</th>
+              <th style={{ padding: '10px' }}>Name</th>
+              <th style={{ padding: '10px' }}>Warehouse No.</th>
+              <th style={{ padding: '10px' }}>Currency</th>
+              <th style={{ padding: '10px' }}>Country</th>
+              <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {suppliers.map((s, idx) => (
+              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '10px', fontWeight: '600' }}>{s.code}</td>
+                <td style={{ padding: '10px' }}>{s.name}</td>
+                <td style={{ padding: '10px' }}>{s.warehouse}</td>
+                <td style={{ padding: '10px' }}>{s.currency}</td>
+                <td style={{ padding: '10px' }}>{s.country}</td>
+                <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <button onClick={() => { setSupCode(s.code); setSupName(s.name); setSupWarehouse(s.warehouse); setSupCurrency(s.currency); setSupCountry(s.country); setEditingSupIdx(idx); }} style={{ marginRight: '6px', padding: '4px 10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
+                  <button onClick={() => setSuppliers(suppliers.filter((_, i) => i !== idx))} style={{ padding: '4px 10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* Item Master Form */}
-        <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ marginTop: 0, color: '#0f172a' }}>{editingItemCode ? 'Edit Item' : 'Add New Item'}</h3>
-          <form onSubmit={handleRegisterItem} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
-              <label style={labelStyle}>Item Code</label>
-              <input type="text" value={itemCode} onChange={(e) => setItemCode(e.target.value)} placeholder="e.g. COS-103" required style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Item Name</label>
-              <input type="text" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Glowing Foundation" required style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Supplier Warehouse</label>
-              <select value={supplier} onChange={(e) => setSupplier(e.target.value)} style={inputStyle}>
-                {safeSuppliers.map(s => <option key={s.id} value={s.name}>{s.name} ({s.warehouseNo})</option>)}
-              </select>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={labelStyle}>Pack Size (Pcs/CTN)</label>
-                <input type="number" value={packSize} onChange={(e) => setPackSize(e.target.value)} placeholder="24" required style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>MOQ</label>
-                <input type="number" value={moq} onChange={(e) => setMoq(e.target.value)} placeholder="500" required style={inputStyle} />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={labelStyle}>Weight (kg)</label>
-                <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="10" required style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>CBM (m³)</label>
-                <input type="number" step="0.001" value={cbm} onChange={(e) => setCbm(e.target.value)} placeholder="0.04" required style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Unit Price (LCY)</label>
-                <input type="number" step="0.01" value={unitPriceLCY} onChange={(e) => setUnitPriceLCY(e.target.value)} placeholder="85.00" required style={inputStyle} />
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Opening Stock Qty</label>
-              <input type="number" value={openingStock} onChange={(e) => setOpeningStock(e.target.value)} placeholder="1000" required style={inputStyle} />
-            </div>
-            <button type="submit" style={btnPrimary}>{editingItemCode ? 'Update Item' : 'Register Item'}</button>
-          </form>
-
-          <div style={{ marginTop: '24px', maxHeight: '180px', overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
-                  <th style={{ padding: '8px' }}>Code</th>
-                  <th style={{ padding: '8px' }}>Name</th>
-                  <th style={{ padding: '8px' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {safeItems.map(it => (
-                  <tr key={it.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px' }}><b>{it.code}</b></td>
-                    <td style={{ padding: '8px' }}>{it.name}</td>
-                    <td style={{ padding: '8px', display: 'flex', gap: '6px' }}>
-                      <button onClick={() => {
-                        setEditingItemCode(it.code);
-                        setItemCode(it.code);
-                        setItemName(it.name);
-                        setSupplier(it.supplier);
-                        setPackSize(it.packSize);
-                        setMoq(it.moq);
-                        setWeight(it.weight);
-                        setCbm(it.cbm);
-                        setUnitPriceLCY(it.unitPriceLCY);
-                        setOpeningStock(it.openingStock);
-                      }} style={btnSmEdit}>Edit</button>
-                      <button onClick={() => setItems(safeItems.filter(i => i.code !== it.code))} style={btnSmDel}>Del</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* ITEM SECTION */}
+      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h3>{editingItemIdx !== null ? 'Edit Item' : 'Add Item Master'}</h3>
+          <button onClick={downloadItemTemplate} style={{ padding: '6px 12px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Download Item Template</button>
         </div>
-
-        {/* Supplier Master Form */}
-        <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ marginTop: 0, color: '#0f172a' }}>{editingSupId ? 'Edit Supplier' : 'Add New Supplier'}</h3>
-          <form onSubmit={handleRegisterSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={labelStyle}>Supplier Code</label>
-                <input type="text" value={supCode} onChange={(e) => setSupCode(e.target.value)} placeholder="e.g. SUP-003" required style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Warehouse Number</label>
-                <input type="text" value={warehouseNo} onChange={(e) => setWarehouseNo(e.target.value)} placeholder="e.g. WH-CN-03" required style={inputStyle} />
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Supplier Name</label>
-              <input type="text" value={supName} onChange={(e) => setSupName(e.target.value)} placeholder="e.g. Global Chem China" required style={inputStyle} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={labelStyle}>Country</label>
-                <select value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle}>
-                  <option value="China">China</option>
-                  <option value="Thailand">Thailand</option>
-                  <option value="UAE">UAE</option>
-                  <option value="India">India</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Local Currency (LCY)</label>
-                <select value={currency} onChange={(e) => setCurrency(e.target.value)} style={inputStyle}>
-                  <option value="CNY">CNY (Chinese Yuan)</option>
-                  <option value="THB">THB (Thai Baht)</option>
-                  <option value="AED">AED (UAE Dirham)</option>
-                  <option value="INR">INR (Indian Rupee)</option>
-                  <option value="USD">USD (US Dollar)</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Exchange Rate to USD (1 USD = X LCY)</label>
-              <input type="number" step="0.0001" value={exchangeRate} onChange={(e) => setExchangeRate(e.target.value)} placeholder="7.25" required style={inputStyle} />
-            </div>
-            <button type="submit" style={btnPrimary}>{editingSupId ? 'Update Supplier' : 'Add Supplier'}</button>
-          </form>
-
-          <div style={{ marginTop: '24px', maxHeight: '180px', overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
-                  <th style={{ padding: '8px' }}>Code</th>
-                  <th style={{ padding: '8px' }}>Name / WH</th>
-                  <th style={{ padding: '8px' }}>Currency / Rate</th>
-                  <th style={{ padding: '8px' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {safeSuppliers.map(sup => (
-                  <tr key={sup.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px' }}><b>{sup.code}</b></td>
-                    <td style={{ padding: '8px' }}>{sup.name} ({sup.warehouseNo})</td>
-                    <td style={{ padding: '8px' }}>{sup.currency} (Ex: {sup.exchangeRate})</td>
-                    <td style={{ padding: '8px', display: 'flex', gap: '6px' }}>
-                      <button onClick={() => {
-                        setEditingSupId(sup.id);
-                        setSupCode(sup.code);
-                        setSupName(sup.name);
-                        setWarehouseNo(sup.warehouseNo);
-                        setCountry(sup.country);
-                        setCurrency(sup.currency);
-                        setExchangeRate(sup.exchangeRate);
-                      }} style={btnSmEdit}>Edit</button>
-                      <button onClick={() => setSuppliers(safeSuppliers.filter(s => s.id !== sup.id))} style={btnSmDel}>Del</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <form onSubmit={handleSaveItem} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '15px' }}>
+          <div><label style={{ fontSize: '13px' }}>Item Code</label><input type="text" value={itemCode} onChange={e => setItemCode(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div><label style={{ fontSize: '13px' }}>Item Name</label><input type="text" value={itemName} onChange={e => setItemName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div>
+            <label style={{ fontSize: '13px' }}>Supplier</label>
+            <select value={itemSupplier} onChange={e => setItemSupplier(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required>
+              <option value="">Select Supplier</option>
+              {suppliers.map((s, i) => <option key={i} value={s.name}>{s.name}</option>)}
+            </select>
           </div>
-        </div>
+          <div><label style={{ fontSize: '13px' }}>Country</label><input type="text" value={itemCountry} onChange={e => setItemCountry(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div><label style={{ fontSize: '13px' }}>Pack Size</label><input type="text" value={itemPackSize} onChange={e => setItemPackSize(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div><label style={{ fontSize: '13px' }}>Weight (kg)</label><input type="number" step="0.01" value={itemWeight} onChange={e => setItemWeight(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div><label style={{ fontSize: '13px' }}>CBM</label><input type="number" step="0.001" value={itemCbm} onChange={e => setItemCbm(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div><label style={{ fontSize: '13px' }}>MOQ</label><input type="number" value={itemMoq} onChange={e => setItemMoq(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div><label style={{ fontSize: '13px' }}>Unit Rate</label><input type="number" step="0.01" value={itemUnitRate} onChange={e => setItemUnitRate(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+          <div><label style={{ fontSize: '13px' }}>Opening Stock Qty</label><input type="number" value={itemInStock} onChange={e => setItemInStock(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} required /></div>
+        </form>
+        <button type="button" onClick={handleSaveItem} style={{ padding: '10px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>{editingItemIdx !== null ? 'Update Item' : 'Save Item'}</button>
+
+        {/* Items Table */}
+        <table style={{ width: '100%', marginTop: '20px', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+              <th style={{ padding: '10px' }}>Code</th>
+              <th style={{ padding: '10px' }}>Name</th>
+              <th style={{ padding: '10px' }}>Supplier</th>
+              <th style={{ padding: '10px' }}>Pack Size</th>
+              <th style={{ padding: '10px' }}>MOQ</th>
+              <th style={{ padding: '10px' }}>Rate</th>
+              <th style={{ padding: '10px' }}>In Stock</th>
+              <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((i, idx) => (
+              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '10px', fontWeight: '600' }}>{i.code}</td>
+                <td style={{ padding: '10px' }}>{i.name}</td>
+                <td style={{ padding: '10px' }}>{i.supplier}</td>
+                <td style={{ padding: '10px' }}>{i.packSize}</td>
+                <td style={{ padding: '10px' }}>{i.moq}</td>
+                <td style={{ padding: '10px' }}>{i.unitRate}</td>
+                <td style={{ padding: '10px' }}>{i.inStock}</td>
+                <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <button onClick={() => { setItemCode(i.code); setItemName(i.name); setItemSupplier(i.supplier); setItemCountry(i.country); setItemPackSize(i.packSize); setItemWeight(i.weight); setItemCbm(i.cbm); setItemMoq(i.moq); setItemUnitRate(i.unitRate); setItemInStock(i.inStock); setEditingItemIdx(idx); }} style={{ marginRight: '6px', padding: '4px 10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
+                  <button onClick={() => setItems(items.filter((_, idx2) => idx2 !== idx))} style={{ padding: '4px 10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-
-const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' };
-const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' };
-const btnPrimary = { background: '#0f172a', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' };
-const btnSecondary = { background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '500', cursor: 'pointer' };
-const btnUpload = { background: '#16a34a', color: '#fff', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', display: 'inline-block' };
-const btnSmEdit = { background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' };
-const btnSmDel = { background: '#fee2e2', color: '#991b1b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' };
