@@ -30,7 +30,6 @@ const BranchRequisitionPortal = ({ branchName = "Main Branch" }) => {
       return;
     }
 
-    // Handle submission logic (API call, state lift, etc.)
     console.log("Submitting Requisition for:", branchName, { activeRequests, remarks });
     setSubmitted(true);
   };
@@ -73,21 +72,9 @@ const BranchRequisitionPortal = ({ branchName = "Main Branch" }) => {
                   <td style={styles.td}>{item.stock}</td>
                   <td style={styles.td}>
                     <div style={styles.counterWrapper}>
-                      <button 
-                        type="button" 
-                        style={styles.counterBtn} 
-                        onClick={() => handleQuantityChange(item.id, -1)}
-                      >
-                        -
-                      </button>
+                      <button type="button" style={styles.counterBtn} onClick={() => handleQuantityChange(item.id, -1)}>-</button>
                       <span style={styles.requestedCount}>{item.requested}</span>
-                      <button 
-                        type="button" 
-                        style={styles.counterBtn} 
-                        onClick={() => handleQuantityChange(item.id, 1)}
-                      >
-                        +
-                      </button>
+                      <button type="button" style={styles.counterBtn} onClick={() => handleQuantityChange(item.id, 1)}>+</button>
                     </div>
                   </td>
                 </tr>
@@ -113,11 +100,10 @@ const BranchRequisitionPortal = ({ branchName = "Main Branch" }) => {
   );
 };
 
-// Basic internal styling for quick integration
 const styles = {
   container: { background: '#ffffff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', maxWidth: '800px', margin: '0 auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eaeaea', paddingBottom: '12px' },
-  badge: { background: '#e0f2fe', color: '#0369a1', padding: '6px 12px', borderRadius: '20px', fontSize: '14fontWeight: 600' },
+  badge: { background: '#e0f2fe', color: '#0369a1', padding: '6px 12px', borderRadius: '20px', fontSize: '14px', fontWeight: '600' },
   tableWrapper: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
   th: { background: '#f8fafc', padding: '12px', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '14px' },
@@ -129,7 +115,7 @@ const styles = {
   footerSection: { marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' },
   label: { fontSize: '14px', fontWeight: '600', color: '#475569' },
   textarea: { padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', minHeight: '80px', fontFamily: 'inherit' },
-  buttonPrimary: { background: '#0284c7', color: '#white', border: 'none', padding: '12px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', alignSelf: 'flex-end', marginTop: '10px' },
+  buttonPrimary: { background: '#0284c7', color: '#ffffff', border: 'none', padding: '12px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', alignSelf: 'flex-end', marginTop: '10px' },
   card: { background: '#ffffff', padding: '40px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', maxWidth: '500px', margin: '40px auto' },
   successTitle: { color: '#16a34a', marginBottom: '10px' },
   text: { color: '#64748b', marginBottom: '20px' }
