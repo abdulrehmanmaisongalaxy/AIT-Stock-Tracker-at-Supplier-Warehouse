@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 
-export default function MasterSetup({ items, setItems, suppliers, setSuppliers }) {
+export default function MasterSetup({ items = [], setItems = () => {}, suppliers = [], setSuppliers = () => {} }) {
+  const safeItems = items || [];
+  const safeSuppliers = suppliers || [];
+
   const [itemName, setItemName] = useState('');
   const [itemCode, setItemCode] = useState('');
   const [supplier, setSupplier] = useState('');
@@ -24,7 +27,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     e.preventDefault();
     if (!itemCode || !itemName) return;
 
-    const supObj = suppliers.find(s => s.name === supplier) || suppliers[0];
+    const supObj = safeSuppliers.find(s => s.name === supplier) || safeSuppliers[0];
     const lcyPrice = parseFloat(unitPriceLCY) || 85.00;
     const exRate = supObj?.exchangeRate || 7.25;
     const usdPrice = lcyPrice / exRate;
@@ -49,11 +52,11 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     };
 
     if (editingItemCode) {
-      setItems(items.map(i => i.code === editingItemCode ? newItem : i));
+      setItems(safeItems.map(i => i.code === editingItemCode ? newItem : i));
       setEditingItemCode(null);
       alert('Item updated successfully!');
     } else {
-      setItems([...items, newItem]);
+      setItems([...safeItems, newItem]);
       alert('Item registered successfully!');
     }
 
@@ -82,11 +85,11 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     };
 
     if (editingSupId) {
-      setSuppliers(suppliers.map(s => s.id === editingSupId ? newSup : s));
+      setSuppliers(safeSuppliers.map(s => s.id === editingSupId ? newSup : s));
       setEditingSupId(null);
       alert('Supplier updated successfully!');
     } else {
-      setSuppliers([...suppliers, newSup]);
+      setSuppliers([...safeSuppliers, newSup]);
       alert('Supplier added successfully!');
     }
 
@@ -119,16 +122,16 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     reader.onload = (event) => {
       const lines = event.target.result.split('\n').filter(l => l.trim() !== '');
       if (type === 'items') {
-        const newItems = [...items];
+        const newItems = [...safeItems];
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(',').map(c => c.trim());
           if (cols.length >= 9) {
-            const supName = cols[2];
-            const supObj = suppliers.find(s => s.name === supName);
+            const supNameVal = cols[2];
+            const supObj = safeSuppliers.find(s => s.name === supNameVal);
             const exRate = supObj?.exchangeRate || 7.25;
             const lcy = parseFloat(cols[7]) || 85.00;
             newItems.push({
-              code: cols[0], name: cols[1], supplier: supName,
+              code: cols[0], name: cols[1], supplier: supNameVal,
               country: supObj?.country || 'China', currency: supObj?.currency || 'CNY', exchangeRate: exRate,
               packSize: parseInt(cols[3]) || 24, weight: parseFloat(cols[4]) || 10,
               cbm: parseFloat(cols[5]) || 0.04, moq: parseInt(cols[6]) || 100,
@@ -140,7 +143,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
         setItems(newItems);
         alert('Items imported successfully from CSV!');
       } else if (type === 'suppliers') {
-        const newSups = [...suppliers];
+        const newSups = [...safeSuppliers];
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(',').map(c => c.trim());
           if (cols.length >= 6) {
@@ -194,7 +197,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
             <div>
               <label style={labelStyle}>Supplier Warehouse</label>
               <select value={supplier} onChange={(e) => setSupplier(e.target.value)} style={inputStyle}>
-                {suppliers.map(s => <option key={s.id} value={s.name}>{s.name} ({s.warehouseNo})</option>)}
+                {safeSuppliers.map(s => <option key={s.id} value={s.name}>{s.name} ({s.warehouseNo})</option>)}
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -238,7 +241,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                 </tr>
               </thead>
               <tbody>
-                {items.map(it => (
+                {safeItems.map(it => (
                   <tr key={it.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '8px' }}><b>{it.code}</b></td>
                     <td style={{ padding: '8px' }}>{it.name}</td>
@@ -255,7 +258,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                         setUnitPriceLCY(it.unitPriceLCY);
                         setOpeningStock(it.openingStock);
                       }} style={btnSmEdit}>Edit</button>
-                      <button onClick={() => setItems(items.filter(i => i.code !== it.code))} style={btnSmDel}>Del</button>
+                      <button onClick={() => setItems(safeItems.filter(i => i.code !== it.code))} style={btnSmDel}>Del</button>
                     </td>
                   </tr>
                 ))}
@@ -321,7 +324,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                 </tr>
               </thead>
               <tbody>
-                {suppliers.map(sup => (
+                {safeSuppliers.map(sup => (
                   <tr key={sup.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '8px' }}><b>{sup.code}</b></td>
                     <td style={{ padding: '8px' }}>{sup.name} ({sup.warehouseNo})</td>
@@ -336,7 +339,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                         setCurrency(sup.currency);
                         setExchangeRate(sup.exchangeRate);
                       }} style={btnSmEdit}>Edit</button>
-                      <button onClick={() => setSuppliers(suppliers.filter(s => s.id !== sup.id))} style={btnSmDel}>Del</button>
+                      <button onClick={() => setSuppliers(safeSuppliers.filter(s => s.id !== sup.id))} style={btnSmDel}>Del</button>
                     </td>
                   </tr>
                 ))}
