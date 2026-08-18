@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
 
-export default function ProformaInvoices({ proformaInvoices, setProformaInvoices, suppliers, items, setItems }) {
+export default function ProformaInvoices({ 
+  proformaInvoices = [], 
+  setProformaInvoices = () => {}, 
+  suppliers = [], 
+  items = [], 
+  setItems = () => {} 
+}) {
+  const safeProformaInvoices = proformaInvoices || [];
+  const safeSuppliers = suppliers || [];
+  const safeItems = items || [];
+
   const [piRef, setPiRef] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('ALL');
   const [manualItems, setManualItems] = useState({}); // { itemCode: qty }
   const [selectedPIForDetails, setSelectedPIForDetails] = useState(null);
 
-  const countries = [...new Set(suppliers.map(s => s.country))];
+  const countries = [...new Set(safeSuppliers.map(s => s.country).filter(Boolean))];
 
-  const filteredItemsForManualPI = items.filter(i => {
-    const sObj = suppliers.find(s => s.name === i.supplier);
+  const filteredItemsForManualPI = safeItems.filter(i => {
+    const sObj = safeSuppliers.find(s => s.name === i.supplier);
     const matchSup = !supplierName || i.supplier === supplierName;
     const matchCountry = selectedCountry === 'ALL' || (sObj && sObj.country === selectedCountry);
     return matchSup && matchCountry;
   });
 
-  const selectedSupObj = suppliers.find(s => s.name === supplierName);
+  const selectedSupObj = safeSuppliers.find(s => s.name === supplierName);
   const currency = selectedSupObj ? selectedSupObj.currency : 'CNY';
   const exRate = selectedSupObj ? selectedSupObj.exchangeRate : 7.25;
 
@@ -31,7 +41,7 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
     Object.keys(manualItems).forEach(code => {
       const qty = parseInt(manualItems[code]) || 0;
       if (qty > 0) {
-        const mItem = items.find(i => i.code === code);
+        const mItem = safeItems.find(i => i.code === code);
         const unitLCY = mItem ? mItem.unitPriceLCY : 85;
         const unitUSD = mItem ? mItem.unitPriceUSD : 11.72;
         const lineLCY = qty * unitLCY;
@@ -60,10 +70,10 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
       items: piItemList
     };
 
-    setProformaInvoices([...proformaInvoices, newPI]);
+    setProformaInvoices([...safeProformaInvoices, newPI]);
 
     // Update items ordered quantity
-    const updatedItems = items.map(item => {
+    const updatedItems = safeItems.map(item => {
       const found = piItemList.find(p => p.code === item.code);
       if (found) {
         return { ...item, orderedQty: (item.orderedQty || 0) + found.orderedQty };
@@ -79,18 +89,18 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
   };
 
   const handleConfirmPI = (piId) => {
-    setProformaInvoices(proformaInvoices.map(pi => pi.piId === piId ? { ...pi, status: 'Confirmed by Supplier' } : pi));
+    setProformaInvoices(safeProformaInvoices.map(pi => pi.piId === piId ? { ...pi, status: 'Confirmed by Supplier' } : pi));
     alert('PI confirmed by supplier!');
   };
 
   const exportPIExcel = (pi) => {
     let csv = `Proforma Invoice:,${pi.piId}\nSupplier:,${pi.supplierName}\nBranch:,${pi.branchName}\nStatus:,${pi.status}\n\n`;
     csv += 'Item Code,Item Name,Ordered Qty,Unit Price LCY,Total LCY,Unit Price USD,Total USD\n';
-    pi.items.forEach(it => {
+    (pi.items || []).forEach(it => {
       csv += `"${it.code}","${it.name}",${it.orderedQty},${it.unitLCY},${it.lineLCY},${it.unitUSD},${it.lineUSD}\n`;
     });
-    csv += `\nTotal Amount (${pi.currency}),,${pi.totalAmountLCY.toFixed(2)}\n`;
-    csv += `Total Amount (USD),,$${pi.totalAmountUSD.toFixed(2)}\n`;
+    csv += `\nTotal Amount (${pi.currency}),,${(pi.totalAmountLCY || 0).toFixed(2)}\n`;
+    csv += `Total Amount (USD),,$${(pi.totalAmountUSD || 0).toFixed(2)}\n`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -121,7 +131,7 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
               <label style={labelStyle}>Supplier Name</label>
               <select value={supplierName} onChange={(e) => setSupplierName(e.target.value)} required style={inputStyle}>
                 <option value="">Select supplier...</option>
-                {suppliers.filter(s => selectedCountry === 'ALL' || s.country === selectedCountry).map(s => (
+                {safeSuppliers.filter(s => selectedCountry === 'ALL' || s.country === selectedCountry).map(s => (
                   <option key={s.id} value={s.name}>{s.name} ({s.currency})</option>
                 ))}
               </select>
@@ -172,7 +182,7 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
       {/* PI Directory */}
       <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
         <h3 style={{ marginTop: 0, color: '#0f172a' }}>Proforma Invoices Directory & Tracking</h3>
-        {proformaInvoices.length === 0 ? (
+        {safeProformaInvoices.length === 0 ? (
           <p style={{ color: '#94a3b8' }}>No proforma invoices generated yet.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -189,30 +199,36 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
               </tr>
             </thead>
             <tbody>
-              {proformaInvoices.map((pi, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={tdStyle}><b>{pi.piId}</b></td>
-                  <td style={tdStyle}>{pi.reqId || 'Manual'}</td>
-                  <td style={tdStyle}>{pi.branchName}</td>
-                  <td style={tdStyle}>{pi.supplierName}</td>
-                  <td style={tdStyle}>{pi.currency} {(pi.totalAmountLCY || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold', color: '#2563eb' }}>${(pi.totalAmountUSD || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                  <td style={tdStyle}>
-                    <span style={{ color: pi.status.includes('Confirmed') ? '#16a34a' : '#d97706', fontWeight: 'bold' }}>
-                      {pi.status}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button onClick={() => setSelectedPIForDetails(pi)} style={btnSmView}>View Items</button>
-                      <button onClick={() => exportPIExcel(pi)} style={btnSmCSV}>Export CSV</button>
-                      {pi.status.includes('Pending') && (
-                        <button onClick={() => handleConfirmPI(pi.piId)} style={btnSmConfirm}>Confirm</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {safeProformaInvoices.map((pi, idx) => {
+                const piStatus = pi.status || 'Pending';
+                const isConfirmed = piStatus.includes('Confirmed');
+                const isPending = piStatus.includes('Pending');
+
+                return (
+                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={tdStyle}><b>{pi.piId}</b></td>
+                    <td style={tdStyle}>{pi.reqId || 'Manual'}</td>
+                    <td style={tdStyle}>{pi.branchName}</td>
+                    <td style={tdStyle}>{pi.supplierName}</td>
+                    <td style={tdStyle}>{pi.currency} {(pi.totalAmountLCY || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td style={{ ...tdStyle, fontWeight: 'bold', color: '#2563eb' }}>${(pi.totalAmountUSD || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td style={tdStyle}>
+                      <span style={{ color: isConfirmed ? '#16a34a' : '#d97706', fontWeight: 'bold' }}>
+                        {piStatus}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button onClick={() => setSelectedPIForDetails(pi)} style={btnSmView}>View Items</button>
+                        <button onClick={() => exportPIExcel(pi)} style={btnSmCSV}>Export CSV</button>
+                        {isPending && (
+                          <button onClick={() => handleConfirmPI(pi.piId)} style={btnSmConfirm}>Confirm</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -236,7 +252,7 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
                 </tr>
               </thead>
               <tbody>
-                {selectedPIForDetails.items.map((it, i) => (
+                {(selectedPIForDetails.items || []).map((it, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '8px' }}><b>{it.code}</b></td>
                     <td style={{ padding: '8px' }}>{it.name}</td>
@@ -250,7 +266,7 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
             </table>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <b>Total LCY:</b> {selectedPIForDetails.currency} {selectedPIForDetails.totalAmountLCY.toFixed(2)} | <b>Total USD:</b> ${selectedPIForDetails.totalAmountUSD.toFixed(2)}
+                <b>Total LCY:</b> {selectedPIForDetails.currency} {(selectedPIForDetails.totalAmountLCY || 0).toFixed(2)} | <b>Total USD:</b> ${(selectedPIForDetails.totalAmountUSD || 0).toFixed(2)}
               </div>
               <button onClick={() => setSelectedPIForDetails(null)} style={btnPrimary}>Close</button>
             </div>
