@@ -9,15 +9,10 @@ export default function BranchHandling() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  // Restricted items filtering
+  // Restricted items filtering state
   const [supplierFilter, setSupplierFilter] = useState('ALL');
   const [countryFilter, setCountryFilter] = useState('ALL');
   const [selectAll, setSelectAll] = useState(false);
-
-  const mockItems = [
-    { id: 1, name: 'Tire 205/55R16', supplier: 'Apex Corp', country: 'China' },
-    { id: 2, name: 'Brake Pad Set', supplier: 'Global Parts', country: 'India' },
-  ];
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -35,11 +30,23 @@ export default function BranchHandling() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium">Username</label>
-            <input type="text" className="w-full border p-2 rounded" value={username} onChange={e => setUsername(e.target.value)} required />
+            <input 
+              type="text" 
+              className="w-full border p-2 rounded" 
+              value={username} 
+              onChange={e => setUsername(e.target.value)} 
+              required 
+            />
           </div>
           <div>
             <label className="block text-sm font-medium">Password</label>
-            <input type="password" className="w-full border p-2 rounded" value={password} onChange={e => setPassword(e.target.value)} required />
+            <input 
+              type="password" 
+              className="w-full border p-2 rounded" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              required 
+            />
           </div>
           <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-semibold">Login to Requisition Portal</button>
           <button type="button" onClick={() => setSelectedBranch(null)} className="w-full bg-gray-300 text-gray-700 p-2 rounded mt-2">Cancel / Back</button>
@@ -55,7 +62,7 @@ export default function BranchHandling() {
           <h2 className="text-xl font-bold">Requisition Portal for {selectedBranch.name} ({selectedBranch.location})</h2>
           <button onClick={() => { setSelectedBranch(null); setIsAuthenticated(false); }} className="bg-gray-500 text-white px-3 py-1 rounded text-sm">Logout</button>
         </div>
-        <p className="text-green-600 font-medium mb-4">Successfully authenticated. You can now submit branch orders.</p>
+        <p className="text-green-600 font-medium">Successfully authenticated. Branch order form ready.</p>
       </div>
     );
   }
@@ -77,19 +84,18 @@ export default function BranchHandling() {
               <td className="border p-2 font-medium">{b.name}</td>
               <td className="border p-2">{b.location}</td>
               <td className="border p-2">
-                <button onClick={() => setSelectedBranch(b)} className="text-blue-600 underline font-medium">Open Portal (Login Required)</button>
+                <button onClick={() => setSelectedBranch(b)} className="text-blue-600 underline font-medium">Open Portal (Login Gate)</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Restricted Items Filter Section */}
       <div className="border-t pt-4">
         <h3 className="text-lg font-semibold mb-3">Restricted Item Configuration</h3>
-        <div className="flex gap-4 mb-4">
+        <div className="flex gap-4 mb-4 items-center">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Supplier:</label>
+            <label className="block text-sm text-gray-600 mb-1">Supplier Filter:</label>
             <select className="border p-2 rounded" value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)}>
               <option value="ALL">All Suppliers</option>
               <option value="Apex Corp">Apex Corp</option>
@@ -97,15 +103,15 @@ export default function BranchHandling() {
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Country:</label>
+            <label className="block text-sm text-gray-600 mb-1">Country Filter:</label>
             <select className="border p-2 rounded" value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
               <option value="ALL">All Countries</option>
               <option value="China">China</option>
               <option value="India">India</option>
             </select>
           </div>
-          <div className="flex items-end">
-            <label className="flex items-center space-x-2 pb-2">
+          <div className="flex items-end pt-5">
+            <label className="flex items-center space-x-2">
               <input type="checkbox" checked={selectAll} onChange={e => setSelectAll(e.target.checked)} />
               <span className="text-sm font-semibold">Select All Filtered Items</span>
             </label>
