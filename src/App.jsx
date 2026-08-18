@@ -1,33 +1,88 @@
-import React, { useState } from 'react';
-import BranchRequisitionPortal from './components/BranchRequisitionPortal';
+import React, { useState, useEffect } from 'react';
+import ExecutiveDashboard from './components/ExecutiveDashboard';
+import StockLedger from './components/StockLedger';
+import OrderConsolidation from './components/OrderConsolidation';
+import ProformaInvoices from './components/ProformaInvoices';
+import Shipments from './components/Shipments';
+import BranchHandling from './components/BranchHandling';
+import MasterSetup from './components/MasterSetup';
 import BranchPortal from './components/BranchPortal';
+import BranchRequisitionPortal from './components/BranchRequisitionPortal';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('requisition');
+  const [currentUser, setCurrentUser] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const branchParam = params.get('branch');
+    if (branchParam) {
+      return { role: 'branch_login_screen', usernameQuery: branchParam };
+    }
+    const saved = localStorage.getItem('ait_current_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('ait_current_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('ait_current_user');
+    }
+  }, [currentUser]);
+
+  const renderContent = () => {
+    try {
+      switch (activeTab) {
+        case 'dashboard':
+          return <ExecutiveDashboard />;
+        case 'ledger':
+          return <StockLedger />;
+        case 'consolidation':
+          return <OrderConsolidation />;
+        case 'invoices':
+          return <ProformaInvoices />;
+        case 'shipments':
+          return <Shipments />;
+        case 'branch':
+          return <BranchHandling />;
+        case 'requisition':
+          return <BranchRequisitionPortal />;
+        case 'portal':
+          return <BranchPortal />;
+        case 'setup':
+          return <MasterSetup />;
+        default:
+          return <ExecutiveDashboard />;
+      }
+    } catch (err) {
+      return (
+        <div style={{ padding: '20px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px' }}>
+          <h3>Notice from module: {activeTab}</h3>
+          <p>{err.message || "An error occurred while loading this module."}</p>
+        </div>
+      );
+    }
+  };
 
   return (
     <div style={styles.appContainer}>
       <header style={styles.header}>
         <h1 style={styles.title}>AIT Stock Tracker & Supplier Warehouse</h1>
         <div style={styles.navLinks}>
-          <button 
-            style={activeTab === 'requisition' ? styles.activeBtn : styles.navBtn} 
-            onClick={() => setActiveTab('requisition')}
-          >
-            Requisition Portal
-          </button>
-          <button 
-            style={activeTab === 'portal' ? styles.activeBtn : styles.navBtn} 
-            onClick={() => setActiveTab('portal')}
-          >
-            Branch Portal
-          </button>
+          <button style={activeTab === 'dashboard' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
+          <button style={activeTab === 'ledger' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('ledger')}>Stock Ledger</button>
+          <button style={activeTab === 'consolidation' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('consolidation')}>Consolidation</button>
+          <button style={activeTab === 'invoices' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('invoices')}>Proforma</button>
+          <button style={activeTab === 'shipments' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('shipments')}>Shipments</button>
+          <button style={activeTab === 'branch' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('branch')}>Branch Handling</button>
+          <button style={activeTab === 'requisition' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('requisition')}>Requisition</button>
+          <button style={activeTab === 'portal' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('portal')}>Branch Portal</button>
+          <button style={activeTab === 'setup' ? styles.activeBtn : styles.navBtn} onClick={() => setActiveTab('setup')}>Setup</button>
         </div>
       </header>
 
       <main style={styles.mainContent}>
-        {activeTab === 'requisition' && <BranchRequisitionPortal />}
-        {activeTab === 'portal' && <BranchPortal />}
+        {renderContent()}
       </main>
     </div>
   );
