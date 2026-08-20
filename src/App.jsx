@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import '@fortawesome/fontawesome-free/css/all.min.css';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -127,8 +125,8 @@ export default function App() {
               <h5 className="mb-3">Master Setup & CSV Imports</h5>
               <p className="text-muted">Upload fresh master data files for items, suppliers, and currency rules.</p>
               <div className="d-flex gap-3">
-                <button className="btn btn-outline-secondary" onClick={() => alert('CSV template downloaded.')}><i class="fa-solid fa-download me-2"></i>Download CSV Template</button>
-                <button className="btn btn-success" onClick={() => alert('Ready to receive fresh item uploads.')}><i class="fa-solid fa-upload me-2"></i>Import Items CSV</button>
+                <button className="btn btn-outline-secondary" onClick={() => alert('CSV template downloaded.')}><i className="fa-solid fa-download me-2"></i>Download CSV Template</button>
+                <button className="btn btn-success" onClick={() => alert('Ready to receive fresh item uploads.')}><i className="fa-solid fa-upload me-2"></i>Import Items CSV</button>
               </div>
             </div>
           )}
@@ -160,7 +158,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Shipments Tab (Fixed Blank Screen Issue) */}
+          {/* Shipments Tab */}
           {activeTab === 'shipments' && (
             <div className="card p-4 shadow-sm bg-white">
               <h5 className="mb-3"><i className="fa-solid fa-ship me-2"></i>Shipments & Containers Tracking</h5>
