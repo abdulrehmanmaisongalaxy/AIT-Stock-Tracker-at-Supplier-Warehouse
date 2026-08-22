@@ -92,20 +92,20 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* Top Header */}
-      <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-lg">
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm relative z-20">
         <div>
-          <h1 className="text-xl font-bold tracking-wide text-emerald-400">AIT Supplier & Inventory Control Portal</h1>
-          <p className="text-xs text-slate-400">Dubai HQ & Multi-Warehouse Stock Tracking Platform</p>
+          <h1 className="text-xl font-bold tracking-wide text-emerald-700">AIT Supplier & Inventory Control Portal</h1>
+          <p className="text-xs text-slate-500">Dubai HQ & Multi-Warehouse Stock Tracking Platform</p>
         </div>
         <div className="flex items-center gap-4">
-          <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-3 py-1 rounded-full font-semibold">Admin Mode Active</span>
+          <span className="bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs px-3 py-1 rounded-full font-semibold">Admin Mode Active</span>
         </div>
       </header>
 
       {/* Navigation Tabs */}
-      <nav className="bg-slate-900 border-b border-slate-800 px-6 flex gap-2 overflow-x-auto py-2">
+      <nav className="bg-white border-b border-slate-200 px-6 flex gap-2 overflow-x-auto py-3 shadow-sm relative z-10">
         {[
           { id: 'dashboard', label: 'Dashboard' },
           { id: 'master', label: 'Master Setup & Import' },
@@ -120,8 +120,8 @@ export default function App() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id 
-                ? 'bg-emerald-600 text-white shadow-md' 
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                ? 'bg-emerald-600 text-white shadow-sm' 
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
             {tab.label}
@@ -130,7 +130,7 @@ export default function App() {
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
+      <main className="flex-1 p-6 max-w-7xl w-full mx-auto mt-2">
         {activeTab === 'dashboard' && <Dashboard items={items} suppliers={suppliers} branches={branches} requisitions={requisitions} proformaInvoices={proformaInvoices} shipments={shipments} stockLedger={stockLedger} />}
         {activeTab === 'master' && <MasterSetup items={items} setItems={setItems} suppliers={suppliers} setSuppliers={setSuppliers} branches={branches} setBranches={setBranches} />}
         {activeTab === 'consolidation' && <OrderConsolidation requisitions={requisitions} setRequisitions={setRequisitions} items={items} suppliers={suppliers} setProformaInvoices={setProformaInvoices} />}
