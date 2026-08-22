@@ -76,15 +76,15 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target.result;
-      const lines = text.split('\n').slice(1);
+      const lines = text.split('\n').filter(l => l.trim() !== '').slice(1);
       const newItems = [...items];
       lines.forEach(line => {
-        const cols = line.split(',');
+        const cols = line.split(',').map(c => c.trim());
         if (cols.length >= 11) {
           newItems.push({
-            code: cols[0].trim(), name: cols[1].trim(), packSize: Number(cols[2]), weight: Number(cols[3]),
-            cbm: Number(cols[4]), supplier: cols[5].trim(), country: cols[6].trim(), price: Number(cols[7]),
-            currency: cols[8].trim(), moq: Number(cols[9]), stock: Number(cols[10])
+            code: cols[0], name: cols[1], packSize: Number(cols[2]), weight: Number(cols[3]),
+            cbm: Number(cols[4]), supplier: cols[5], country: cols[6], price: Number(cols[7]),
+            currency: cols[8], moq: Number(cols[9]), stock: Number(cols[10])
           });
         }
       });
@@ -95,47 +95,47 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 text-slate-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold">Master Setup & Imports</h2>
           <p className="text-sm text-slate-400">Manage items, supplier warehouses, currencies, and CSV templates.</p>
         </div>
-        <div className="flex gap-2 bg-slate-800 p-1 rounded-lg">
-          <button onClick={() => setSubTab('items')} className={`px-4 py-2 rounded-md text-sm font-semibold ${subTab === 'items' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Items Master</button>
-          <button onClick={() => setSubTab('suppliers')} className={`px-4 py-2 rounded-md text-sm font-semibold ${subTab === 'suppliers' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Supplier Master</button>
+        <div className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
+          <button onClick={() => setSubTab('items')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${subTab === 'items' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>Items Master</button>
+          <button onClick={() => setSubTab('suppliers')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${subTab === 'suppliers' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>Supplier Master</button>
         </div>
       </div>
 
       {subTab === 'items' && (
         <div className="space-y-6">
-          <div className="flex gap-4 items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <button onClick={downloadItemTemplate} className="bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg font-medium">Download CSV Template</button>
-            <label className="bg-emerald-700 hover:bg-emerald-600 text-sm px-4 py-2 rounded-lg font-medium cursor-pointer">
+          <div className="flex gap-4 items-center bg-slate-800 p-4 rounded-xl border border-slate-700 flex-wrap">
+            <button onClick={downloadItemTemplate} className="bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg font-medium text-white">Download CSV Template</button>
+            <label className="bg-emerald-700 hover:bg-emerald-600 text-sm px-4 py-2 rounded-lg font-medium cursor-pointer text-white">
               Import Items CSV <input type="file" accept=".csv" onChange={handleItemCSVImport} className="hidden" />
             </label>
           </div>
 
           <form onSubmit={handleSaveItem} className="bg-slate-800 p-5 rounded-xl border border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-4">
             <h3 className="md:col-span-4 font-bold text-emerald-400">{editingItemCode ? 'Edit Item' : 'Add New Item'}</h3>
-            <input placeholder="Item Code" value={itemForm.code} onChange={e=>setItemForm({...itemForm, code: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input placeholder="Item Name" value={itemForm.name} onChange={e=>setItemForm({...itemForm, name: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input type="number" placeholder="Pack Size" value={itemForm.packSize} onChange={e=>setItemForm({...itemForm, packSize: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input type="number" step="0.01" placeholder="Weight / CTN" value={itemForm.weight} onChange={e=>setItemForm({...itemForm, weight: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input type="number" step="0.0001" placeholder="CBM / CTN" value={itemForm.cbm} onChange={e=>setItemForm({...itemForm, cbm: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <select value={itemForm.supplier} onChange={e=>setItemForm({...itemForm, supplier: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required>
+            <input placeholder="Item Code" value={itemForm.code} onChange={e=>setItemForm({...itemForm, code: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input placeholder="Item Name" value={itemForm.name} onChange={e=>setItemForm({...itemForm, name: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input type="number" placeholder="Pack Size" value={itemForm.packSize} onChange={e=>setItemForm({...itemForm, packSize: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input type="number" step="0.01" placeholder="Weight / CTN" value={itemForm.weight} onChange={e=>setItemForm({...itemForm, weight: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input type="number" step="0.0001" placeholder="CBM / CTN" value={itemForm.cbm} onChange={e=>setItemForm({...itemForm, cbm: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <select value={itemForm.supplier} onChange={e=>setItemForm({...itemForm, supplier: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required>
               <option value="">Select Supplier</option>
               {suppliers.map(s => <option key={s.code} value={s.name}>{s.name}</option>)}
             </select>
-            <input placeholder="Country" value={itemForm.country} onChange={e=>setItemForm({...itemForm, country: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input type="number" step="0.01" placeholder="Unit Price (LCY)" value={itemForm.price} onChange={e=>setItemForm({...itemForm, price: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input placeholder="Currency (e.g. YUAN, INR, USD)" value={itemForm.currency} onChange={e=>setItemForm({...itemForm, currency: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input type="number" placeholder="MOQ Quantity" value={itemForm.moq} onChange={e=>setItemForm({...itemForm, moq: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <button type="submit" className="md:col-span-4 bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-lg font-semibold text-sm">{editingItemCode ? 'Update Item' : 'Save Item'}</button>
+            <input placeholder="Country" value={itemForm.country} onChange={e=>setItemForm({...itemForm, country: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input type="number" step="0.01" placeholder="Unit Price (LCY)" value={itemForm.price} onChange={e=>setItemForm({...itemForm, price: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input placeholder="Currency (e.g. YUAN, INR, USD)" value={itemForm.currency} onChange={e=>setItemForm({...itemForm, currency: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input type="number" placeholder="MOQ Quantity" value={itemForm.moq} onChange={e=>setItemForm({...itemForm, moq: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <button type="submit" className="md:col-span-4 bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-lg font-semibold text-sm text-white">{editingItemCode ? 'Update Item' : 'Save Item'}</button>
           </form>
 
           <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+            <table className="w-full text-left border-collapse text-sm text-slate-200">
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-900/50 text-slate-400">
                   <th className="p-3">Code</th><th className="p-3">Name</th><th className="p-3">Pack Size</th><th className="p-3">Supplier</th><th className="p-3">Country</th><th className="p-3">Price (LCY)</th><th className="p-3">MOQ</th><th className="p-3 text-right">Actions</th>
@@ -144,7 +144,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
               <tbody>
                 {items.map(item => (
                   <tr key={item.code} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="p-3 font-semibold">{item.code}</td>
+                    <td className="p-3 font-semibold text-white">{item.code}</td>
                     <td className="p-3">{item.name}</td>
                     <td className="p-3">{item.packSize}</td>
                     <td className="p-3">{item.supplier}</td>
@@ -166,21 +166,21 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
       {subTab === 'suppliers' && (
         <div className="space-y-6">
           <div className="flex gap-4 items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <button onClick={downloadSupplierTemplate} className="bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg font-medium">Download Supplier Template</button>
+            <button onClick={downloadSupplierTemplate} className="bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg font-medium text-white">Download Supplier Template</button>
           </div>
 
           <form onSubmit={handleSaveSupplier} className="bg-slate-800 p-5 rounded-xl border border-slate-700 grid grid-cols-1 md:grid-cols-5 gap-4">
             <h3 className="md:col-span-5 font-bold text-emerald-400">{editingSupplierCode ? 'Edit Supplier' : 'Add New Supplier'}</h3>
-            <input placeholder="Supplier Code" value={supplierForm.code} onChange={e=>setSupplierForm({...supplierForm, code: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input placeholder="Supplier Name" value={supplierForm.name} onChange={e=>setSupplierForm({...supplierForm, name: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input placeholder="Warehouse Number" value={supplierForm.warehouseNo} onChange={e=>setSupplierForm({...supplierForm, warehouseNo: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input placeholder="Country" value={supplierForm.country} onChange={e=>setSupplierForm({...supplierForm, country: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <input placeholder="Local Currency (e.g. YUAN, INR)" value={supplierForm.currency} onChange={e=>setSupplierForm({...supplierForm, currency: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm" required />
-            <button type="submit" className="md:col-span-5 bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-lg font-semibold text-sm">{editingSupplierCode ? 'Update Supplier' : 'Save Supplier'}</button>
+            <input placeholder="Supplier Code" value={supplierForm.code} onChange={e=>setSupplierForm({...supplierForm, code: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input placeholder="Supplier Name" value={supplierForm.name} onChange={e=>setSupplierForm({...supplierForm, name: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input placeholder="Warehouse Number" value={supplierForm.warehouseNo} onChange={e=>setSupplierForm({...supplierForm, warehouseNo: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input placeholder="Country" value={supplierForm.country} onChange={e=>setSupplierForm({...supplierForm, country: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input placeholder="Local Currency (e.g. YUAN, INR)" value={supplierForm.currency} onChange={e=>setSupplierForm({...supplierForm, currency: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <button type="submit" className="md:col-span-5 bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-lg font-semibold text-sm text-white">{editingSupplierCode ? 'Update Supplier' : 'Save Supplier'}</button>
           </form>
 
           <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+            <table className="w-full text-left border-collapse text-sm text-slate-200">
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-900/50 text-slate-400">
                   <th className="p-3">Code</th><th className="p-3">Name</th><th className="p-3">Warehouse No</th><th className="p-3">Country</th><th className="p-3">Currency</th><th className="p-3 text-right">Actions</th>
@@ -189,7 +189,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
               <tbody>
                 {suppliers.map(sup => (
                   <tr key={sup.code} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="p-3 font-semibold">{sup.code}</td>
+                    <td className="p-3 font-semibold text-white">{sup.code}</td>
                     <td className="p-3">{sup.name}</td>
                     <td className="p-3">{sup.warehouseNo}</td>
                     <td className="p-3">{sup.country}</td>
