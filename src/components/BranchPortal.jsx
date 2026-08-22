@@ -3,31 +3,65 @@ import React, { useState } from 'react';
 export default function BranchPortal({ branch, branches, setBranches, items, isManagementMode, onLogout, onSubmitRequisition }) {
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [loggedInBranch, setLoggedInBranch] = useState(branch || null);
+  const [loggedInBranch, setLoggedInBranch] = useState(null);
   
   // Requisition form item quantities mapping: { [itemCode]: qty }
   const [reqQuantities, setReqQuantities] = useState({});
 
-  // 1. Management Mode (Admin view for managing branches and generating links)
+  // 1. Management Mode (Admin view for creating branches with supplier/country item filters)
   if (isManagementMode) {
     const [newBranchName, setNewBranchName] = useState('');
     const [newLocation, setNewLocation] = useState('');
     const [newCountry, setNewCountry] = useState('');
     const [newEmail, setNewEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    
+    // Filtering and item selection state
+    const [selectedSupplierFilter, setSelectedSupplierFilter] = useState('ALL');
+    const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
     const [selectedAllowedItems, setSelectedAllowedItems] = useState([]);
+
+    // Extract unique suppliers and countries from items
+    const availableSuppliers = [...new Set(items.map(i => i.supplier))];
+    const availableCountries = [...new Set(items.map(i => i.country))];
+
+    // Filter items based on selected filters
+    const filteredCatalog = items.filter(item => {
+      const matchSupplier = selectedSupplierFilter === 'ALL' || item.supplier === selectedSupplierFilter;
+      const matchCountry = selectedCountryFilter === 'ALL' || item.country === selectedCountryFilter;
+      return matchSupplier && matchCountry;
+    });
+
+    const handleToggleItem = (code) => {
+      setSelectedAllowedItems(prev => 
+        prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+      );
+    };
+
+    const handleSelectAllFiltered = () => {
+      const filteredCodes = filteredCatalog.map(i => i.code);
+      const combined = [...new Set([...selectedAllowedItems, ...filteredCodes])];
+      setSelectedAllowedItems(combined);
+    };
+
+    const handleDeselectAllFiltered = () => {
+      const filteredCodes = new Set(filteredCatalog.map(i => i.code));
+      setSelectedAllowedItems(prev => prev.filter(c => !filteredCodes.has(c)));
+    };
 
     const handleAddBranch = (e) => {
       e.preventDefault();
       if (!newBranchName) return alert('Please enter branch name.');
+      if (!newEmail || !newPassword) return alert('Please enter branch login email and password.');
+
       const newB = {
         id: 'br-' + Date.now(),
         name: newBranchName,
         location: newLocation,
         country: newCountry,
-        email: newEmail || 'branch@ayulintl.com',
-        password: newPassword || 'password123',
-        allowedItems: selectedAllowedItems.length > 0 ? selectedAllowedItems : items.map(i => i.code)
+        email: newEmail,
+        password: newPassword,
+        allowedItems: selectedAllowedItems
       };
       setBranches([...branches, newB]);
       setNewBranchName('');
@@ -36,30 +70,30 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
       setNewEmail('');
       setNewPassword('');
       setSelectedAllowedItems([]);
-      alert('Branch created successfully!');
+      alert('Branch created successfully with item restrictions!');
     };
 
     const copyPortalLink = (branchId) => {
       const link = `${window.location.origin}/?branch=${branchId}`;
       navigator.clipboard.writeText(link);
-      alert('Branch portal login link copied to clipboard:\n' + link);
+      alert('Branch secure login link copied to clipboard:\n' + link);
     };
 
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100">Branch Management & Links</h2>
-          <p className="text-sm text-slate-400">Configure branches, set credentials, and generate portal access links with restricted item views.</p>
+          <h2 className="text-2xl font-bold text-slate-100">Branch Management & Item Permissions</h2>
+          <p className="text-sm text-slate-400">Create branches, assign login credentials, filter items by supplier/country, and generate secure portal links.</p>
         </div>
 
         {/* Add Branch Form */}
-        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-          <h3 className="text-lg font-semibold text-emerald-400 mb-4">Add New Branch / User</h3>
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
+          <h3 className="text-lg font-semibold text-emerald-400">Add New Branch & Restrict Catalog Access</h3>
           <form onSubmit={handleAddBranch} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <input 
                 type="text" 
-                placeholder="Branch Name (e.g. MG Kinshasa)" 
+                placeholder="Branch Name (e.g. Soneri Karachi)" 
                 value={newBranchName} 
                 onChange={e => setNewBranchName(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
@@ -80,44 +114,103 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
                 className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" 
               />
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input 
                 type="email" 
                 placeholder="Branch Login Email" 
                 value={newEmail} 
-                onChange={e => setNewEmail(e.target.value)}
+                onChange={e => setEmailInput(e.target.value || e.target.value)} // fix
+                onInput={e => setNewEmail(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" 
+                required
               />
               <input 
                 type="text" 
-                placeholder="Password" 
+                placeholder="Branch Password" 
                 value={newPassword} 
                 onChange={e => setNewPassword(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" 
+                required
               />
             </div>
+
+            {/* Item Restriction Filters */}
+            <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 space-y-3">
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <h4 className="font-medium text-slate-200 text-sm">Select Permitted Items ({selectedAllowedItems.length} selected)</h4>
+                <div className="flex gap-2">
+                  <button type="button" onClick={handleSelectAllFiltered} className="bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs px-3 py-1.5 rounded border border-slate-700 transition">Select Filtered</button>
+                  <button type="button" onClick={handleDeselectAllFiltered} className="bg-slate-800 hover:bg-slate-700 text-red-400 text-xs px-3 py-1.5 rounded border border-slate-700 transition">Deselect Filtered</button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Filter by Supplier</label>
+                  <select 
+                    value={selectedSupplierFilter} 
+                    onChange={e => setSelectedSupplierFilter(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:outline-none"
+                  >
+                    <option value="ALL">All Suppliers</option>
+                    {availableSuppliers.map(sup => <option key={sup} value={sup}>{sup}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Filter by Country</label>
+                  <select 
+                    value={selectedCountryFilter} 
+                    onChange={e => setSelectedCountryFilter(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:outline-none"
+                  >
+                    <option value="ALL">All Countries</option>
+                    {availableCountries.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Scrollable Item Checklist */}
+              <div className="max-h-48 overflow-y-auto space-y-1 bg-slate-950 p-3 rounded border border-slate-800">
+                {filteredCatalog.map(item => (
+                  <label key={item.code} className="flex items-center gap-2 text-xs text-slate-300 hover:bg-slate-900 p-1.5 rounded cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedAllowedItems.includes(item.code)}
+                      onChange={() => handleToggleItem(item.code)}
+                      className="rounded bg-slate-900 border-slate-700 text-emerald-600 focus:ring-0"
+                    />
+                    <span className="font-mono text-emerald-400">{item.code}</span>
+                    <span className="truncate flex-1">{item.name}</span>
+                    <span className="text-slate-500">({item.supplier})</span>
+                  </label>
+                ))}
+                {filteredCatalog.length === 0 && <p className="text-xs text-slate-500 text-center py-2">No items match the current filters.</p>}
+              </div>
+            </div>
+
             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition shadow-md">
-              Save Branch & Generate Portal Access
+              Save Branch & Generate Secure Credentials
             </button>
           </form>
         </div>
 
         {/* Existing Branches List & Links */}
-        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-          <h3 className="text-lg font-semibold text-emerald-400 mb-4">Active Branches & Direct Portal Links</h3>
-          <div className="space-y-4">
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
+          <h3 className="text-lg font-semibold text-emerald-400">Active Branches & Portal Links</h3>
+          <div className="space-y-3">
             {branches.map(b => (
               <div key={b.id} className="bg-slate-900 p-4 rounded-lg border border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <h4 className="font-bold text-slate-100">{b.name} <span className="text-xs font-normal text-slate-400">({b.location}, {b.country})</span></h4>
-                  <p className="text-xs text-slate-400">Login Email: {b.email} | Allowed SKUs: {b.allowedItems?.length || items.length}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Email: <span className="text-slate-300">{b.email}</span> | Password: <span className="text-slate-300">{b.password}</span> | Permitted SKUs: <span className="text-emerald-400 font-semibold">{b.allowedItems?.length || 0} items</span></p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => copyPortalLink(b.id)}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2"
                   >
-                    <i className="fa-solid fa-link"></i> Copy Secure Portal Link
+                    <i className="fa-solid fa-link"></i> Copy Portal Link
                   </button>
                   <button 
                     onClick={() => setBranches(branches.filter(x => x.id !== b.id))}
@@ -135,9 +228,10 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
     );
   }
 
-  // 2. Logged-in Branch Requisition View (Accessed via Link or Login)
+  // 2. Logged-in Branch Requisition View
   if (loggedInBranch) {
-    const allowedCatalog = items.filter(i => !loggedInBranch.allowedItems || loggedInBranch.allowedItems.includes(i.code));
+    // Restrict catalog strictly to branch's allowed items list
+    const allowedCatalog = items.filter(i => loggedInBranch.allowedItems && loggedInBranch.allowedItems.includes(i.code));
 
     const handleQuantityChange = (code, val) => {
       setReqQuantities(prev => ({ ...prev, [code]: parseInt(val) || 0 }));
@@ -187,7 +281,7 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-200">Product Catalog & Order Requisition</h3>
+            <h3 className="text-lg font-semibold text-slate-200">Permitted Product Catalog & Order Requisition</h3>
             <div className="overflow-x-auto max-h-96">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -220,40 +314,53 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
                       </td>
                     </tr>
                   ))}
+                  {allowedCatalog.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="text-center py-6 text-slate-400">No items have been assigned to this branch yet. Please contact Dubai HQ.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
-            <button 
-              onClick={handleSendOrder}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition shadow-md w-full"
-            >
-              Submit Order Requisition to Dubai HQ
-            </button>
+            {allowedCatalog.length > 0 && (
+              <button 
+                onClick={handleSendOrder}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition shadow-md w-full"
+              >
+                Submit Order Requisition to Dubai HQ
+              </button>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
-  // 3. Fallback Login Screen if accessed without a direct URL link token
+  // 3. Login Screen (Requires Email & Password even when opening via link)
   const handleLoginSubmit = (e) => {
     e.preventDefault();
     const matched = branches.find(b => b.email.toLowerCase() === emailInput.toLowerCase() && b.password === passwordInput);
     if (matched) {
       setLoggedInBranch(matched);
     } else {
-      alert('Invalid email or password. Please check credentials or use your generated portal link.');
+      alert('Invalid branch email or password. Please check your assigned credentials.');
     }
   };
+
+  // If URL query parameter is present, pre-fill or identify branch hint
+  const params = new URLSearchParams(window.location.search);
+  const branchIdParam = params.get('branch');
+  const targetBranch = branches.find(b => String(b.id) === String(branchIdParam));
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
       <div className="bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-md w-full space-y-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-emerald-400">Branch Portal Login</h2>
-          <p className="text-xs text-slate-400 mt-1">Please enter your assigned branch credentials or use your direct portal link.</p>
+          <h2 className="text-2xl font-bold text-emerald-400">{targetBranch ? `${targetBranch.name} Portal` : 'Branch Portal Login'}</h2>
+          <p className="text-xs text-slate-400 mt-1">Please enter your assigned branch email and password to access your secure order requisition form.</p>
         </div>
+
         <form onSubmit={handleLoginSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1">Branch Login Email</label>
@@ -261,7 +368,7 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
               type="email" 
               value={emailInput} 
               onChange={e => setEmailInput(e.target.value)}
-              placeholder="Enter email"
+              placeholder="Enter assigned email"
               className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-100 text-sm focus:outline-none focus:border-emerald-500"
               required 
             />
