@@ -21,11 +21,9 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
     const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
     const [selectedAllowedItems, setSelectedAllowedItems] = useState([]);
 
-    // Extract unique suppliers and countries from items
     const availableSuppliers = [...new Set(items.map(i => i.supplier))];
     const availableCountries = [...new Set(items.map(i => i.country))];
 
-    // Filter items based on selected filters
     const filteredCatalog = items.filter(item => {
       const matchSupplier = selectedSupplierFilter === 'ALL' || item.supplier === selectedSupplierFilter;
       const matchCountry = selectedCountryFilter === 'ALL' || item.country === selectedCountryFilter;
@@ -120,8 +118,7 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
                 type="email" 
                 placeholder="Branch Login Email" 
                 value={newEmail} 
-                onChange={e => setEmailInput(e.target.value || e.target.value)} // fix
-                onInput={e => setNewEmail(e.target.value)}
+                onChange={e => setNewEmail(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" 
                 required
               />
@@ -170,7 +167,6 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
                 </div>
               </div>
 
-              {/* Scrollable Item Checklist */}
               <div className="max-h-48 overflow-y-auto space-y-1 bg-slate-950 p-3 rounded border border-slate-800">
                 {filteredCatalog.map(item => (
                   <label key={item.code} className="flex items-center gap-2 text-xs text-slate-300 hover:bg-slate-900 p-1.5 rounded cursor-pointer">
@@ -230,12 +226,37 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
 
   // 2. Logged-in Branch Requisition View
   if (loggedInBranch) {
-    // Restrict catalog strictly to branch's allowed items list
     const allowedCatalog = items.filter(i => loggedInBranch.allowedItems && loggedInBranch.allowedItems.includes(i.code));
 
     const handleQuantityChange = (code, val) => {
       setReqQuantities(prev => ({ ...prev, [code]: parseInt(val) || 0 }));
     };
+
+    // Calculate total order metrics for container fill ratio estimation
+    let totalOrderWeight = 0;
+    let totalOrderCbm = 0;
+
+    allowedCatalog.forEach(item => {
+      const qty = reqQuantities[item.code] || 0;
+      if (qty > 0) {
+        // item.weight is typically per unit or pack, adjust based on standard data structure
+        const itemWeight = (item.weight || 0) * qty;
+        const itemCbm = (item.cbm || 0) * qty;
+        totalOrderWeight += itemWeight;
+        totalOrderCbm += itemCbm;
+      }
+    });
+
+    // Standard Container Capacities (approximate benchmarks)
+    // 20FT Container: ~28 CBM, ~21,800 kg max
+    // 40FT Container: ~58 CBM, ~26,500 kg max
+    const c20CbmMax = 28;
+    const c40CbmMax = 58;
+    const c20WeightMax = 21800;
+    const c40WeightMax = 26500;
+
+    const fill20Cbm = Math.min(100, (totalOrderCbm / c20CbmMax) * 100);
+    const fill40Cbm = Math.min(100, (totalOrderCbm / c40CbmMax) * 100);
 
     const handleSendOrder = () => {
       const orderItems = Object.entries(reqQuantities)
@@ -255,7 +276,9 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
         branchName: loggedInBranch.name,
         date: new Date().toISOString().split('T')[0],
         status: 'Pending',
-        items: orderItems
+        items: orderItems,
+        totalWeight: totalOrderWeight,
+        totalCbm: totalOrderCbm
       };
 
       if (onSubmitRequisition) {
@@ -266,7 +289,7 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
 
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 p-6">
-        <div className="max-w-6xl mx-auto bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl space-y-6">
+        <div className="max-w-7xl mx-auto bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl space-y-6">
           <div className="flex justify-between items-center border-b border-slate-700 pb-4">
             <div>
               <h2 className="text-2xl font-bold text-emerald-400">{loggedInBranch.name} Requisition Portal</h2>
@@ -280,6 +303,30 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
             </button>
           </div>
 
+          {/* Container Fill Ratio Summary Banner */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700">
+            <div>
+              <p className="text-xs text-slate-400">Total Order Weight</p>
+              <p className="text-lg font-bold text-emerald-400">{totalOrderWeight.toFixed(2)} kg</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Total Order Volume (CBM)</p>
+              <p className="text-lg font-bold text-emerald-400">{totalOrderCbm.toFixed(3)} m³</p>
+            </div>
+            <div className="flex flex-col justify-center">
+              <div className="flex justify-between text-xs text-slate-300 mb-1">
+                <span>20FT Fill: <strong>{fill20Cbm.toFixed(1)}%</strong></span>
+                <span>40FT Fill: <strong>{fill40Cbm.toFixed(1)}%</strong></span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700">
+                <div 
+                  className={`h-2.5 rounded-full transition-all duration-300 ${fill20Cbm > 100 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                  style={{ width: `${Math.min(100, fill20Cbm)}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-200">Permitted Product Catalog & Order Requisition</h3>
             <div className="overflow-x-auto max-h-96">
@@ -288,35 +335,53 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
                   <tr className="bg-slate-900 text-slate-400 text-xs border-b border-slate-700 sticky top-0">
                     <th className="p-3">Code</th>
                     <th className="p-3">Item Name</th>
-                    <th className="p-3">Supplier</th>
                     <th className="p-3">Pack Size</th>
+                    <th className="p-3">Unit Weight (kg)</th>
+                    <th className="p-3">Unit CBM (m³)</th>
                     <th className="p-3">Unit Price</th>
                     <th className="p-3">Requested Qty</th>
+                    <th className="p-3">Total Weight / CBM</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700 text-sm">
-                  {allowedCatalog.map(item => (
-                    <tr key={item.code} className="hover:bg-slate-750">
-                      <td className="p-3 font-medium text-emerald-400">{item.code}</td>
-                      <td className="p-3 text-slate-200">{item.name}</td>
-                      <td className="p-3 text-slate-400">{item.supplier}</td>
-                      <td className="p-3 text-slate-400">{item.packSize}</td>
-                      <td className="p-3 text-slate-300">{item.price} {item.currency}</td>
-                      <td className="p-3">
-                        <input 
-                          type="number" 
-                          min="0"
-                          placeholder="0"
-                          value={reqQuantities[item.code] || ''}
-                          onChange={e => handleQuantityChange(item.code, e.target.value)}
-                          className="w-28 bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 text-sm focus:outline-none focus:border-emerald-500"
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {allowedCatalog.map(item => {
+                    const qty = reqQuantities[item.code] || 0;
+                    const lineWt = (item.weight || 0) * qty;
+                    const lineCbm = (item.cbm || 0) * qty;
+
+                    return (
+                      <tr key={item.code} className="hover:bg-slate-750">
+                        <td className="p-3 font-medium text-emerald-400">{item.code}</td>
+                        <td className="p-3 text-slate-200">{item.name}</td>
+                        <td className="p-3 text-slate-400">{item.packSize}</td>
+                        <td className="p-3 text-slate-300">{item.weight || 0} kg</td>
+                        <td className="p-3 text-slate-300">{item.cbm || 0} m³</td>
+                        <td className="p-3 text-slate-300">{item.price} {item.currency}</td>
+                        <td className="p-3">
+                          <input 
+                            type="number" 
+                            min="0"
+                            placeholder="0"
+                            value={reqQuantities[item.code] || ''}
+                            onChange={e => handleQuantityChange(item.code, e.target.value)}
+                            className="w-24 bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 text-sm focus:outline-none focus:border-emerald-500"
+                          />
+                        </td>
+                        <td className="p-3 text-xs text-slate-300">
+                          {qty > 0 ? (
+                            <div>
+                              <span className="text-emerald-400 font-semibold">{lineWt.toFixed(1)} kg</span> / <span className="text-cyan-400 font-semibold">{lineCbm.toFixed(3)} m³</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {allowedCatalog.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="text-center py-6 text-slate-400">No items have been assigned to this branch yet. Please contact Dubai HQ.</td>
+                      <td colSpan="8" className="text-center py-6 text-slate-400">No items have been assigned to this branch yet. Please contact Dubai HQ.</td>
                     </tr>
                   )}
                 </tbody>
@@ -337,7 +402,7 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
     );
   }
 
-  // 3. Login Screen (Requires Email & Password even when opening via link)
+  // 3. Login Screen
   const handleLoginSubmit = (e) => {
     e.preventDefault();
     const matched = branches.find(b => b.email.toLowerCase() === emailInput.toLowerCase() && b.password === passwordInput);
@@ -348,7 +413,6 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
     }
   };
 
-  // If URL query parameter is present, pre-fill or identify branch hint
   const params = new URLSearchParams(window.location.search);
   const branchIdParam = params.get('branch');
   const targetBranch = branches.find(b => String(b.id) === String(branchIdParam));
