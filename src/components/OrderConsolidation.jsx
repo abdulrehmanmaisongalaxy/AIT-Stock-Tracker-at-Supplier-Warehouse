@@ -49,7 +49,8 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
     const totalLCYAmount = supplierItems.reduce((acc, curr) => acc + curr.totalLCY, 0);
     const supObj = suppliers.find(s => s.name === supplierName);
     const currency = supObj ? supObj.currency : 'USD';
-    // Approximate conversion rate (e.g. YUAN to USD ~ 0.14, INR ~ 0.012, default 1)
+    
+    // Approximate conversion rate mapping
     let rate = 1;
     if (currency === 'YUAN') rate = 0.14;
     if (currency === 'INR') rate = 0.012;
@@ -67,17 +68,23 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
     };
 
     setProformaInvoices(prev => [newPI, ...prev]);
+
+    // Clear edited quantities for these specific items
+    const updatedQtys = { ...editedQtys };
+    supplierItems.forEach(si => delete updatedQtys[si.code]);
+    setEditedQtys(updatedQtys);
+
     alert(`Proforma Invoice ${newPI.piNo} generated successfully for ${supplierName}!`);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-100">
       <div>
         <h2 className="text-2xl font-bold">Order Consolidation & MOQ Planning</h2>
         <p className="text-sm text-slate-400">Review incoming branch requisitions, verify MOQ compliance, adjust quantities, and convert into Proforma Invoices.</p>
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-md">
         <h3 className="font-bold text-emerald-400">Pending Requisitions</h3>
         {requisitions.length === 0 ? (
           <p className="text-sm text-slate-400">No requisitions submitted yet.</p>
@@ -91,14 +98,14 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
               </thead>
               <tbody>
                 {requisitions.map(req => (
-                  <tr key={req.reqNo} className="border-b border-slate-700/50">
-                    <td className="p-3 font-semibold">{req.reqNo}</td>
+                  <tr key={req.reqNo} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                    <td className="p-3 font-semibold text-white">{req.reqNo}</td>
                     <td className="p-3">{req.branchName}</td>
                     <td className="p-3">{req.totalCBM}</td>
                     <td className="p-3">{req.totalWeight}</td>
-                    <td className="p-3"><span className="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-xs">{req.status}</span></td>
+                    <td className="p-3"><span className="bg-amber-950/80 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-xs">{req.status}</span></td>
                     <td className="p-3 text-right">
-                      <button onClick={() => handleDeleteReq(req.reqNo)} className="text-rose-400 hover:underline text-xs">Delete</button>
+                      <button onClick={() => handleDeleteReq(req.reqNo)} className="text-rose-400 hover:underline text-xs font-medium">Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -108,7 +115,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
         )}
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-md">
         <div className="flex justify-between items-center">
           <h3 className="font-bold text-emerald-400">Consolidated Items & Supplier MOQ Check</h3>
         </div>
@@ -123,41 +130,52 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
 
           return (
             <div key={sup.code} className="border border-slate-700 rounded-xl p-4 space-y-3 bg-slate-900/40">
-              <div className="flex justify-between items-center">
-                <h4 className="font-bold text-sm text-amber-400">Supplier: {sup.name} ({sup.country})</h4>
-                <button onClick={() => convertToPI(sup.name)} className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow">Convert to Proforma Invoice</button>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <h4 className="font-bold text-sm text-amber-400">Supplier: {sup.name} ({sup.country}) - Warehouse: {sup.warehouseNo}</h4>
+                <button onClick={() => convertToPI(sup.name)} className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors">Convert to Proforma Invoice</button>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-slate-700 text-xs text-slate-400">
-                      <th className="p-2">Item Code</th><th className="p-2">Item Name</th><th className="p-2">Total Ordered</th><th className="p-2">MOQ</th><th className="p-2">Meets MOQ?</th><th className="p-2">Branch Breakdown</th><th className="p-2">Edit Qty</th>
+                    <tr className="border-b border-slate-700 text-xs text-slate-400 bg-slate-900/30">
+                      <th className="p-2.5">Item Code</th>
+                      <th className="p-2.5">Item Name</th>
+                      <th className="p-2.5">Total Ordered</th>
+                      <th className="p-2.5">MOQ</th>
+                      <th className="p-2.5">Meets MOQ?</th>
+                      <th className="p-2.5">Branch Breakdown</th>
+                      <th className="p-2.5">Edit Qty</th>
                     </tr>
                   </thead>
                   <tbody>
                     {supItems.map(meta => {
                       const master = items.find(i => i.code === meta.code);
+                      if (!master) return null;
                       const currentQty = editedQtys[meta.code] !== undefined ? editedQtys[meta.code] : meta.totalOrdered;
                       const meetsMOQ = currentQty >= Number(master.moq);
                       const breakdownStr = Object.entries(meta.branchBreakdown).map(([b, q]) => `${b}: ${q}`).join(', ');
 
                       return (
-                        <tr key={meta.code} className="border-b border-slate-700/30">
-                          <td className="p-2 font-semibold">{meta.code}</td>
-                          <td className="p-2">{master.name}</td>
-                          <td className="p-2 font-bold">{currentQty}</td>
-                          <td className="p-2">{master.moq}</td>
-                          <td className="p-2">
-                            {meetsMOQ ? <span className="text-emerald-400 text-xs font-semibold">✓ Yes</span> : <span className="text-amber-400 text-xs font-semibold">⚠ No</span>}
+                        <tr key={meta.code} className="border-b border-slate-700/30 hover:bg-slate-700/20">
+                          <td className="p-2.5 font-semibold text-white">{meta.code}</td>
+                          <td className="p-2.5">{master.name}</td>
+                          <td className="p-2.5 font-bold text-emerald-300">{currentQty}</td>
+                          <td className="p-2.5 text-slate-300">{master.moq}</td>
+                          <td className="p-2.5">
+                            {meetsMOQ ? (
+                              <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded text-xs font-semibold">✓ Yes</span>
+                            ) : (
+                              <span className="text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2 py-0.5 rounded text-xs font-semibold">⚠ No</span>
+                            )}
                           </td>
-                          <td className="p-2 text-xs text-slate-400">{breakdownStr}</td>
-                          <td className="p-2">
+                          <td className="p-2.5 text-xs text-slate-400">{breakdownStr}</td>
+                          <td className="p-2.5">
                             <input 
                               type="number" 
                               value={currentQty} 
                               onChange={e => handleQtyChange(meta.code, e.target.value)}
-                              className="bg-slate-900 border border-slate-700 p-1.5 rounded w-24 text-xs"
+                              className="bg-slate-900 border border-slate-700 p-1.5 rounded w-24 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none"
                             />
                           </td>
                         </tr>
