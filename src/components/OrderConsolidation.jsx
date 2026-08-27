@@ -15,7 +15,6 @@ export default function OrderConsolidation({
     }
   };
 
-  // Aggregate total ordered quantities across all requisitions by item code
   const consolidatedMap = {};
   requisitions.forEach(req => {
     const reqItems = req.items || req.lineItems || [];
@@ -47,7 +46,6 @@ export default function OrderConsolidation({
     setEditedQtys({ ...editedQtys, [code]: Number(val) });
   };
 
-  // Group by Supplier to generate Proforma Invoices
   const convertToPI = (supplierObj) => {
     const supplierName = supplierObj.name;
     const supplierCode = supplierObj.code;
@@ -59,8 +57,6 @@ export default function OrderConsolidation({
       );
       
       const itemSupplier = itemMaster ? (itemMaster.supplier || '') : '';
-
-      // Match supplier by name or code/ID flexibly
       const matchesSupplier = itemSupplier && (
         itemSupplier.trim().toLowerCase() === supplierName.trim().toLowerCase() ||
         (supplierCode && itemSupplier.trim().toLowerCase() === supplierCode.trim().toLowerCase())
@@ -87,10 +83,10 @@ export default function OrderConsolidation({
     }
 
     const totalLCYAmount = supplierItems.reduce((acc, curr) => acc + curr.totalLCY, 0);
-    const currency = supplierObj.currency || supplierItems[0]?.currency || 'USD';
+    const currency = (supplierObj.currency || supplierItems[0]?.currency || 'USD').toUpperCase();
     
     let rate = 1;
-    if (currency === 'YUans' || currency === 'YUAN' || currency === 'CNY') rate = 0.14;
+    if (currency === 'YUAN' || currency === 'CNY') rate = 0.14;
     if (currency === 'INR') rate = 0.012;
     const totalUSD = totalLCYAmount * rate;
 
@@ -107,11 +103,21 @@ export default function OrderConsolidation({
 
     setProformaInvoices(prev => [newPI, ...prev]);
 
-    const updatedQtys = { ...editedQtys };
-    supplierItems.forEach(si => delete updatedQtys[si.code]);
-    setEditedQtys(updatedQtys);
+    // Clear ordered quantities/requisitions from the active queue so they disappear from consolidation
+    const orderedCodes = new Set(supplierItems.map(i => i.code));
+    const updatedRequisitions = requisitions.map(req => {
+      const reqItems = req.items || req.lineItems || [];
+      const remainingItems = reqItems.filter(line => {
+        const code = line.code || line.itemCode || line.sku;
+        return !orderedCodes.has(code);
+      });
+      return { ...req, items: remainingItems, lineItems: remainingItems };
+    }).filter(req => (req.items || req.lineItems || []).length > 0);
 
-    alert(`Proforma Invoice ${newPI.piNo} generated successfully for ${supplierName}!`);
+    setRequisitions(updatedRequisitions);
+    setEditedQtys({});
+
+    alert(`Proforma Invoice ${newPI.piNo} generated successfully for ${supplierName}! Items moved to Proforma Invoices.`);
   };
 
   return (
@@ -121,7 +127,6 @@ export default function OrderConsolidation({
         <p className="text-sm text-slate-400">Review incoming branch requisitions, verify MOQ compliance, adjust quantities, and convert into Proforma Invoices.</p>
       </div>
 
-      {/* Pending Requisitions Table */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
         <h3 className="font-bold text-emerald-400 text-lg">Pending Requisitions</h3>
         {requisitions.length === 0 ? (
@@ -173,11 +178,8 @@ export default function OrderConsolidation({
         )}
       </div>
 
-      {/* Consolidated Items & Supplier MOQ Check */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
-        <div className="flex justify-between items-center">
-          <h3 className="font-bold text-emerald-400 text-lg">Consolidated Items & Supplier MOQ Check</h3>
-        </div>
+        <h3 className="font-bold text-emerald-400 text-lg">Consolidated Items & Supplier MOQ Check</h3>
 
         {Object.keys(consolidatedMap).length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center">No items available to consolidate from pending requisitions.</p>
