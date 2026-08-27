@@ -1,105 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function ShipmentsContainers({ 
-  shipments = [], 
-  setShipments = () => {}, 
-  branches = [], 
-  items = [], 
-  stockLedger = [] 
+export default function ShipmentsContainers({
+  requisitions = [],
+  branches = [],
+  items = [],
+  shipments = [],
+  setShipments = () => {}
 }) {
-  const [shipmentForm, setShipmentForm] = useState({ refNo: '', branchId: '', containerType: '40FT', status: 'Draft', items: [] });
-  const [selectedItemCode, setSelectedItemCode] = useState('');
-  const [qtyToShip, setQtyToShip] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [shipmentRef, setShipmentRef] = useState('');
+  const [containerType, setContainerType] = useState('40FT Container (~67 CBM)');
+  const [selectedItemsToShip, setSelectedItemsToShip] = useState([]);
 
-  const addItemToShipment = () => {
-    if (!selectedItemCode || !qtyToShip || Number(qtyToShip) <= 0) {
-      alert('Please select an item and enter a valid quantity.');
+  // When branch changes, automatically preload items from that branch's requisitions
+  useEffect(() => {
+    if (!selectedBranch) {
+      setSelectedItemsToShip([]);
       return;
     }
-    const itemMaster = items.find(i => i.code === selectedItemCode);
-    if (!itemMaster) return;
 
-    // Check available stock if ledger exists
-    const stockItem = stockLedger.find(s => s.code === selectedItemCode);
-    const availableStock = stockItem ? stockItem.closingStock : 999999;
-    if (Number(qtyToShip) > availableStock) {
-      if (!window.confirm(`Warning: Requested quantity (${qtyToShip}) exceeds current closing stock (${availableStock}) for ${itemMaster.name}. Do you still want to add it?`)) {
-        return;
-      }
-    }
+    const branchReqs = requisitions.filter(r => 
+      (r.branchName && r.branchName.toLowerCase() === selectedBranch.toLowerCase()) ||
+      (r.branch && r.branch.toLowerCase() === selectedBranch.toLowerCase())
+    );
 
-    // Prevent duplicate entries of the same item code in the form
-    const existingIndex = shipmentForm.items.findIndex(i => i.code === selectedItemCode);
-    if (existingIndex >= 0) {
-      const updatedItems = [...shipmentForm.items];
-      updatedItems[existingIndex].qty += Number(qtyToShip);
-      setShipmentForm({ ...shipmentForm, items: updatedItems });
-    } else {
-      setShipmentForm({
-        ...shipmentForm,
-        items: [...shipmentForm.items, { 
-          code: selectedItemCode, 
-          name: itemMaster.name, 
-          qty: Number(qtyToShip), 
-          cbm: itemMaster.cbm, 
-          weight: itemMaster.weight, 
-          packSize: itemMaster.packSize 
-        }]
+    const aggregated = {};
+    branchReqs.forEach(req => {
+      const lineItems = req.items || req.lineItems || [];
+      lineItems.forEach(line => {
+        const code = line.code || line.itemCode || line.sku;
+        const name = line.name || line.itemName || code;
+        const qty = Number(line.qty || line.quantity || line.requestedQty) || 0;
+        
+        if (code) {
+          if (!aggregated[code]) {
+            const masterItem = items.find(i => i.code?.toLowerCase() === code.toLowerCase());
+            aggregated[code] = {
+              code,
+              name,
+              qty: 0,
+              cbm: Number(masterItem?.cbm || 0.01),
+              weight: Number(masterItem?.weight || 1)
+            };
+          }
+          aggregated[code].qty += qty;
+        }
       });
-    }
-
-    setSelectedItemCode('');
-    setQtyToShip('');
-  };
-
-  const removeItemFromShipment = (code) => {
-    setShipmentForm({
-      ...shipmentForm,
-      items: shipmentForm.items.filter(i => i.code !== code)
     });
+
+    setSelectedItemsToShip(Object.values(aggregated));
+  }, [selectedBranch, requisitions, items]);
+
+  const handleQtyChange = (code, val) => {
+    setSelectedItemsToShip(prev => prev.map(item => 
+      item.code === code ? { ...item, qty: Number(val) } : item
+    ));
   };
 
-  // Calculate container fill
-  let totalCBM = 0;
-  let totalWeight = 0;
-  shipmentForm.items.forEach(i => {
-    const ctns = Math.ceil(i.qty / i.packSize);
-    totalCBM += ctns * Number(i.cbm);
-    totalWeight += ctns * Number(i.weight);
-  });
-  const maxCBM = shipmentForm.containerType === '20FT' ? 33 : 67;
-  const fillRatio = Math.min(100, (totalCBM / maxCBM) * 100).toFixed(1);
+  const removeItem = (code) => {
+    setSelectedItemsToShip(prev => prev.filter(i => i.code !== code));
+  };
+
+  const totalCBM = selectedItemsToShip.reduce((acc, curr) => acc + (curr.qty * curr.cbm), 0);
+  const totalWeight = selectedItemsToShip.reduce((acc, curr) => acc + (curr.qty * curr.weight), 0);
+  
+  const maxCBM = containerType.includes('20FT') ? 33 : 67;
+  const fillPercentage = Math.min(100, (totalCBM / maxCBM) * 100).toFixed(1);
 
   const handleSaveShipment = (e) => {
     e.preventDefault();
-    if (shipmentForm.items.length === 0) {
-      alert('Please add at least one item to the shipment container.');
+    if (!shipmentRef) {
+      alert('Please enter a Shipment Reference No.');
       return;
     }
-    const branchObj = branches.find(b => b.id === shipmentForm.branchId);
+    if (!selectedBranch) {
+      alert('Please select a Destination Branch.');
+      return;
+    }
+    if (selectedItemsToShip.length === 0) {
+      alert('No items in this shipment container.');
+      return;
+    }
+
     const newShipment = {
-      ...shipmentForm,
-      id: `SHP-${Date.now()}`,
-      branchName: branchObj ? branchObj.name : 'Unknown Branch',
+      shipmentRef,
+      branch: selectedBranch,
+      containerType,
       totalCBM: totalCBM.toFixed(2),
       totalWeight: totalWeight.toFixed(2),
-      fillRatio
+      fillPercentage,
+      items: selectedItemsToShip,
+      date: new Date().toISOString().split('T')[0],
+      status: 'In Transit'
     };
-    setShipments([newShipment, ...shipments]);
-    setShipmentForm({ refNo: '', branchId: '', containerType: '40FT', status: 'Draft', items: [] });
-    alert('Shipment container created successfully!');
-  };
 
-  const downloadPackingListCSV = (shp) => {
-    let csv = `Packing List - Shipment: ${shp.refNo}, Branch: ${shp.branchName}, Container: ${shp.containerType}\n`;
-    csv += "Code,Item Name,Ordered Qty,Cartons,Total CBM,Total Weight\n";
-    shp.items.forEach(i => {
-      const ctns = Math.ceil(i.qty / i.packSize);
-      csv += `${i.code},"${i.name}",${i.qty},${ctns},${(ctns * i.cbm).toFixed(3)},${(ctns * i.weight).toFixed(2)}\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `packing_list_${shp.refNo}.csv`; a.click();
+    setShipments(prev => [newShipment, ...prev]);
+    setShipmentRef('');
+    setSelectedBranch('');
+    setSelectedItemsToShip([]);
+    alert(`Shipment ${shipmentRef} created successfully!`);
   };
 
   return (
@@ -109,148 +108,115 @@ export default function ShipmentsContainers({
         <p className="text-sm text-slate-400">Create container loading plans for branch exports, calculate 20FT/40FT fill ratios, and generate packing lists.</p>
       </div>
 
-      <form onSubmit={handleSaveShipment} className="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4 shadow-xl">
+      <form onSubmit={handleSaveShipment} className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
         <h3 className="font-bold text-emerald-400 text-lg">New Shipment & Container Setup</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <input 
-            placeholder="Shipment Ref No. (e.g. SHP-001)" 
-            value={shipmentForm.refNo} 
-            onChange={e => setShipmentForm({...shipmentForm, refNo: e.target.value})} 
-            className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none" 
-            required 
-          />
-          <select 
-            value={shipmentForm.branchId} 
-            onChange={e => setShipmentForm({...shipmentForm, branchId: e.target.value})} 
-            className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer" 
-            required
-          >
-            <option value="">Select Destination Branch</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.location})</option>)}
-          </select>
-          <select 
-            value={shipmentForm.containerType} 
-            onChange={e => setShipmentForm({...shipmentForm, containerType: e.target.value})} 
-            className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer"
-          >
-            <option value="20FT">20FT Container (~33 CBM)</option>
-            <option value="40FT">40FT Container (~67 CBM)</option>
-          </select>
-        </div>
 
-        {/* Add Items to Container */}
-        <div className="border border-slate-700 p-4 rounded-xl space-y-3 bg-slate-900/40 shadow-inner">
-          <h4 className="font-semibold text-sm text-slate-200">Select Items to Ship</h4>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <select 
-              value={selectedItemCode} 
-              onChange={e => setSelectedItemCode(e.target.value)} 
-              className="bg-slate-800 border border-slate-700 p-2.5 rounded-lg text-sm flex-1 text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer"
-            >
-              <option value="">Select Item from Catalog</option>
-              {items.map(i => <option key={i.code} value={i.code}>{i.code} - {i.name}</option>)}
-            </select>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Shipment Ref No.</label>
             <input 
-              type="number" 
-              placeholder="Quantity" 
-              value={qtyToShip} 
-              onChange={e => setQtyToShip(e.target.value)} 
-              className="bg-slate-800 border border-slate-700 p-2.5 rounded-lg w-full sm:w-32 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none" 
+              type="text" 
+              placeholder="e.g. SHP-001" 
+              value={shipmentRef}
+              onChange={e => setShipmentRef(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
             />
-            <button 
-              type="button" 
-              onClick={addItemToShipment} 
-              className="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors text-white cursor-pointer"
-            >
-              Add Item
-            </button>
           </div>
 
-          {shipmentForm.items.length > 0 && (
-            <div className="overflow-x-auto pt-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Destination Branch</label>
+            <select 
+              value={selectedBranch}
+              onChange={e => setSelectedBranch(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="">Select Destination Branch</option>
+              {branches.map(b => (
+                <option key={b.code || b.name} value={b.name}>{b.name} ({b.location || b.country || 'Branch'})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Container Type</label>
+            <select 
+              value={containerType}
+              onChange={e => setContainerType(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="40FT Container (~67 CBM)">40FT Container (~67 CBM)</option>
+              <option value="20FT Container (~33 CBM)">20FT Container (~33 CBM)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Preloaded Requisition Items Table */}
+        <div className="space-y-3 pt-2">
+          <h4 className="font-semibold text-sm text-slate-300">Loaded Requisition Items for {selectedBranch || 'Selected Branch'}</h4>
+          {selectedItemsToShip.length === 0 ? (
+            <p className="text-xs text-slate-400 py-3 text-center bg-slate-900/40 rounded-lg border border-slate-700/50">
+              {selectedBranch ? 'No pending requisition items found for this branch.' : 'Please select a destination branch to load items.'}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-700 text-slate-400 bg-slate-900/50">
-                    <th className="p-2.5">Code</th>
-                    <th className="p-2.5">Name</th>
-                    <th className="p-2.5">Qty</th>
-                    <th className="p-2.5">Cartons</th>
-                    <th className="p-2.5">Total CBM</th>
-                    <th className="p-2.5 text-right">Actions</th>
+                    <th className="p-2.5">Item Code</th>
+                    <th className="p-2.5">Item Name</th>
+                    <th className="p-2.5">Quantity</th>
+                    <th className="p-2.5">CBM (Total)</th>
+                    <th className="p-2.5">Weight (Kg Total)</th>
+                    <th className="p-2.5 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {shipmentForm.items.map((i, idx) => {
-                    const ctns = Math.ceil(i.qty / i.packSize);
-                    return (
-                      <tr key={idx} className="border-b border-slate-700/30 hover:bg-slate-700/20">
-                        <td className="p-2.5 font-semibold text-white">{i.code}</td>
-                        <td className="p-2.5 text-slate-200">{i.name}</td>
-                        <td className="p-2.5 font-bold text-emerald-300">{i.qty}</td>
-                        <td className="p-2.5 text-slate-300">{ctns}</td>
-                        <td className="p-2.5 text-slate-300">{(ctns * i.cbm).toFixed(3)} m³</td>
-                        <td className="p-2.5 text-right">
-                          <button 
-                            type="button" 
-                            onClick={() => removeItemFromShipment(i.code)} 
-                            className="text-rose-400 hover:text-rose-300 hover:underline font-medium cursor-pointer transition-colors"
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {selectedItemsToShip.map(item => (
+                    <tr key={item.code} className="border-b border-slate-700/30 hover:bg-slate-700/20">
+                      <td className="p-2.5 font-semibold text-white">{item.code}</td>
+                      <td className="p-2.5 text-slate-200">{item.name}</td>
+                      <td className="p-2.5">
+                        <input 
+                          type="number" 
+                          value={item.qty} 
+                          onChange={e => handleQtyChange(item.code, e.target.value)}
+                          className="bg-slate-900 border border-slate-700 p-1 rounded w-20 text-xs text-slate-100"
+                        />
+                      </td>
+                      <td className="p-2.5">{(item.qty * item.cbm).toFixed(3)} CBM</td>
+                      <p className="p-2.5 hidden">--</p>
+                      <td className="p-2.5">{(item.qty * item.weight).toFixed(1)} Kg</td>
+                      <td className="p-2.5 text-right">
+                        <button 
+                          type="button" 
+                          onClick={() => removeItem(item.code)}
+                          className="text-rose-400 hover:text-rose-300 cursor-pointer text-xs"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
         </div>
 
-        {/* Real-time container fill widget */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
+        {/* Container Capacity Summary */}
+        <div className="bg-slate-900/60 border border-slate-700 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
             <p className="text-xs text-slate-400">Container Fill Capacity</p>
-            <p className="text-lg font-bold text-emerald-400">{fillRatio}% Filled ({totalCBM.toFixed(2)} / {maxCBM} CBM)</p>
+            <p className="text-lg font-bold text-emerald-400">{fillPercentage}% Filled ({totalCBM.toFixed(2)} / {maxCBM} CBM) — Total Weight: {totalWeight.toFixed(1)} Kg</p>
           </div>
           <button 
-            type="submit" 
-            className="bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 rounded-xl font-bold text-sm shadow transition-colors text-white w-full sm:w-auto cursor-pointer"
+            type="submit"
+            className="bg-emerald-600 hover:bg-emerald-500 text-xs px-5 py-2.5 rounded-lg font-semibold shadow transition-colors text-white cursor-pointer"
           >
             Save Shipment Container
           </button>
         </div>
       </form>
-
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
-        <h3 className="font-bold text-emerald-400 text-lg">Active Shipments & Packing Lists</h3>
-        {shipments.length === 0 ? (
-          <p className="text-sm text-slate-400 py-4 text-center">No shipments created yet.</p>
-        ) : (
-          <div className="space-y-4">
-            {shipments.map(shp => (
-              <div key={shp.id} className="border border-slate-700 rounded-xl p-4 bg-slate-900/40 space-y-3 shadow-md">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <div>
-                    <h4 className="font-bold text-emerald-400 text-base">{shp.refNo} — Branch: <span className="text-white">{shp.branchName}</span></h4>
-                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-                      <span>Container: {shp.containerType}</span>
-                      <span>•</span>
-                      <span>Fill Ratio: <span className="text-amber-400 font-semibold">{shp.fillRatio}%</span> ({shp.totalCBM} CBM)</span>
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => downloadPackingListCSV(shp)} 
-                    className="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg font-semibold transition-colors text-white cursor-pointer shadow"
-                  >
-                    Download Packing List (CSV)
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
