@@ -53,12 +53,12 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
             placeholder="Search code or name..." 
             value={searchTerm} 
             onChange={e => setSearchTerm(e.target.value)} 
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-sm text-slate-100 placeholder-slate-400 focus:border-emerald-500 focus:outline-none flex-1 md:w-48"
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-sm text-slate-100 placeholder-slate-400 focus:border-emerald-500 focus:outline-none flex-1 md:w-48 shadow-sm"
           />
           <select 
             value={selectedSupplier} 
             onChange={e => setSelectedSupplier(e.target.value)} 
-            className="bg-slate-800 border border-slate-700 p-2 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="bg-slate-800 border border-slate-700 p-2 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer shadow-sm"
           >
             <option value="All">All Suppliers</option>
             {suppliers.map(s => <option key={s.code || s.name} value={s.name}>{s.name}</option>)}
@@ -66,14 +66,14 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
           <select 
             value={selectedCountry} 
             onChange={e => setSelectedCountry(e.target.value)} 
-            className="bg-slate-800 border border-slate-700 p-2 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="bg-slate-800 border border-slate-700 p-2 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer shadow-sm"
           >
             <option value="All">All Countries</option>
             {availableCountries.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <button 
             onClick={exportToCSV} 
-            className="bg-emerald-600 hover:bg-emerald-500 text-sm px-4 py-2 rounded-lg font-semibold shadow transition-colors text-white"
+            className="bg-emerald-600 hover:bg-emerald-500 text-sm px-4 py-2 rounded-lg font-semibold shadow transition-colors text-white cursor-pointer"
           >
             Export Excel/CSV
           </button>
@@ -82,21 +82,21 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-md">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-xl">
           <p className="text-xs text-slate-400 font-medium">Filtered SKUs</p>
-          <p className="text-xl font-bold text-white mt-1">{totalItemsCount}</p>
+          <p className="text-2xl font-bold text-white mt-1">{totalItemsCount}</p>
         </div>
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-md">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-xl">
           <p className="text-xs text-slate-400 font-medium">Total Closing Units</p>
-          <p className="text-xl font-bold text-emerald-400 mt-1">{totalUnitsInStock.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-emerald-400 mt-1">{totalUnitsInStock.toLocaleString()}</p>
         </div>
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-md">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-xl">
           <p className="text-xs text-slate-400 font-medium">Total Portfolio Value (USD)</p>
-          <p className="text-xl font-bold text-emerald-400 mt-1">${totalPortfolioUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-2xl font-bold text-emerald-400 mt-1">${totalPortfolioUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-x-auto shadow-md">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-x-auto shadow-xl">
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-700 bg-slate-900/50 text-slate-400 text-xs">
@@ -115,7 +115,7 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
           <tbody className="text-xs">
             {filteredLedger.length === 0 ? (
               <tr>
-                <td colSpan="10" className="p-8 text-center text-slate-400">
+                <td colSpan="10" className="p-12 text-center text-slate-400">
                   No stock records found. Receive goods via Proforma Invoices or Purchase Orders to populate ledger.
                 </td>
               </tr>
