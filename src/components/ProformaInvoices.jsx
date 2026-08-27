@@ -4,8 +4,8 @@ export default function ProformaInvoices({
   proformaInvoices = [], 
   setProformaInvoices = () => {}, 
   stockLedger = [], 
-  setStockLedger = [],
-  exchangeRates = [] // <-- Pass your currency rates array here
+  setStockLedger = () => {},
+  exchangeRates = [] 
 }) {
   const receiveGoods = (pi) => {
     const updatedLedger = [...stockLedger];
@@ -18,7 +18,7 @@ export default function ProformaInvoices({
     pi.items.forEach(piItem => {
       const existingIndex = updatedLedger.findIndex(l => l.code === piItem.code);
       
-      // Calculate USD using your configured exchange rate (LCY / Rate, or LCY * Rate depending on setup; here LCY / rate based on your setup table)
+      // Calculate USD using the configured exchange rate
       let unitPriceUSD = exchangeRateVal > 0 ? Number(piItem.unitPrice || 0) / exchangeRateVal : Number(piItem.unitPrice || 0);
 
       if (existingIndex >= 0) {
