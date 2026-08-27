@@ -26,7 +26,7 @@ export default function App() {
 
   const [exchangeRates, setExchangeRates] = useState(() => {
     const saved = localStorage.getItem('ait_exchange_rates');
-    return saved ? JSON.parse(saved) : { USD: 1, YUAN: 0.14, INR: 0.012 };
+    return saved ? JSON.parse(saved) : {};
   });
 
   const [branches, setBranches] = useState(() => {
