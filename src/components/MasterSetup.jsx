@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 
-export default function MasterSetup({ items, setItems, suppliers, setSuppliers }) {
+export default function MasterSetup({ items, setItems, suppliers, setSuppliers, exchangeRates = {}, setExchangeRates = () => {} }) {
   const [subTab, setSubTab] = useState('items');
   const [itemForm, setItemForm] = useState({ code: '', name: '', packSize: '', weight: '', cbm: '', supplier: '', country: '', price: '', currency: 'USD', moq: '', stock: 0 });
   const [supplierForm, setSupplierForm] = useState({ code: '', name: '', warehouseNo: '', country: '', currency: 'USD' });
+  const [rateForm, setRateForm] = useState({ currency: '', rateToUSD: 1 });
   const [editingItemCode, setEditingItemCode] = useState(null);
   const [editingSupplierCode, setEditingSupplierCode] = useState(null);
 
@@ -53,6 +54,17 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     }
   };
 
+  // Exchange Rate Handlers
+  const handleSaveRate = (e) => {
+    e.preventDefault();
+    if (!rateForm.currency) return;
+    setExchangeRates({
+      ...exchangeRates,
+      [rateForm.currency.toUpperCase()]: Number(rateForm.rateToUSD)
+    });
+    setRateForm({ currency: '', rateToUSD: 1 });
+  };
+
   // CSV Templates download
   const downloadItemTemplate = () => {
     const headers = "code,name,packSize,weight,cbm,supplier,country,price,currency,moq,stock\n";
@@ -94,6 +106,28 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
     reader.readAsText(file);
   };
 
+  const handleSupplierCSVImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const lines = text.split('\n').filter(l => l.trim() !== '').slice(1);
+      const newSuppliers = [...suppliers];
+      lines.forEach(line => {
+        const cols = line.split(',').map(c => c.trim());
+        if (cols.length >= 5) {
+          newSuppliers.push({
+            code: cols[0], name: cols[1], warehouseNo: cols[2], country: cols[3], currency: cols[4]
+          });
+        }
+      });
+      setSuppliers(newSuppliers);
+      alert('Suppliers imported successfully!');
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="space-y-6 text-slate-100">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -104,6 +138,7 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
         <div className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
           <button onClick={() => setSubTab('items')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${subTab === 'items' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>Items Master</button>
           <button onClick={() => setSubTab('suppliers')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${subTab === 'suppliers' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>Supplier Master</button>
+          <button onClick={() => setSubTab('currencies')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${subTab === 'currencies' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>Currency Rates</button>
         </div>
       </div>
 
@@ -142,21 +177,25 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                 </tr>
               </thead>
               <tbody>
-                {items.map(item => (
-                  <tr key={item.code} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="p-3 font-semibold text-white">{item.code}</td>
-                    <td className="p-3">{item.name}</td>
-                    <td className="p-3">{item.packSize}</td>
-                    <td className="p-3">{item.supplier}</td>
-                    <td className="p-3">{item.country}</td>
-                    <td className="p-3">{item.price} {item.currency}</td>
-                    <td className="p-3">{item.moq}</td>
-                    <td className="p-3 text-right space-x-2">
-                      <button onClick={() => handleEditItem(item)} className="text-amber-400 hover:underline">Edit</button>
-                      <button onClick={() => handleDeleteItem(item.code)} className="text-rose-400 hover:underline">Delete</button>
-                    </td>
-                  </tr>
-                ))}
+                {items.length === 0 ? (
+                  <tr><td colSpan="8" className="p-6 text-center text-slate-400">No items available. Upload via CSV or add manually above.</td></tr>
+                ) : (
+                  items.map(item => (
+                    <tr key={item.code} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      <td className="p-3 font-semibold text-white">{item.code}</td>
+                      <td className="p-3">{item.name}</td>
+                      <td className="p-3">{item.packSize}</td>
+                      <td className="p-3">{item.supplier}</td>
+                      <td className="p-3">{item.country}</td>
+                      <td className="p-3">{item.price} {item.currency}</td>
+                      <td className="p-3">{item.moq}</td>
+                      <td className="p-3 text-right space-x-2">
+                        <button onClick={() => handleEditItem(item)} className="text-amber-400 hover:underline">Edit</button>
+                        <button onClick={() => handleDeleteItem(item.code)} className="text-rose-400 hover:underline">Delete</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -165,8 +204,11 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
 
       {subTab === 'suppliers' && (
         <div className="space-y-6">
-          <div className="flex gap-4 items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
+          <div className="flex gap-4 items-center bg-slate-800 p-4 rounded-xl border border-slate-700 flex-wrap">
             <button onClick={downloadSupplierTemplate} className="bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg font-medium text-white">Download Supplier Template</button>
+            <label className="bg-emerald-700 hover:bg-emerald-600 text-sm px-4 py-2 rounded-lg font-medium cursor-pointer text-white">
+              Import Suppliers CSV <input type="file" accept=".csv" onChange={handleSupplierCSVImport} className="hidden" />
+            </label>
           </div>
 
           <form onSubmit={handleSaveSupplier} className="bg-slate-800 p-5 rounded-xl border border-slate-700 grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -187,19 +229,56 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers }
                 </tr>
               </thead>
               <tbody>
-                {suppliers.map(sup => (
-                  <tr key={sup.code} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="p-3 font-semibold text-white">{sup.code}</td>
-                    <td className="p-3">{sup.name}</td>
-                    <td className="p-3">{sup.warehouseNo}</td>
-                    <td className="p-3">{sup.country}</td>
-                    <td className="p-3">{sup.currency}</td>
-                    <td className="p-3 text-right space-x-2">
-                      <button onClick={() => handleEditSupplier(sup)} className="text-amber-400 hover:underline">Edit</button>
-                      <button onClick={() => handleDeleteSupplier(sup.code)} className="text-rose-400 hover:underline">Delete</button>
-                    </td>
-                  </tr>
-                ))}
+                {suppliers.length === 0 ? (
+                  <tr><td colSpan="6" className="p-6 text-center text-slate-400">No suppliers available. Upload via CSV or add manually above.</td></tr>
+                ) : (
+                  suppliers.map(sup => (
+                    <tr key={sup.code} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      <td className="p-3 font-semibold text-white">{sup.code}</td>
+                      <td className="p-3">{sup.name}</td>
+                      <td className="p-3">{sup.warehouseNo}</td>
+                      <td className="p-3">{sup.country}</td>
+                      <td className="p-3">{sup.currency}</td>
+                      <td className="p-3 text-right space-x-2">
+                        <button onClick={() => handleEditSupplier(sup)} className="text-amber-400 hover:underline">Edit</button>
+                        <button onClick={() => handleDeleteSupplier(sup.code)} className="text-rose-400 hover:underline">Delete</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {subTab === 'currencies' && (
+        <div className="space-y-6">
+          <form onSubmit={handleSaveRate} className="bg-slate-800 p-5 rounded-xl border border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h3 className="md:col-span-3 font-bold text-emerald-400">Set Exchange Rate to USD</h3>
+            <input placeholder="Currency Code (e.g. YUAN, INR)" value={rateForm.currency} onChange={e=>setRateForm({...rateForm, currency: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <input type="number" step="0.0001" placeholder="Exchange Rate (e.g. 1 LCY = X USD)" value={rateForm.rateToUSD} onChange={e=>setRateForm({...rateForm, rateToUSD: e.target.value})} className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100" required />
+            <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-lg font-semibold text-sm text-white">Save Exchange Rate</button>
+          </form>
+
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm text-slate-200">
+              <thead>
+                <tr className="border-b border-slate-700 bg-slate-900/50 text-slate-400">
+                  <th className="p-3">Currency</th><th className="p-3 text-right">Exchange Rate (to 1 USD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(exchangeRates).length === 0 ? (
+                  <tr><td colSpan="2" className="p-6 text-center text-slate-400">No exchange rates added yet. Default USD conversion is 1.0.</td></tr>
+                ) : (
+                  Object.entries(exchangeRates).map(([curr, rate]) => (
+                    <tr key={curr} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      <td className="p-3 font-semibold text-white">{curr}</td>
+                      <td className="p-3 text-right font-mono">{rate}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
