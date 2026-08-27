@@ -13,7 +13,7 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
     const supplierMatch = selectedSupplier === 'All' || row.supplier?.toLowerCase() === selectedSupplier.toLowerCase();
     
     const searchMatch = !searchTerm || 
-      (row.code && row.code.toLowerCase().includes(searchTerm.toLowerCase())) || 
+      (row.code && row.code.toString().toLowerCase().includes(searchTerm.toLowerCase())) || 
       (row.name && row.name.toLowerCase().includes(searchTerm.toLowerCase()));
       
     return countryMatch && supplierMatch && searchMatch;
@@ -123,7 +123,7 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
               filteredLedger.map((row, idx) => {
                 const totalValUSD = Number(row.closingStock || 0) * Number(row.unitPriceUSD || 0);
                 return (
-                  <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                  <tr key={row.code || idx} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
                     <td className="p-3 font-semibold text-white">{row.code}</td>
                     <td className="p-3 text-slate-200">{row.name}</td>
                     <td className="p-3 text-slate-300">{row.supplier}</td>
