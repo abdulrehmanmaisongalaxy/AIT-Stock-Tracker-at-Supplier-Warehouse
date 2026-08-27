@@ -32,7 +32,7 @@ export default function App() {
   const [branches, setBranches] = useState(() => {
     const saved = localStorage.getItem('ait_branches');
     return saved ? JSON.parse(saved) : [
-      { id: 'br-1', name: 'MG Abidjan', location: 'Abidjan', country: 'Ivory Coast', email: 'inventory@ayulintl.com', password: 'password123', allowedItems: ['NAHB-060', 'NMRO-083'] }
+      { id: 'br-1', name: 'MATADI', location: 'Kinshasa', country: 'DRC', email: 'matadi@ait.com', password: 'password123', allowedItems: ['NAHB-060', 'NMRO-083'] }
     ];
   });
 
@@ -89,6 +89,7 @@ export default function App() {
         branches={branches}
         setBranches={setBranches}
         items={items}
+        requisitions={requisitions}
         isManagementMode={false}
         onLogout={() => { 
           setBranchSession(null); 
@@ -159,7 +160,7 @@ export default function App() {
         {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} stockLedger={stockLedger} setStockLedger={setStockLedger} />}
         {activeTab === 'stock' && <StockLedger stockLedger={stockLedger} suppliers={suppliers} setItems={setItems} />}
         {activeTab === 'shipments' && <ShipmentsContainers shipments={shipments} setShipments={setShipments} branches={branches} items={items} stockLedger={stockLedger} />}
-        {activeTab === 'branches' && <BranchPortal branches={branches} setBranches={setBranches} items={items} isManagementMode={true} />}
+        {activeTab === 'branches' && <BranchPortal branches={branches} setBranches={setBranches} items={items} requisitions={requisitions} onSubmitRequisition={(newReq) => setRequisitions(prev => [newReq, ...prev])} isManagementMode={true} />}
       </main>
     </div>
   );
