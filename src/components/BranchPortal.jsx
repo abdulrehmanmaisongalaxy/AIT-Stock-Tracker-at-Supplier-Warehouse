@@ -1,12 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function BranchPortal({ branch, branches, setBranches, items, isManagementMode, onLogout, onSubmitRequisition }) {
+export default function BranchPortal({ 
+  branch, 
+  branches, 
+  setBranches, 
+  items, 
+  isManagementMode, 
+  onLogout, 
+  onSubmitRequisition,
+  requisitions = [] // Prop for tracking branch order history
+}) {
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [loggedInBranch, setLoggedInBranch] = useState(null);
   
   // Requisition form item quantities mapping: { [itemCode]: qty }
   const [reqQuantities, setReqQuantities] = useState({});
+
+  // Check URL params on initial load for direct secure branch links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const branchIdParam = params.get('branch');
+    if (branchIdParam && branches && branches.length > 0) {
+      const found = branches.find(b => String(b.id) === String(branchIdParam));
+      if (found && !loggedInBranch) {
+        // Optional: Pre-fill email for convenience if using direct links
+        setEmailInput(found.email || '');
+      }
+    }
+  }, [branches, loggedInBranch]);
+
+  // Handle Secure Logout & URL Cleanup
+  const handleSecureLogout = () => {
+    // Clear branch query parameter from browser URL to prevent leaks/re-auth on refresh
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+
+    setLoggedInBranch(null);
+    setEmailInput('');
+    setPasswordInput('');
+    if (onLogout) onLogout();
+  };
 
   // 1. Management Mode (Admin view for creating branches with supplier/country item filters)
   if (isManagementMode) {
@@ -227,22 +261,25 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
   // 2. Logged-in Branch Requisition View
   if (loggedInBranch) {
     const allowedCatalog = items.filter(i => loggedInBranch.allowedItems && loggedInBranch.allowedItems.includes(i.code));
+    
+    // Filter requisitions belonging strictly to this logged-in branch
+    const branchRequisitions = requisitions.filter(r => 
+      String(r.branchId) === String(loggedInBranch.id) || 
+      String(r.branchName).toLowerCase() === String(loggedInBranch.name).toLowerCase()
+    );
 
     const handleQuantityChange = (code, val) => {
       setReqQuantities(prev => ({ ...prev, [code]: parseInt(val) || 0 }));
     };
 
-    // Calculate total order metrics for container fill ratio estimation
     let totalOrderWeight = 0;
     let totalOrderCbm = 0;
 
     allowedCatalog.forEach(item => {
       const qty = reqQuantities[item.code] || 0;
       if (qty > 0) {
-        const itemWeight = (Number(item.weight) || 0) * qty;
-        const itemCbm = (Number(item.cbm) || 0) * qty;
-        totalOrderWeight += itemWeight;
-        totalOrderCbm += itemCbm;
+        totalOrderWeight += (Number(item.weight) || 0) * qty;
+        totalOrderCbm += (Number(item.cbm) || 0) * qty;
       }
     });
 
@@ -258,10 +295,10 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
           const item = items.find(i => i.code === code);
           return { 
             code, 
-            itemCode: code, // Fallback safety for property mapping 
+            itemCode: code, 
             name: item?.name, 
             quantity: qty, 
-            qty: qty, // Fallback safety for property mapping
+            qty: qty, 
             unitPrice: Number(item?.price || item?.unitPrice) || 0, 
             currency: item?.currency || 'USD' 
           };
@@ -280,7 +317,7 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
         status: 'Pending',
         items: orderItems,
         totalWeight: Number(totalOrderWeight.toFixed(2)),
-        totalCBM: Number(totalOrderCbm.toFixed(3)), // Capitalized to sync with OrderConsolidation
+        totalCBM: Number(totalOrderCbm.toFixed(3)),
         totalCbm: Number(totalOrderCbm.toFixed(3))
       };
 
@@ -300,10 +337,10 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
               <p className="text-sm text-slate-400">Location: {loggedInBranch.location}, {loggedInBranch.country}</p>
             </div>
             <button 
-              onClick={() => { setLoggedInBranch(null); if (onLogout) onLogout(); }}
+              onClick={handleSecureLogout}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
             >
-              Logout
+              Logout Securely
             </button>
           </div>
 
@@ -331,6 +368,51 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
             </div>
           </div>
 
+          {/* NEW: Branch Order History Section */}
+          <div className="bg-slate-900 p-5 rounded-xl border border-slate-700 space-y-3">
+            <h3 className="text-md font-semibold text-emerald-400 flex items-center gap-2">
+              <i className="fa-solid fa-clock-rotate-left"></i> My Submitted Requisitions ({branchRequisitions.length})
+            </h3>
+            <div className="overflow-x-auto max-h-56">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0">
+                    <th className="p-2.5">Req #</th>
+                    <th className="p-2.5">Date</th>
+                    <th className="p-2.5">Status</th>
+                    <th className="p-2.5">Items Count</th>
+                    <th className="p-2.5">Total Wt / CBM</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {branchRequisitions.map(req => (
+                    <tr key={req.id || req.reqNo} className="hover:bg-slate-950">
+                      <td className="p-2.5 font-mono font-semibold text-emerald-400">{req.reqNo}</td>
+                      <td className="p-2.5 text-slate-300">{req.date}</td>
+                      <td className="p-2.5">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          req.status === 'Approved' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                          req.status === 'Rejected' ? 'bg-red-950 text-red-400 border border-red-800' :
+                          'bg-amber-950 text-amber-400 border border-amber-800'
+                        }`}>
+                          {req.status || 'Pending'}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-slate-300">{req.items?.length || 0} items</td>
+                      <td className="p-2.5 text-slate-300">{req.totalWeight || 0} kg / {req.totalCBM || req.totalCbm || 0} m³</td>
+                    </tr>
+                  ))}
+                  {branchRequisitions.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4 text-slate-500">No previous orders submitted by this branch yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Permitted Catalog & Order Form */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-200">Permitted Product Catalog & Order Requisition</h3>
             <div className="overflow-x-auto max-h-96">
