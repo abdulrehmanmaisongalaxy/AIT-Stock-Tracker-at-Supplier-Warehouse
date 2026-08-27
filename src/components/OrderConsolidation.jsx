@@ -12,43 +12,52 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
   // Aggregate total ordered quantities across all requisitions by item code
   const consolidatedMap = {};
   requisitions.forEach(req => {
-    req.items.forEach(line => {
-      if (!consolidatedMap[line.code]) {
-        consolidatedMap[line.code] = { code: line.code, totalOrdered: 0, branchBreakdown: {} };
-      }
-      consolidatedMap[line.code].totalOrdered += Number(line.qty);
-      consolidatedMap[line.code].branchBreakdown[req.branchName] = (consolidatedMap[line.code].branchBreakdown[req.branchName] || 0) + Number(line.qty);
-    });
+    if (req.items && Array.isArray(req.items)) {
+      req.items.forEach(line => {
+        const itemCode = line.code || line.itemCode;
+        if (itemCode) {
+          if (!consolidatedMap[itemCode]) {
+            consolidatedMap[itemCode] = { code: itemCode, totalOrdered: 0, branchBreakdown: {} };
+          }
+          const qtyVal = Number(line.qty || line.quantity) || 0;
+          consolidatedMap[itemCode].totalOrdered += qtyVal;
+          consolidatedMap[itemCode].branchBreakdown[req.branchName] = (consolidatedMap[itemCode].branchBreakdown[req.branchName] || 0) + qtyVal;
+        }
+      });
+    }
   });
 
   const handleQtyChange = (code, val) => {
     setEditedQtys({ ...editedQtys, [code]: Number(val) });
   };
 
-  // Group by Supplier to generate Proforma Invoices
+  // Group by Supplier to generate Proforma Invoices with safe numeric fallbacks
   const convertToPI = (supplierName) => {
     const supplierItems = Object.values(consolidatedMap).map(itemMeta => {
       const itemMaster = items.find(i => i.code === itemMeta.code);
       if (!itemMaster || itemMaster.supplier !== supplierName) return null;
-      const finalQty = editedQtys[itemMeta.code] !== undefined ? editedQtys[itemMeta.code] : itemMeta.totalOrdered;
+      
+      const finalQty = editedQtys[itemMeta.code] !== undefined ? Number(editedQtys[itemMeta.code]) : Number(itemMeta.totalOrdered);
+      const unitPrice = Number(itemMaster.price || itemMaster.unitPrice) || 0;
+      
       return {
         code: itemMaster.code,
         name: itemMaster.name,
         qty: finalQty,
-        unitPrice: itemMaster.price,
-        currency: itemMaster.currency,
-        totalLCY: finalQty * Number(itemMaster.price)
+        unitPrice: unitPrice,
+        currency: itemMaster.currency || 'USD',
+        totalLCY: finalQty * unitPrice
       };
     }).filter(Boolean);
 
     if (supplierItems.length === 0) {
-      alert('No items found for this supplier.');
+      alert('No valid items found for this supplier.');
       return;
     }
 
     const totalLCYAmount = supplierItems.reduce((acc, curr) => acc + curr.totalLCY, 0);
     const supObj = suppliers.find(s => s.name === supplierName);
-    const currency = supObj ? supObj.currency : 'USD';
+    const currency = supObj ? supObj.currency : (supplierItems[0]?.currency || 'USD');
     
     // Approximate conversion rate mapping
     let rate = 1;
