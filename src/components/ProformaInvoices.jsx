@@ -4,21 +4,22 @@ export default function ProformaInvoices({
   proformaInvoices = [], 
   setProformaInvoices = () => {}, 
   stockLedger = [], 
-  setStockLedger = () => {} 
+  setStockLedger = [],
+  exchangeRates = [] // <-- Pass your currency rates array here
 }) {
   const receiveGoods = (pi) => {
     const updatedLedger = [...stockLedger];
-    const currency = (pi.currency || '').toUpperCase();
+    const currency = (pi.currency || 'USD').toUpperCase();
+
+    // Find the exchange rate defined in Master Setup (Rate to 1 USD)
+    const rateObj = exchangeRates.find(r => (r.currency || '').toUpperCase() === currency);
+    const exchangeRateVal = rateObj ? Number(rateObj.rate || rateObj.exchangeRate || 1) : 1;
 
     pi.items.forEach(piItem => {
       const existingIndex = updatedLedger.findIndex(l => l.code === piItem.code);
       
-      let unitPriceUSD = Number(piItem.unitPrice || 0);
-      if (currency === 'YUAN' || currency === 'CNY') {
-        unitPriceUSD = Number(piItem.unitPrice || 0) * 0.14;
-      } else if (currency === 'INR') {
-        unitPriceUSD = Number(piItem.unitPrice || 0) * 0.012;
-      }
+      // Calculate USD using your configured exchange rate (LCY / Rate, or LCY * Rate depending on setup; here LCY / rate based on your setup table)
+      let unitPriceUSD = exchangeRateVal > 0 ? Number(piItem.unitPrice || 0) / exchangeRateVal : Number(piItem.unitPrice || 0);
 
       if (existingIndex >= 0) {
         const current = updatedLedger[existingIndex];
@@ -55,14 +56,14 @@ export default function ProformaInvoices({
 
     setStockLedger(updatedLedger);
     setProformaInvoices(proformaInvoices.map(p => p.piNo === pi.piNo ? { ...p, status: 'Goods Received & Stock Updated' } : p));
-    alert(`Stock successfully received for PI ${pi.piNo} and Stock Ledger updated with correct USD conversion rates!`);
+    alert(`Stock successfully received for PI ${pi.piNo} and converted using exchange rate table!`);
   };
 
   return (
     <div className="space-y-6 text-slate-100">
       <div>
         <h2 className="text-2xl font-bold">Proforma Invoices & Supplier Orders</h2>
-        <p className="text-sm text-slate-400">Track signed PIs, monitor confirmation status, convert LCY to USD, and receive goods into stock.</p>
+        <p className="text-sm text-slate-400">Track signed PIs, monitor confirmation status, convert LCY to USD using your exchange rate table, and receive goods.</p>
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
