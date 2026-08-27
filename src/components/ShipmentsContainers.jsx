@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 export default function ShipmentsContainers({
   requisitions = [],
   stockLedger = [],
+  setStockLedger = () => {},
   branches = [],
   items = [],
   shipments = [],
@@ -142,6 +143,28 @@ export default function ShipmentsContainers({
       return;
     }
 
+    // Automatically deduct quantities from the Stock Ledger
+    const updatedLedger = stockLedger.map(stockItem => {
+      const matchFound = selectedItemsToShip.find(
+        shipped => shipped.code?.toString().toLowerCase() === stockItem.code?.toString().toLowerCase()
+      );
+      if (matchFound) {
+        const currentShipped = Number(stockItem.shippedQty || 0) + Number(matchFound.qty || 0);
+        const opening = Number(stockItem.openingStock || 0);
+        const received = Number(stockItem.receivedQty || 0);
+        const newClosing = (opening + received) - currentShipped;
+        return {
+          ...stockItem,
+          shippedQty: currentShipped,
+          closingStock: Math.max(0, newClosing)
+        };
+      }
+      return stockItem;
+    });
+
+    setStockLedger(updatedLedger);
+    localStorage.setItem('ait_ledger', JSON.stringify(updatedLedger));
+
     const newShipment = {
       shipmentRef,
       branch: selectedBranch,
@@ -161,7 +184,7 @@ export default function ShipmentsContainers({
     setShipmentRef('');
     setSelectedBranch('');
     setSelectedItemsToShip([]);
-    alert(`Shipment ${shipmentRef} saved and sent to branch portal successfully!`);
+    alert(`Shipment ${shipmentRef} saved, stock ledger updated with dispatched quantities, and sent to branch portal successfully!`);
   };
 
   const downloadPackingList = (shp) => {
