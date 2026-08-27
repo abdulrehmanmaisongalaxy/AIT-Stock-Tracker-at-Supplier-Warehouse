@@ -48,18 +48,23 @@ export default function OrderConsolidation({
   };
 
   // Group by Supplier to generate Proforma Invoices
-  const convertToPI = (supplierName) => {
+  const convertToPI = (supplierObj) => {
+    const supplierName = supplierObj.name;
+    const supplierCode = supplierObj.code;
+
     const supplierItems = Object.values(consolidatedMap).map(itemMeta => {
       const itemMaster = items.find(i => 
         (i.code && itemMeta.code && i.code.toLowerCase() === itemMeta.code.toLowerCase()) || 
         (i.name && itemMeta.name && i.name.toLowerCase() === itemMeta.name.toLowerCase())
       );
       
-      const itemSupplier = itemMaster ? itemMaster.supplier : null;
+      const itemSupplier = itemMaster ? (itemMaster.supplier || '') : '';
 
-      // Match supplier case-insensitively or via exact match
-      const matchesSupplier = itemSupplier && supplierName && 
-        itemSupplier.trim().toLowerCase() === supplierName.trim().toLowerCase();
+      // Match supplier by name or code/ID flexibly
+      const matchesSupplier = itemSupplier && (
+        itemSupplier.trim().toLowerCase() === supplierName.trim().toLowerCase() ||
+        (supplierCode && itemSupplier.trim().toLowerCase() === supplierCode.trim().toLowerCase())
+      );
 
       if (!matchesSupplier) return null;
       
@@ -71,22 +76,21 @@ export default function OrderConsolidation({
         name: itemMeta.name,
         qty: finalQty,
         unitPrice: unitPrice,
-        currency: itemMaster?.currency || 'USD',
+        currency: itemMaster?.currency || supplierObj.currency || 'USD',
         totalLCY: finalQty * unitPrice
       };
     }).filter(Boolean);
 
     if (supplierItems.length === 0) {
-      alert('No valid items found for this supplier.');
+      alert(`No valid items found for supplier ${supplierName}.`);
       return;
     }
 
     const totalLCYAmount = supplierItems.reduce((acc, curr) => acc + curr.totalLCY, 0);
-    const supObj = suppliers.find(s => s.name?.toLowerCase() === supplierName?.toLowerCase());
-    const currency = supObj ? supObj.currency : (supplierItems[0]?.currency || 'USD');
+    const currency = supplierObj.currency || supplierItems[0]?.currency || 'USD';
     
     let rate = 1;
-    if (currency === 'YUAN') rate = 0.14;
+    if (currency === 'YUans' || currency === 'YUAN' || currency === 'CNY') rate = 0.14;
     if (currency === 'INR') rate = 0.012;
     const totalUSD = totalLCYAmount * rate;
 
@@ -179,17 +183,18 @@ export default function OrderConsolidation({
           <p className="text-sm text-slate-400 py-4 text-center">No items available to consolidate from pending requisitions.</p>
         ) : (
           suppliers.map(sup => {
-            // Strictly filter items that belong to this specific supplier using robust matching
             const supItems = Object.values(consolidatedMap).filter(meta => {
               const master = items.find(i => 
                 (i.code && meta.code && i.code.toLowerCase() === meta.code.toLowerCase()) || 
                 (i.name && meta.name && i.name.toLowerCase() === meta.name.toLowerCase())
               );
-              return master && master.supplier && sup.name && 
-                master.supplier.trim().toLowerCase() === sup.name.trim().toLowerCase();
+              if (!master || !master.supplier) return false;
+              const itemSup = master.supplier.trim().toLowerCase();
+              const supName = (sup.name || '').trim().toLowerCase();
+              const supCode = (sup.code || '').trim().toLowerCase();
+              return itemSup === supName || itemSup === supCode;
             });
 
-            // If this supplier has no items in the current requisitions, hide their card
             if (supItems.length === 0) return null;
 
             return (
@@ -199,7 +204,7 @@ export default function OrderConsolidation({
                     Supplier: {sup.name} ({sup.country || 'Global'}) — Warehouse: {sup.warehouseNo || 'WH-01'}
                   </h4>
                   <button 
-                    onClick={() => convertToPI(sup.name)} 
+                    onClick={() => convertToPI(sup)} 
                     className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors cursor-pointer text-white"
                   >
                     Convert to Proforma Invoice
