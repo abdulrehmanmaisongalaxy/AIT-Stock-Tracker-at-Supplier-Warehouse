@@ -8,31 +8,27 @@ export default function BranchPortal({
   isManagementMode, 
   onLogout, 
   onSubmitRequisition,
-  requisitions = [] // Prop for tracking branch order history
+  requisitions = [] 
 }) {
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [loggedInBranch, setLoggedInBranch] = useState(null);
   
-  // Requisition form item quantities mapping: { [itemCode]: qty }
   const [reqQuantities, setReqQuantities] = useState({});
 
-  // Check URL params on initial load for direct secure branch links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const branchIdParam = params.get('branch');
     if (branchIdParam && branches && branches.length > 0) {
       const found = branches.find(b => String(b.id) === String(branchIdParam));
       if (found && !loggedInBranch) {
-        // Optional: Pre-fill email for convenience if using direct links
         setEmailInput(found.email || '');
       }
     }
   }, [branches, loggedInBranch]);
 
-  // Handle Secure Logout & URL Cleanup
   const handleSecureLogout = () => {
-    // Clear branch query parameter from browser URL to prevent leaks/re-auth on refresh
+    // Completely wipe the query string from the browser address bar
     const cleanUrl = window.location.origin + window.location.pathname;
     window.history.replaceState({}, document.title, cleanUrl);
 
@@ -42,7 +38,7 @@ export default function BranchPortal({
     if (onLogout) onLogout();
   };
 
-  // 1. Management Mode (Admin view for creating branches with supplier/country item filters)
+  // 1. Management Mode
   if (isManagementMode) {
     const [newBranchName, setNewBranchName] = useState('');
     const [newLocation, setNewLocation] = useState('');
@@ -50,7 +46,6 @@ export default function BranchPortal({
     const [newEmail, setNewEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
     
-    // Filtering and item selection state
     const [selectedSupplierFilter, setSelectedSupplierFilter] = useState('ALL');
     const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
     const [selectedAllowedItems, setSelectedAllowedItems] = useState([]);
@@ -118,14 +113,13 @@ export default function BranchPortal({
           <p className="text-sm text-slate-400">Create branches, assign login credentials, filter items by supplier/country, and generate secure portal links.</p>
         </div>
 
-        {/* Add Branch Form */}
         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
           <h3 className="text-lg font-semibold text-emerald-400">Add New Branch & Restrict Catalog Access</h3>
           <form onSubmit={handleAddBranch} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <input 
                 type="text" 
-                placeholder="Branch Name (e.g. Soneri Karachi)" 
+                placeholder="Branch Name (e.g. MATADI)" 
                 value={newBranchName} 
                 onChange={e => setNewBranchName(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
@@ -166,7 +160,6 @@ export default function BranchPortal({
               />
             </div>
 
-            {/* Item Restriction Filters */}
             <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 space-y-3">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h4 className="font-medium text-slate-200 text-sm">Select Permitted Items ({selectedAllowedItems.length} selected)</h4>
@@ -225,7 +218,6 @@ export default function BranchPortal({
           </form>
         </div>
 
-        {/* Existing Branches List & Links */}
         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
           <h3 className="text-lg font-semibold text-emerald-400">Active Branches & Portal Links</h3>
           <div className="space-y-3">
@@ -262,11 +254,12 @@ export default function BranchPortal({
   if (loggedInBranch) {
     const allowedCatalog = items.filter(i => loggedInBranch.allowedItems && loggedInBranch.allowedItems.includes(i.code));
     
-    // Filter requisitions belonging strictly to this logged-in branch
-    const branchRequisitions = requisitions.filter(r => 
-      String(r.branchId) === String(loggedInBranch.id) || 
-      String(r.branchName).toLowerCase() === String(loggedInBranch.name).toLowerCase()
-    );
+    // FIX: Case-insensitive match on branch ID or branch Name to properly capture records from HQ state
+    const branchRequisitions = requisitions.filter(r => {
+      const matchId = r.branchId && loggedInBranch.id && String(r.branchId).toLowerCase() === String(loggedInBranch.id).toLowerCase();
+      const matchName = r.branchName && loggedInBranch.name && String(r.branchName).trim().toLowerCase() === String(loggedInBranch.name).trim().toLowerCase();
+      return matchId || matchName;
+    });
 
     const handleQuantityChange = (code, val) => {
       setReqQuantities(prev => ({ ...prev, [code]: parseInt(val) || 0 }));
@@ -344,7 +337,6 @@ export default function BranchPortal({
             </button>
           </div>
 
-          {/* Container Fill Ratio Summary Banner */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700">
             <div>
               <p className="text-xs text-slate-400">Total Order Weight</p>
@@ -368,7 +360,6 @@ export default function BranchPortal({
             </div>
           </div>
 
-          {/* NEW: Branch Order History Section */}
           <div className="bg-slate-900 p-5 rounded-xl border border-slate-700 space-y-3">
             <h3 className="text-md font-semibold text-emerald-400 flex items-center gap-2">
               <i className="fa-solid fa-clock-rotate-left"></i> My Submitted Requisitions ({branchRequisitions.length})
@@ -412,7 +403,6 @@ export default function BranchPortal({
             </div>
           </div>
 
-          {/* Permitted Catalog & Order Form */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-200">Permitted Product Catalog & Order Requisition</h3>
             <div className="overflow-x-auto max-h-96">
