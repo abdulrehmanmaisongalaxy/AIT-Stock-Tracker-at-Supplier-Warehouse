@@ -24,6 +24,11 @@ export default function App() {
     ];
   });
 
+  const [exchangeRates, setExchangeRates] = useState(() => {
+    const saved = localStorage.getItem('ait_exchange_rates');
+    return saved ? JSON.parse(saved) : { USD: 1, YUAN: 0.14, INR: 0.012 };
+  });
+
   const [branches, setBranches] = useState(() => {
     const saved = localStorage.getItem('ait_branches');
     return saved ? JSON.parse(saved) : [
@@ -69,6 +74,7 @@ export default function App() {
   // Persist state updates to localStorage
   useEffect(() => { localStorage.setItem('ait_items', JSON.stringify(items)); }, [items]);
   useEffect(() => { localStorage.setItem('ait_suppliers', JSON.stringify(suppliers)); }, [suppliers]);
+  useEffect(() => { localStorage.setItem('ait_exchange_rates', JSON.stringify(exchangeRates)); }, [exchangeRates]);
   useEffect(() => { localStorage.setItem('ait_branches', JSON.stringify(branches)); }, [branches]);
   useEffect(() => { localStorage.setItem('ait_requisitions', JSON.stringify(requisitions)); }, [requisitions]);
   useEffect(() => { localStorage.setItem('ait_pis', JSON.stringify(proformaInvoices)); }, [proformaInvoices]);
@@ -137,7 +143,18 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto mt-2">
         {activeTab === 'dashboard' && <Dashboard items={items} suppliers={suppliers} branches={branches} requisitions={requisitions} proformaInvoices={proformaInvoices} shipments={shipments} stockLedger={stockLedger} />}
-        {activeTab === 'master' && <MasterSetup items={items} setItems={setItems} suppliers={suppliers} setSuppliers={setSuppliers} branches={branches} setBranches={setBranches} />}
+        {activeTab === 'master' && (
+          <MasterSetup 
+            items={items} 
+            setItems={setItems} 
+            suppliers={suppliers} 
+            setSuppliers={setSuppliers} 
+            branches={branches} 
+            setBranches={setBranches} 
+            exchangeRates={exchangeRates}
+            setExchangeRates={setExchangeRates}
+          />
+        )}
         {activeTab === 'consolidation' && <OrderConsolidation requisitions={requisitions} setRequisitions={setRequisitions} items={items} suppliers={suppliers} setProformaInvoices={setProformaInvoices} />}
         {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} stockLedger={stockLedger} setStockLedger={setStockLedger} />}
         {activeTab === 'stock' && <StockLedger stockLedger={stockLedger} suppliers={suppliers} setItems={setItems} />}
