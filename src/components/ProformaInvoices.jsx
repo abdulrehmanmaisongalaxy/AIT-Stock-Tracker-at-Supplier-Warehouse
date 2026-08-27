@@ -1,6 +1,11 @@
 import React from 'react';
 
-export default function ProformaInvoices({ proformaInvoices, setProformaInvoices, stockLedger, setStockLedger }) {
+export default function ProformaInvoices({ 
+  proformaInvoices = [], 
+  setProformaInvoices = () => {}, 
+  stockLedger = [], 
+  setStockLedger = () => {} 
+}) {
   const receiveGoods = (pi) => {
     // Add items received into Stock Ledger
     const updatedLedger = [...stockLedger];
@@ -52,21 +57,25 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
         <p className="text-sm text-slate-400">Track signed PIs, monitor confirmation status, convert LCY to USD, and receive goods into stock.</p>
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-md">
-        <h3 className="font-bold text-emerald-400">Proforma Invoices Directory</h3>
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
+        <h3 className="font-bold text-emerald-400 text-lg">Proforma Invoices Directory</h3>
         {proformaInvoices.length === 0 ? (
-          <p className="text-sm text-slate-400">No Proforma Invoices created yet.</p>
+          <p className="text-sm text-slate-400 py-4 text-center">No Proforma Invoices created yet.</p>
         ) : (
           <div className="space-y-4">
             {proformaInvoices.map(pi => {
               const isReceived = pi.status === 'Goods Received & Stock Updated';
               return (
-                <div key={pi.piNo} className="border border-slate-700 rounded-xl p-4 bg-slate-900/40 space-y-4">
+                <div key={pi.piNo} className="border border-slate-700 rounded-xl p-4 bg-slate-900/40 space-y-4 shadow-md">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
-                      <h4 className="font-bold text-emerald-400">{pi.piNo} — Supplier: <span className="text-white">{pi.supplierName}</span></h4>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Date: {pi.date} | Status: <span className={`font-semibold px-2 py-0.5 rounded text-xs ml-1 ${isReceived ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-400 border border-amber-800'}`}>{pi.status}</span>
+                      <h4 className="font-bold text-emerald-400 text-base">{pi.piNo} — Supplier: <span className="text-white">{pi.supplierName}</span></h4>
+                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                        <span>Date: {pi.date}</span>
+                        <span>•</span>
+                        <span>
+                          Status: <span className={`font-semibold px-2 py-0.5 rounded text-xs ${isReceived ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60' : 'bg-amber-950/80 text-amber-400 border border-amber-800/60'}`}>{pi.status}</span>
+                        </span>
                       </p>
                     </div>
                     <div className="text-right">
@@ -78,7 +87,7 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
-                        <tr className="border-b border-slate-700 text-slate-400 bg-slate-900/30">
+                        <tr className="border-b border-slate-700 text-slate-400 bg-slate-900/50">
                           <th className="p-2.5">Item Code</th>
                           <th className="p-2.5">Item Name</th>
                           <th className="p-2.5">Ordered Qty</th>
@@ -104,7 +113,7 @@ export default function ProformaInvoices({ proformaInvoices, setProformaInvoices
                     <div className="flex justify-end pt-2">
                       <button 
                         onClick={() => receiveGoods(pi)} 
-                        className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors text-white"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors text-white cursor-pointer"
                       >
                         Receive Goods into Stock Ledger
                       </button>
