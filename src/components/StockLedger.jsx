@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 
-export default function StockLedger({ stockLedger, suppliers }) {
+export default function StockLedger({ stockLedger = [], suppliers = [] }) {
   const [selectedSupplier, setSelectedSupplier] = useState('All');
   const [selectedCountry, setSelectedCountry] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredLedger = stockLedger.filter(row => {
-    const supObj = suppliers.find(s => s.name === row.supplier);
-    const countryMatch = selectedCountry === 'All' || (supObj && supObj.country === selectedCountry);
-    const supplierMatch = selectedSupplier === 'All' || row.supplier === selectedSupplier;
+    const supObj = suppliers.find(s => s.name?.toLowerCase() === row.supplier?.toLowerCase());
+    const rowCountry = row.country || supObj?.country || '';
+    
+    const countryMatch = selectedCountry === 'All' || rowCountry.toLowerCase() === selectedCountry.toLowerCase();
+    const supplierMatch = selectedSupplier === 'All' || row.supplier?.toLowerCase() === selectedSupplier.toLowerCase();
+    
     const searchMatch = !searchTerm || 
-      row.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      row.name.toLowerCase().includes(searchTerm.toLowerCase());
+      (row.code && row.code.toLowerCase().includes(searchTerm.toLowerCase())) || 
+      (row.name && row.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      
     return countryMatch && supplierMatch && searchMatch;
   });
 
@@ -23,12 +27,18 @@ export default function StockLedger({ stockLedger, suppliers }) {
   const exportToCSV = () => {
     let csv = "Code,Name,Supplier,Opening,Ordered,Received,Shipped,Closing,Unit Price LCY,Currency,Total Value USD\n";
     filteredLedger.forEach(r => {
-      csv += `${r.code},"${r.name}","${r.supplier}",${r.openingStock || 0},${r.orderedQty || 0},${r.receivedQty || 0},${r.shippedQty || 0},${r.closingStock || 0},${r.unitPriceLCY},${r.currency},${(Number(r.closingStock || 0) * Number(r.unitPriceUSD || 0)).toFixed(2)}\n`;
+      csv += `${r.code || ''},"${(r.name || '').replace(/"/g, '""')}","${(r.supplier || '').replace(/"/g, '""')}",${r.openingStock || 0},${r.orderedQty || 0},${r.receivedQty || 0},${r.shippedQty || 0},${r.closingStock || 0},${r.unitPriceLCY || 0},${r.currency || ''},${(Number(r.closingStock || 0) * Number(r.unitPriceUSD || 0)).toFixed(2)}\n`;
     });
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'stock_ledger_report.csv'; a.click();
+    const a = document.createElement('a'); 
+    a.href = url; 
+    a.download = 'stock_ledger_report.csv'; 
+    a.click();
+    URL.revokeObjectURL(url);
   };
+
+  const availableCountries = [...new Set(suppliers.map(s => s.country).filter(Boolean))];
 
   return (
     <div className="space-y-6 text-slate-100">
@@ -51,7 +61,7 @@ export default function StockLedger({ stockLedger, suppliers }) {
             className="bg-slate-800 border border-slate-700 p-2 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
           >
             <option value="All">All Suppliers</option>
-            {suppliers.map(s => <option key={s.code} value={s.name}>{s.name}</option>)}
+            {suppliers.map(s => <option key={s.code || s.name} value={s.name}>{s.name}</option>)}
           </select>
           <select 
             value={selectedCountry} 
@@ -59,7 +69,7 @@ export default function StockLedger({ stockLedger, suppliers }) {
             className="bg-slate-800 border border-slate-700 p-2 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
           >
             <option value="All">All Countries</option>
-            {[...new Set(suppliers.map(s => s.country))].map(c => <option key={c} value={c}>{c}</option>)}
+            {availableCountries.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <button 
             onClick={exportToCSV} 
@@ -106,7 +116,7 @@ export default function StockLedger({ stockLedger, suppliers }) {
             {filteredLedger.length === 0 ? (
               <tr>
                 <td colSpan="10" className="p-8 text-center text-slate-400">
-                  No stock records found. Receive goods via Proforma Invoices to populate ledger.
+                  No stock records found. Receive goods via Proforma Invoices or Purchase Orders to populate ledger.
                 </td>
               </tr>
             ) : (
@@ -122,7 +132,7 @@ export default function StockLedger({ stockLedger, suppliers }) {
                     <td className="p-3 text-slate-300">{row.receivedQty || 0}</td>
                     <td className="p-3 text-slate-300">{row.shippedQty || 0}</td>
                     <td className="p-3 font-bold text-emerald-400">{row.closingStock || 0}</td>
-                    <td className="p-3 text-slate-300">{row.unitPriceLCY} {row.currency}</td>
+                    <td className="p-3 text-slate-300">{row.unitPriceLCY || 0} {row.currency || ''}</td>
                     <td className="p-3 text-right font-semibold text-slate-100">${totalValUSD.toFixed(2)}</td>
                   </tr>
                 );
