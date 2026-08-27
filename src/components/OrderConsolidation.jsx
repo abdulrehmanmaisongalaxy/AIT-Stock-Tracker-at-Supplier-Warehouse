@@ -43,7 +43,7 @@ export default function OrderConsolidation({
   });
 
   const handleQtyChange = (code, val) => {
-    setEditedQtys({ ...editedQtys, [code]: Number(val) });
+    setEditedQtys(prev => ({ ...prev, [code]: Number(val) }));
   };
 
   const convertToPI = (supplierObj) => {
