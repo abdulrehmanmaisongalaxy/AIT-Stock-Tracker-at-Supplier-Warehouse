@@ -1,10 +1,3 @@
-Yes, exactly! If your App.jsx wasn't updated to pass the correct props (or if it's still passing an older version of the component), or if the master items list doesn't have the exact supplier names linked to those item codes, the supplier cards will stay hidden.
-
-Let's double-check App.jsx to ensure it passes the full items, suppliers, and setProformaInvoices down into OrderConsolidation.
-
-Here is the clean, complete App.jsx code. Make sure your App.jsx looks like this so that data flows properly into the consolidation screen:
-
-JavaScript
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import MasterSetup from './components/MasterSetup';
