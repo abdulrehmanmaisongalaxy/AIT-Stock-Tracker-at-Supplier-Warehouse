@@ -56,20 +56,23 @@ export default function OrderConsolidation({
         (i.name && itemMeta.name && i.name.toLowerCase() === itemMeta.name.toLowerCase())
       );
       
-      const itemSupplier = itemMaster ? (itemMaster.supplier || '') : '';
-      const matchesSupplier = itemSupplier && (
+      const itemSupplier = itemMaster ? (itemMaster.supplier || itemMaster.supplierName || '') : '';
+      
+      const matchesSupplier = !itemSupplier || (
         itemSupplier.trim().toLowerCase() === supplierName.trim().toLowerCase() ||
-        (supplierCode && itemSupplier.trim().toLowerCase() === supplierCode.trim().toLowerCase())
+        (supplierCode && itemSupplier.trim().toLowerCase() === supplierCode.trim().toLowerCase()) ||
+        supplierName.toLowerCase().includes(itemSupplier.toLowerCase()) ||
+        itemSupplier.toLowerCase().includes(supplierName.toLowerCase())
       );
 
-      if (!matchesSupplier) return null;
+      if (!matchesSupplier && itemMaster && itemMaster.supplier) return null;
       
       const finalQty = editedQtys[itemMeta.code] !== undefined ? Number(editedQtys[itemMeta.code]) : Number(itemMeta.totalOrdered);
       const unitPrice = Number(itemMaster?.price || itemMaster?.unitPrice || 0);
       
       return {
         code: itemMeta.code,
-        name: itemMeta.name,
+        name: itemMaster?.name || itemMeta.name,
         qty: finalQty,
         quantity: finalQty,
         unitPrice: unitPrice,
@@ -80,7 +83,7 @@ export default function OrderConsolidation({
     }).filter(Boolean);
 
     if (supplierItems.length === 0) {
-      alert(`No valid items found for supplier ${supplierName}.`);
+      alert(`No valid items found for supplier ${supplierName}. Please verify item supplier setup in Master Setup.`);
       return;
     }
 
@@ -212,11 +215,11 @@ export default function OrderConsolidation({
                 (i.code && meta.code && i.code.toLowerCase() === meta.code.toLowerCase()) || 
                 (i.name && meta.name && i.name.toLowerCase() === meta.name.toLowerCase())
               );
-              if (!master || !master.supplier) return false;
-              const itemSup = master.supplier.trim().toLowerCase();
+              if (!master) return true;
+              const itemSup = (master.supplier || master.supplierName || '').trim().toLowerCase();
               const supName = (sup.name || '').trim().toLowerCase();
               const supCode = (sup.code || '').trim().toLowerCase();
-              return itemSup === supName || itemSup === supCode;
+              return !itemSup || itemSup === supName || itemSup === supCode || supName.includes(itemSup) || itemSup.includes(supName);
             });
 
             if (supItems.length === 0) return null;
