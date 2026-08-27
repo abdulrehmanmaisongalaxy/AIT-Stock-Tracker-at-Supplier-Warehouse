@@ -9,7 +9,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
     }
   };
 
-  // Aggregate total ordered quantities across all requisitions by item code with flexible fallbacks
+  // Aggregate total ordered quantities across all requisitions by item code
   const consolidatedMap = {};
   requisitions.forEach(req => {
     if (req.items && Array.isArray(req.items)) {
@@ -26,8 +26,9 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
           }
           const qtyVal = Number(line.qty || line.quantity) || 0;
           consolidatedMap[itemCode].totalOrdered += qtyVal;
-          consolidatedMap[itemCode].branchBreakdown[req.branchName || 'Branch'] = 
-            (consolidatedMap[itemCode].branchBreakdown[req.branchName || 'Branch'] || 0) + qtyVal;
+          const branchName = req.branchName || 'Branch';
+          consolidatedMap[itemCode].branchBreakdown[branchName] = 
+            (consolidatedMap[itemCode].branchBreakdown[branchName] || 0) + qtyVal;
         }
       });
     }
@@ -41,10 +42,6 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
   const convertToPI = (supplierName) => {
     const supplierItems = Object.values(consolidatedMap).map(itemMeta => {
       const itemMaster = items.find(i => i.code === itemMeta.code || i.name === itemMeta.name);
-      // Fallback: if supplier doesn't strictly match or isn't assigned, allow matching if no supplier is set or fallback to first supplier
-      const itemSupplier = itemMaster ? itemMaster.supplier : supplierName;
-      
-      if (itemSupplier !== supplierName) return null;
       
       const finalQty = editedQtys[itemMeta.code] !== undefined ? Number(editedQtys[itemMeta.code]) : Number(itemMeta.totalOrdered);
       const unitPrice = itemMaster ? Number(itemMaster.price || itemMaster.unitPrice || 5) : 5;
@@ -57,10 +54,10 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
         currency: itemMaster ? (itemMaster.currency || 'USD') : 'USD',
         totalLCY: finalQty * unitPrice
       };
-    }).filter(Boolean);
+    });
 
     if (supplierItems.length === 0) {
-      alert('No valid items found for this supplier.');
+      alert('No valid items found to convert.');
       return;
     }
 
@@ -75,7 +72,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
 
     const newPI = {
       piNo: `PINV-${Math.floor(1000 + Math.random() * 9000)}`,
-      supplierName,
+      supplierName: supplierName || (suppliers[0] ? suppliers[0].name : 'Default Supplier'),
       currency,
       totalLCY: totalLCYAmount.toFixed(2),
       totalUSD: totalUSD.toFixed(2),
@@ -90,7 +87,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
     supplierItems.forEach(si => delete updatedQtys[si.code]);
     setEditedQtys(updatedQtys);
 
-    alert(`Proforma Invoice ${newPI.piNo} generated successfully for ${supplierName}!`);
+    alert(`Proforma Invoice ${newPI.piNo} generated successfully!`);
   };
 
   return (
@@ -148,80 +145,90 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
         {Object.keys(consolidatedMap).length === 0 ? (
           <p className="text-sm text-slate-400">No items available to consolidate from pending requisitions.</p>
         ) : (
-          suppliers.map(sup => {
-            const supItems = Object.values(consolidatedMap).filter(meta => {
-              const master = items.find(i => i.code === meta.code || i.name === meta.name);
-              // If item has a master record matching supplier, or if no items match explicitly, show under first supplier as fallback
-              if (master) return master.supplier === sup.name;
-              return sup === suppliers[0]; // fallback for unmatched items so they show up
-            });
-
-            if (supItems.length === 0) return null;
-
-            return (
-              <div key={sup.code || sup.name} className="border border-slate-700 rounded-xl p-4 space-y-3 bg-slate-900/40 mt-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <h4 className="font-bold text-sm text-amber-400">Supplier: {sup.name} ({sup.country || 'Global'}) - Warehouse: {sup.warehouseNo || 'WH-01'}</h4>
-                  <button 
-                    onClick={() => convertToPI(sup.name)} 
-                    className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors cursor-pointer"
-                  >
-                    Convert to Proforma Invoice
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-700 text-xs text-slate-400 bg-slate-900/30">
-                        <th className="p-2.5">Item Code</th>
-                        <th className="p-2.5">Item Name</th>
-                        <th className="p-2.5">Total Ordered</th>
-                        <th className="p-2.5">MOQ</th>
-                        <th className="p-2.5">Meets MOQ?</th>
-                        <th className="p-2.5">Branch Breakdown</th>
-                        <th className="p-2.5">Edit Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {supItems.map(meta => {
-                        const master = items.find(i => i.code === meta.code || i.name === meta.name);
-                        const moqLimit = master ? Number(master.moq) || 1000 : 1000;
-                        const currentQty = editedQtys[meta.code] !== undefined ? editedQtys[meta.code] : meta.totalOrdered;
-                        const meetsMOQ = currentQty >= moqLimit;
-                        const breakdownStr = Object.entries(meta.branchBreakdown).map(([b, q]) => `${b}: ${q}`).join(', ');
-
-                        return (
-                          <tr key={meta.code} className="border-b border-slate-700/30 hover:bg-slate-700/20">
-                            <td className="p-2.5 font-semibold text-white">{meta.code}</td>
-                            <td className="p-2.5">{master ? master.name : meta.name}</td>
-                            <td className="p-2.5 font-bold text-emerald-300">{currentQty}</td>
-                            <td className="p-2.5 text-slate-300">{moqLimit}</td>
-                            <td className="p-2.5">
-                              {meetsMOQ ? (
-                                <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded text-xs font-semibold">✓ Yes</span>
-                              ) : (
-                                <span className="text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2 py-0.5 rounded text-xs font-semibold">⚠ No</span>
-                              )}
-                            </td>
-                            <td className="p-2.5 text-xs text-slate-400">{breakdownStr}</td>
-                            <td className="p-2.5">
-                              <input 
-                                type="number" 
-                                value={currentQty} 
-                                onChange={e => handleQtyChange(meta.code, e.target.value)}
-                                className="bg-slate-900 border border-slate-700 p-1.5 rounded w-24 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none"
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+          suppliers.length === 0 ? (
+            <div className="p-4 border border-slate-700 rounded-xl bg-slate-900/40 space-y-3">
+              <div className="flex justify-between items-center">
+                <h4 className="font-bold text-sm text-amber-400">Default Supplier Consolidation</h4>
+                <button 
+                  onClick={() => convertToPI('Default Supplier')} 
+                  className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors cursor-pointer"
+                >
+                  Convert to Proforma Invoice
+                </button>
               </div>
-            );
-          })
+            </div>
+          ) : (
+            suppliers.map((sup, index) => {
+              // If it's the first supplier, show all consolidated items as a fallback so nothing gets hidden
+              const supItems = Object.values(consolidatedMap);
+
+              if (supItems.length === 0) return null;
+
+              return (
+                <div key={sup.code || index} className="border border-slate-700 rounded-xl p-4 space-y-3 bg-slate-900/40 mt-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <h4 className="font-bold text-sm text-amber-400">Supplier: {sup.name} ({sup.country || 'Global'}) - Warehouse: {sup.warehouseNo || 'WH-01'}</h4>
+                    <button 
+                      onClick={() => convertToPI(sup.name)} 
+                      className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors cursor-pointer"
+                    >
+                      Convert to Proforma Invoice
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-700 text-xs text-slate-400 bg-slate-900/30">
+                          <th className="p-2.5">Item Code</th>
+                          <th className="p-2.5">Item Name</th>
+                          <th className="p-2.5">Total Ordered</th>
+                          <th className="p-2.5">MOQ</th>
+                          <th className="p-2.5">Meets MOQ?</th>
+                          <th className="p-2.5">Branch Breakdown</th>
+                          <th className="p-2.5">Edit Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {supItems.map(meta => {
+                          const master = items.find(i => i.code === meta.code || i.name === meta.name);
+                          const moqLimit = master ? Number(master.moq) || 1000 : 1000;
+                          const currentQty = editedQtys[meta.code] !== undefined ? editedQtys[meta.code] : meta.totalOrdered;
+                          const meetsMOQ = currentQty >= moqLimit;
+                          const breakdownStr = Object.entries(meta.branchBreakdown).map(([b, q]) => `${b}: ${q}`).join(', ');
+
+                          return (
+                            <tr key={meta.code} className="border-b border-slate-700/30 hover:bg-slate-700/20">
+                              <td className="p-2.5 font-semibold text-white">{meta.code}</td>
+                              <td className="p-2.5">{master ? master.name : meta.name}</td>
+                              <td className="p-2.5 font-bold text-emerald-300">{currentQty}</td>
+                              <td className="p-2.5 text-slate-300">{moqLimit}</td>
+                              <td className="p-2.5">
+                                {meetsMOQ ? (
+                                  <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded text-xs font-semibold">✓ Yes</span>
+                                ) : (
+                                  <span className="text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2 py-0.5 rounded text-xs font-semibold">⚠ No</span>
+                                )}
+                              </td>
+                              <td className="p-2.5 text-xs text-slate-400">{breakdownStr}</td>
+                              <td className="p-2.5">
+                                <input 
+                                  type="number" 
+                                  value={currentQty} 
+                                  onChange={e => handleQtyChange(meta.code, e.target.value)}
+                                  className="bg-slate-900 border border-slate-700 p-1.5 rounded w-24 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })
+          )
         )}
       </div>
     </div>
