@@ -141,14 +141,14 @@ export default function ShipmentsContainers({
       fillPercentage,
       items: selectedItemsToShip,
       date: new Date().toISOString().split('T')[0],
-      status: 'In Transit'
+      status: 'Consolidated/Ordered' // Initial status aligned with BranchPortal workflow
     };
 
     setShipments(prev => [newShipment, ...prev]);
     setShipmentRef('');
     setSelectedBranch('');
     setSelectedItemsToShip([]);
-    alert(`Shipment ${shipmentRef} saved successfully!`);
+    alert(`Shipment ${shipmentRef} saved and sent to branch portal successfully!`);
   };
 
   return (
