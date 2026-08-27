@@ -7,10 +7,19 @@ export default function ProformaInvoices({
   setStockLedger = () => {} 
 }) {
   const receiveGoods = (pi) => {
-    // Add items received into Stock Ledger
     const updatedLedger = [...stockLedger];
+    const currency = (pi.currency || '').toUpperCase();
+
     pi.items.forEach(piItem => {
       const existingIndex = updatedLedger.findIndex(l => l.code === piItem.code);
+      
+      let unitPriceUSD = Number(piItem.unitPrice || 0);
+      if (currency === 'YUAN' || currency === 'CNY') {
+        unitPriceUSD = Number(piItem.unitPrice || 0) * 0.14;
+      } else if (currency === 'INR') {
+        unitPriceUSD = Number(piItem.unitPrice || 0) * 0.012;
+      }
+
       if (existingIndex >= 0) {
         const current = updatedLedger[existingIndex];
         const newReceived = Number(current.receivedQty || 0) + Number(piItem.qty);
@@ -22,13 +31,12 @@ export default function ProformaInvoices({
           ...current,
           orderedQty: newOrdered,
           receivedQty: newReceived,
-          closingStock: opening + newReceived - shipped
+          closingStock: opening + newReceived - shipped,
+          unitPriceLCY: piItem.unitPrice,
+          currency: currency,
+          unitPriceUSD: Number(unitPriceUSD.toFixed(2))
         };
       } else {
-        const unitPriceUSD = piItem.currency === 'USD' 
-          ? piItem.unitPrice 
-          : (piItem.currency === 'YUAN' ? piItem.unitPrice * 0.14 : piItem.unitPrice * 0.012);
-
         updatedLedger.push({
           code: piItem.code,
           name: piItem.name,
@@ -39,7 +47,7 @@ export default function ProformaInvoices({
           shippedQty: 0,
           closingStock: piItem.qty,
           unitPriceLCY: piItem.unitPrice,
-          currency: piItem.currency,
+          currency: currency,
           unitPriceUSD: Number(unitPriceUSD.toFixed(2))
         });
       }
@@ -47,7 +55,7 @@ export default function ProformaInvoices({
 
     setStockLedger(updatedLedger);
     setProformaInvoices(proformaInvoices.map(p => p.piNo === pi.piNo ? { ...p, status: 'Goods Received & Stock Updated' } : p));
-    alert(`Stock successfully received for PI ${pi.piNo} and Stock Ledger updated!`);
+    alert(`Stock successfully received for PI ${pi.piNo} and Stock Ledger updated with correct USD conversion rates!`);
   };
 
   return (
