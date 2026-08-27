@@ -90,9 +90,26 @@ export default function OrderConsolidation({
     if (currency === 'INR') rate = 0.012;
     const totalUSD = totalLCYAmount * rate;
 
+    // Gather branch names/IDs from matching requisitions being fulfilled
+    const matchedRequisitions = requisitions.filter(req => {
+      const reqItems = req.items || req.lineItems || [];
+      return reqItems.some(line => {
+        const code = line.code || line.itemCode || line.sku;
+        return supplierItems.some(si => si.code === code);
+      });
+    });
+
+    const primaryBranchName = matchedRequisitions[0]?.branchName || matchedRequisitions[0]?.branch || 'Multi-Branch / Central';
+    const primaryBranchId = matchedRequisitions[0]?.branchId || matchedRequisitions[0]?.id;
+    const linkedReqNos = matchedRequisitions.map(r => r.reqNo || r.id);
+
     const newPI = {
       piNo: `PINV-${Math.floor(1000 + Math.random() * 9000)}`,
+      piNumber: `PINV-${Math.floor(1000 + Math.random() * 9000)}`,
       supplierName,
+      branchName: primaryBranchName,
+      branchId: primaryBranchId,
+      linkedRequisitionNos: linkedReqNos,
       currency,
       totalLCY: totalLCYAmount.toFixed(2),
       totalUSD: totalUSD.toFixed(2),
@@ -260,16 +277,16 @@ export default function OrderConsolidation({
                               />
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            );
-          })
-        )}
-      </div>
+            </div>
+          );
+        })
+      )}
     </div>
-  );
+  </div>
+);
 }
