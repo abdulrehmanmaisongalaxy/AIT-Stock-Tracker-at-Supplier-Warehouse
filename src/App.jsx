@@ -106,7 +106,7 @@ export default function App() {
           <p className="text-xs text-slate-400">Dubai HQ & Multi-Warehouse Stock Tracking Platform</p>
         </div>
         <div className="flex items-center gap-4">
-          <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-3 py-1 rounded-full font-semibold">Admin Mode Active</span>
+          <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-3 py-1 rounded-full font-semibold shadow-sm">Admin Mode Active</span>
         </div>
       </header>
 
@@ -138,7 +138,6 @@ export default function App() {
         {activeTab === 'dashboard' && <Dashboard items={items} suppliers={suppliers} branches={branches} requisitions={requisitions} proformaInvoices={proformaInvoices} shipments={shipments} stockLedger={stockLedger} />}
         {activeTab === 'master' && <MasterSetup items={items} setItems={setItems} suppliers={suppliers} setSuppliers={setSuppliers} branches={branches} setBranches={setBranches} exchangeRates={exchangeRates} setExchangeRates={setExchangeRates} />}
         
-        {/* Order Consolidation correctly receives requisitions, items, suppliers, and proforma setter */}
         {activeTab === 'consolidation' && (
           <OrderConsolidation 
             requisitions={requisitions} 
@@ -150,7 +149,7 @@ export default function App() {
         )}
 
         {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} stockLedger={stockLedger} setStockLedger={setStockLedger} />}
-        {activeTab === 'stock' && <StockLedger stockledger={stockLedger} suppliers={suppliers} setItems={setItems} />}
+        {activeTab === 'stock' && <StockLedger stockLedger={stockLedger} suppliers={suppliers} setItems={setItems} />}
         {activeTab === 'shipments' && <ShipmentsContainers shipments={shipments} setShipments={setShipments} branches={branches} items={items} stockLedger={stockLedger} />}
         {activeTab === 'branches' && <BranchPortal branches={branches} setBranches={setBranches} items={items} requisitions={requisitions} onSubmitRequisition={(newReq) => setRequisitions(prev => [newReq, ...prev])} isManagementMode={true} />}
       </main>
