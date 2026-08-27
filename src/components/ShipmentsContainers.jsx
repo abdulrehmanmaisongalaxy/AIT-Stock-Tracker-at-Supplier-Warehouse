@@ -39,17 +39,18 @@ export default function ShipmentsContainers({
           const qty = Number(line.qty || line.quantity || line.requestedQty) || 0;
           
           if (code) {
-            if (!aggregated[code]) {
-              const masterItem = items.find(i => i.code?.toLowerCase() === code.toLowerCase());
-              aggregated[code] = {
-                code,
-                name,
+            const codeKey = code.toString();
+            if (!aggregated[codeKey]) {
+              const masterItem = items.find(i => i.code?.toString().toLowerCase() === codeKey.toLowerCase());
+              aggregated[codeKey] = {
+                code: codeKey,
+                name: name,
                 qty: 0,
                 cbm: Number(masterItem?.cbm || 0.01),
                 weight: Number(masterItem?.weight || 1)
               };
             }
-            aggregated[code].qty += qty;
+            aggregated[codeKey].qty += qty;
           }
         });
       });
@@ -58,12 +59,14 @@ export default function ShipmentsContainers({
     // 2. Fallback or supplement with available stock ledger items if no active requisitions remain
     if (Object.keys(aggregated).length === 0 && stockLedger.length > 0) {
       stockLedger.forEach(stock => {
-        if (Number(stock.closingStock || stock.receivedQty || 0) > 0) {
-          const masterItem = items.find(i => i.code?.toLowerCase() === stock.code?.toLowerCase());
-          aggregated[stock.code] = {
-            code: stock.code,
-            name: stock.name,
-            qty: Math.min(500, Number(stock.closingStock || stock.receivedQty)),
+        const availableStock = Number(stock.closingStock || stock.receivedQty || 0);
+        if (availableStock > 0 && stock.code) {
+          const codeKey = stock.code.toString();
+          const masterItem = items.find(i => i.code?.toString().toLowerCase() === codeKey.toLowerCase());
+          aggregated[codeKey] = {
+            code: codeKey,
+            name: stock.name || masterItem?.name || codeKey,
+            qty: Math.min(500, availableStock),
             cbm: Number(masterItem?.cbm || 0.01),
             weight: Number(masterItem?.weight || 1)
           };
@@ -75,8 +78,9 @@ export default function ShipmentsContainers({
   }, [selectedBranch, requisitions, stockLedger, items]);
 
   const handleQtyChange = (code, val) => {
+    const parsedVal = val === '' ? 0 : Number(val);
     setSelectedItemsToShip(prev => prev.map(item => 
-      item.code === code ? { ...item, qty: Number(val) } : item
+      item.code === code ? { ...item, qty: Math.max(0, parsedVal) } : item
     ));
   };
 
@@ -90,19 +94,22 @@ export default function ShipmentsContainers({
       alert('Please select an item to add.');
       return;
     }
-    const masterItem = items.find(i => (i.code || i.sku) === itemToAddCode);
+    const masterItem = items.find(i => (i.code || i.sku)?.toString() === itemToAddCode.toString());
     if (!masterItem) return;
 
-    const existingIndex = selectedItemsToShip.findIndex(i => i.code === masterItem.code);
+    const itemCode = (masterItem.code || masterItem.sku).toString();
+    const qtyToAdd = Math.max(1, Number(addQty) || 1);
+
+    const existingIndex = selectedItemsToShip.findIndex(i => i.code === itemCode);
     if (existingIndex >= 0) {
       const updated = [...selectedItemsToShip];
-      updated[existingIndex].qty += Number(addQty);
+      updated[existingIndex].qty += qtyToAdd;
       setSelectedItemsToShip(updated);
     } else {
       setSelectedItemsToShip([...selectedItemsToShip, {
-        code: masterItem.code,
+        code: itemCode,
         name: masterItem.name,
-        qty: Number(addQty),
+        qty: qtyToAdd,
         cbm: Number(masterItem.cbm || 0.01),
         weight: Number(masterItem.weight || 1)
       }]);
@@ -115,7 +122,15 @@ export default function ShipmentsContainers({
   const totalWeight = selectedItemsToShip.reduce((acc, curr) => acc + (curr.qty * curr.weight), 0);
   
   const maxCBM = containerType.includes('20FT') ? 33 : 67;
-  const fillPercentage = Math.min(100, (totalCBM / maxCBM) * 100).toFixed(1);
+  const rawFillPercentage = (totalCBM / maxCBM) * 100;
+  const fillPercentage = rawFillPercentage.toFixed(1);
+
+  // Progress Bar Color logic
+  const getProgressColor = () => {
+    if (rawFillPercentage > 100) return 'bg-rose-500';
+    if (rawFillPercentage > 85) return 'bg-amber-500';
+    return 'bg-emerald-500';
+  };
 
   const handleSaveShipment = (e) => {
     e.preventDefault();
@@ -141,7 +156,7 @@ export default function ShipmentsContainers({
       fillPercentage,
       items: selectedItemsToShip,
       date: new Date().toISOString().split('T')[0],
-      status: 'Consolidated/Ordered' // Initial status aligned with BranchPortal workflow
+      status: 'Consolidated/Ordered'
     };
 
     setShipments(prev => [newShipment, ...prev]);
@@ -268,18 +283,18 @@ export default function ShipmentsContainers({
                       <td className="p-2.5">
                         <input 
                           type="number" 
-                          value={item.qty} 
+                          value={item.qty === 0 ? '' : item.qty} 
                           onChange={e => handleQtyChange(item.code, e.target.value)}
-                          className="bg-slate-900 border border-slate-700 p-1 rounded w-20 text-xs text-slate-100"
+                          className="bg-slate-900 border border-slate-700 p-1 rounded w-20 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none"
                         />
                       </td>
-                      <td className="p-2.5">{(item.qty * item.cbm).toFixed(3)} CBM</td>
-                      <td className="p-2.5">{(item.qty * item.weight).toFixed(1)} Kg</td>
+                      <td className="p-2.5 font-mono text-slate-300">{(item.qty * item.cbm).toFixed(3)} CBM</td>
+                      <td className="p-2.5 font-mono text-slate-300">{(item.qty * item.weight).toFixed(1)} Kg</td>
                       <td className="p-2.5 text-right">
                         <button 
                           type="button" 
                           onClick={() => removeItem(item.code)}
-                          className="text-rose-400 hover:text-rose-300 cursor-pointer text-xs"
+                          className="text-rose-400 hover:text-rose-300 cursor-pointer text-xs transition-colors"
                         >
                           Remove
                         </button>
@@ -292,18 +307,29 @@ export default function ShipmentsContainers({
           )}
         </div>
 
-        {/* Container Capacity Summary */}
-        <div className="bg-slate-900/60 border border-slate-700 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>
-            <p className="text-xs text-slate-400">Container Fill Capacity</p>
-            <p className="text-lg font-bold text-emerald-400">{fillPercentage}% Filled ({totalCBM.toFixed(2)} / {maxCBM} CBM) — Total Weight: {totalWeight.toFixed(1)} Kg</p>
+        {/* Container Capacity Summary & Progress Bar */}
+        <div className="bg-slate-900/60 border border-slate-700 p-4 rounded-xl space-y-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <p className="text-xs text-slate-400">Container Fill Capacity</p>
+              <p className="text-lg font-bold text-emerald-400">
+                {fillPercentage}% Filled ({totalCBM.toFixed(2)} / {maxCBM} CBM) — Total Weight: {totalWeight.toFixed(1)} Kg
+              </p>
+            </div>
+            <button 
+              type="submit"
+              className="bg-emerald-600 hover:bg-emerald-500 text-xs px-5 py-2.5 rounded-lg font-semibold shadow transition-colors text-white cursor-pointer self-end sm:self-auto"
+            >
+              Save Shipment Container
+            </button>
           </div>
-          <button 
-            type="submit"
-            className="bg-emerald-600 hover:bg-emerald-500 text-xs px-5 py-2.5 rounded-lg font-semibold shadow transition-colors text-white cursor-pointer"
-          >
-            Save Shipment Container
-          </button>
+
+          <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-700">
+            <div 
+              className={`h-2.5 rounded-full transition-all duration-300 ${getProgressColor()}`} 
+              style={{ width: `${Math.min(100, rawFillPercentage)}%` }}
+            />
+          </div>
         </div>
       </form>
     </div>
