@@ -71,7 +71,9 @@ export default function OrderConsolidation({
         code: itemMeta.code,
         name: itemMeta.name,
         qty: finalQty,
+        quantity: finalQty,
         unitPrice: unitPrice,
+        price: unitPrice,
         currency: itemMaster?.currency || supplierObj.currency || 'USD',
         totalLCY: finalQty * unitPrice
       };
@@ -90,7 +92,6 @@ export default function OrderConsolidation({
     if (currency === 'INR') rate = 0.012;
     const totalUSD = totalLCYAmount * rate;
 
-    // Gather branch names/IDs from matching requisitions being fulfilled
     const matchedRequisitions = requisitions.filter(req => {
       const reqItems = req.items || req.lineItems || [];
       return reqItems.some(line => {
@@ -99,14 +100,18 @@ export default function OrderConsolidation({
       });
     });
 
-    const primaryBranchName = matchedRequisitions[0]?.branchName || matchedRequisitions[0]?.branch || 'Multi-Branch / Central';
-    const primaryBranchId = matchedRequisitions[0]?.branchId || matchedRequisitions[0]?.id;
+    const primaryBranchName = matchedRequisitions[0]?.branchName || matchedRequisitions[0]?.branch || 'Central Warehouse';
+    const primaryBranchId = matchedRequisitions[0]?.branchId || matchedRequisitions[0]?.id || 'br-central';
     const linkedReqNos = matchedRequisitions.map(r => r.reqNo || r.id);
 
+    const generatedId = `PINV-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const newPI = {
-      piNo: `PINV-${Math.floor(1000 + Math.random() * 9000)}`,
-      piNumber: `PINV-${Math.floor(1000 + Math.random() * 9000)}`,
-      supplierName,
+      id: generatedId,
+      piNo: generatedId,
+      piNumber: generatedId,
+      supplierName: supplierName,
+      supplier: supplierName,
       branchName: primaryBranchName,
       branchId: primaryBranchId,
       linkedRequisitionNos: linkedReqNos,
@@ -114,13 +119,13 @@ export default function OrderConsolidation({
       totalLCY: totalLCYAmount.toFixed(2),
       totalUSD: totalUSD.toFixed(2),
       items: supplierItems,
+      lineItems: supplierItems,
       status: 'Pending Supplier Confirmation',
       date: new Date().toISOString().split('T')[0]
     };
 
     setProformaInvoices(prev => [newPI, ...prev]);
 
-    // Clear ordered quantities/requisitions from the active queue so they disappear from consolidation
     const orderedCodes = new Set(supplierItems.map(i => i.code));
     const updatedRequisitions = requisitions.map(req => {
       const reqItems = req.items || req.lineItems || [];
@@ -134,7 +139,7 @@ export default function OrderConsolidation({
     setRequisitions(updatedRequisitions);
     setEditedQtys({});
 
-    alert(`Proforma Invoice ${newPI.piNo} generated successfully for ${supplierName}! Items moved to Proforma Invoices.`);
+    alert(`Proforma Invoice ${generatedId} generated successfully for ${supplierName}!`);
   };
 
   return (
@@ -277,16 +282,16 @@ export default function OrderConsolidation({
                               />
                             </td>
                           </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          );
-        })
-      )}
+            );
+          })
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 }
