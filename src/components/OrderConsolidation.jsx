@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 
-export default function OrderConsolidation({ requisitions, setRequisitions, items, suppliers, setProformaInvoices }) {
+export default function OrderConsolidation({ 
+  requisitions = [], 
+  setRequisitions = () => {}, 
+  items = [], 
+  suppliers = [], 
+  setProformaInvoices = () => {} 
+}) {
   const [editedQtys, setEditedQtys] = useState({});
 
   const handleDeleteReq = (reqNo) => {
-    if (confirm(`Delete requisition ${reqNo}?`)) {
+    if (window.confirm(`Are you sure you want to delete requisition ${reqNo}?`)) {
       setRequisitions(requisitions.filter(r => r.reqNo !== reqNo));
     }
   };
@@ -102,10 +108,10 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
       </div>
 
       {/* Pending Requisitions Table */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-md">
-        <h3 className="font-bold text-emerald-400">Pending Requisitions</h3>
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
+        <h3 className="font-bold text-emerald-400 text-lg">Pending Requisitions</h3>
         {requisitions.length === 0 ? (
-          <p className="text-sm text-slate-400">No requisitions submitted yet.</p>
+          <p className="text-sm text-slate-400 py-4 text-center">No requisitions submitted yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
@@ -128,9 +134,18 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
                     <td className="p-3">{req.items ? req.items.length : 0} items</td>
                     <td className="p-3">{req.totalCBM}</td>
                     <td className="p-3">{req.totalWeight}</td>
-                    <td className="p-3"><span className="bg-amber-950/80 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-xs">{req.status || 'Pending'}</span></td>
+                    <td className="p-3">
+                      <span className="bg-amber-950/80 text-amber-400 border border-amber-800/60 px-2.5 py-1 rounded-md text-xs font-semibold">
+                        {req.status || 'Pending'}
+                      </span>
+                    </td>
                     <td className="p-3 text-right">
-                      <button onClick={() => handleDeleteReq(req.reqNo)} className="text-rose-400 hover:underline text-xs font-medium">Delete</button>
+                      <button 
+                        onClick={() => handleDeleteReq(req.reqNo)} 
+                        className="text-rose-400 hover:text-rose-300 hover:underline text-xs font-medium cursor-pointer transition-colors"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -141,13 +156,13 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
       </div>
 
       {/* Consolidated Items & Supplier MOQ Check */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-md">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
         <div className="flex justify-between items-center">
-          <h3 className="font-bold text-emerald-400">Consolidated Items & Supplier MOQ Check</h3>
+          <h3 className="font-bold text-emerald-400 text-lg">Consolidated Items & Supplier MOQ Check</h3>
         </div>
 
         {Object.keys(consolidatedMap).length === 0 ? (
-          <p className="text-sm text-slate-400">No items available to consolidate from pending requisitions.</p>
+          <p className="text-sm text-slate-400 py-4 text-center">No items available to consolidate from pending requisitions.</p>
         ) : (
           suppliers.map(sup => {
             // Strictly filter items that belong to this specific supplier
@@ -160,12 +175,14 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
             if (supItems.length === 0) return null;
 
             return (
-              <div key={sup.code || sup.name} className="border border-slate-700 rounded-xl p-4 space-y-3 bg-slate-900/40 mt-4">
+              <div key={sup.code || sup.name} className="border border-slate-700 rounded-xl p-4 space-y-3 bg-slate-900/40 mt-4 shadow-md">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <h4 className="font-bold text-sm text-amber-400">Supplier: {sup.name} ({sup.country || 'Global'}) - Warehouse: {sup.warehouseNo || 'WH-01'}</h4>
+                  <h4 className="font-bold text-sm text-amber-400">
+                    Supplier: {sup.name} ({sup.country || 'Global'}) — Warehouse: {sup.warehouseNo || 'WH-01'}
+                  </h4>
                   <button 
                     onClick={() => convertToPI(sup.name)} 
-                    className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors cursor-pointer"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold shadow transition-colors cursor-pointer text-white"
                   >
                     Convert to Proforma Invoice
                   </button>
@@ -174,7 +191,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-slate-700 text-xs text-slate-400 bg-slate-900/30">
+                      <tr className="border-b border-slate-700 text-xs text-slate-400 bg-slate-900/50">
                         <th className="p-2.5">Item Code</th>
                         <th className="p-2.5">Item Name</th>
                         <th className="p-2.5">Total Ordered</th>
@@ -211,7 +228,7 @@ export default function OrderConsolidation({ requisitions, setRequisitions, item
                                 type="number" 
                                 value={currentQty} 
                                 onChange={e => handleQtyChange(meta.code, e.target.value)}
-                                className="bg-slate-900 border border-slate-700 p-1.5 rounded w-24 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none"
+                                className="bg-slate-900 border border-slate-700 p-1.5 rounded-md w-24 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none"
                               />
                             </td>
                           </tr>
