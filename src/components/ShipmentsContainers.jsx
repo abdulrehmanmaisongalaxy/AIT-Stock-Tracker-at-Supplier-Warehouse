@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 
-export default function ShipmentsContainers({ shipments, setShipments, branches, items, stockLedger }) {
+export default function ShipmentsContainers({ 
+  shipments = [], 
+  setShipments = () => {}, 
+  branches = [], 
+  items = [], 
+  stockLedger = [] 
+}) {
   const [shipmentForm, setShipmentForm] = useState({ refNo: '', branchId: '', containerType: '40FT', status: 'Draft', items: [] });
   const [selectedItemCode, setSelectedItemCode] = useState('');
   const [qtyToShip, setQtyToShip] = useState('');
@@ -17,7 +23,7 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
     const stockItem = stockLedger.find(s => s.code === selectedItemCode);
     const availableStock = stockItem ? stockItem.closingStock : 999999;
     if (Number(qtyToShip) > availableStock) {
-      if (!confirm(`Warning: Requested quantity (${qtyToShip}) exceeds current closing stock (${availableStock}) for ${itemMaster.name}. Do you still want to add it?`)) {
+      if (!window.confirm(`Warning: Requested quantity (${qtyToShip}) exceeds current closing stock (${availableStock}) for ${itemMaster.name}. Do you still want to add it?`)) {
         return;
       }
     }
@@ -103,20 +109,20 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
         <p className="text-sm text-slate-400">Create container loading plans for branch exports, calculate 20FT/40FT fill ratios, and generate packing lists.</p>
       </div>
 
-      <form onSubmit={handleSaveShipment} className="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4 shadow-md">
-        <h3 className="font-bold text-emerald-400">New Shipment & Container Setup</h3>
+      <form onSubmit={handleSaveShipment} className="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4 shadow-xl">
+        <h3 className="font-bold text-emerald-400 text-lg">New Shipment & Container Setup</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input 
             placeholder="Shipment Ref No. (e.g. SHP-001)" 
             value={shipmentForm.refNo} 
-            onChange={e=>setShipmentForm({...shipmentForm, refNo: e.target.value})} 
+            onChange={e => setShipmentForm({...shipmentForm, refNo: e.target.value})} 
             className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none" 
             required 
           />
           <select 
             value={shipmentForm.branchId} 
-            onChange={e=>setShipmentForm({...shipmentForm, branchId: e.target.value})} 
-            className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none" 
+            onChange={e => setShipmentForm({...shipmentForm, branchId: e.target.value})} 
+            className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer" 
             required
           >
             <option value="">Select Destination Branch</option>
@@ -124,8 +130,8 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
           </select>
           <select 
             value={shipmentForm.containerType} 
-            onChange={e=>setShipmentForm({...shipmentForm, containerType: e.target.value})} 
-            className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+            onChange={e => setShipmentForm({...shipmentForm, containerType: e.target.value})} 
+            className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer"
           >
             <option value="20FT">20FT Container (~33 CBM)</option>
             <option value="40FT">40FT Container (~67 CBM)</option>
@@ -133,13 +139,13 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
         </div>
 
         {/* Add Items to Container */}
-        <div className="border border-slate-700 p-4 rounded-xl space-y-3 bg-slate-900/50">
+        <div className="border border-slate-700 p-4 rounded-xl space-y-3 bg-slate-900/40 shadow-inner">
           <h4 className="font-semibold text-sm text-slate-200">Select Items to Ship</h4>
           <div className="flex flex-col sm:flex-row gap-3">
             <select 
               value={selectedItemCode} 
-              onChange={e=>setSelectedItemCode(e.target.value)} 
-              className="bg-slate-800 border border-slate-700 p-2.5 rounded-lg text-sm flex-1 text-slate-100 focus:border-emerald-500 focus:outline-none"
+              onChange={e => setSelectedItemCode(e.target.value)} 
+              className="bg-slate-800 border border-slate-700 p-2.5 rounded-lg text-sm flex-1 text-slate-100 focus:border-emerald-500 focus:outline-none cursor-pointer"
             >
               <option value="">Select Item from Catalog</option>
               {items.map(i => <option key={i.code} value={i.code}>{i.code} - {i.name}</option>)}
@@ -148,13 +154,13 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
               type="number" 
               placeholder="Quantity" 
               value={qtyToShip} 
-              onChange={e=>setQtyToShip(e.target.value)} 
+              onChange={e => setQtyToShip(e.target.value)} 
               className="bg-slate-800 border border-slate-700 p-2.5 rounded-lg w-full sm:w-32 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none" 
             />
             <button 
               type="button" 
               onClick={addItemToShipment} 
-              className="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors text-white"
+              className="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors text-white cursor-pointer"
             >
               Add Item
             </button>
@@ -164,7 +170,7 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
             <div className="overflow-x-auto pt-2">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-700 text-slate-400 bg-slate-900/30">
+                  <tr className="border-b border-slate-700 text-slate-400 bg-slate-900/50">
                     <th className="p-2.5">Code</th>
                     <th className="p-2.5">Name</th>
                     <th className="p-2.5">Qty</th>
@@ -187,7 +193,7 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
                           <button 
                             type="button" 
                             onClick={() => removeItemFromShipment(i.code)} 
-                            className="text-rose-400 hover:underline font-medium"
+                            className="text-rose-400 hover:text-rose-300 hover:underline font-medium cursor-pointer transition-colors"
                           >
                             Remove
                           </button>
@@ -202,38 +208,40 @@ export default function ShipmentsContainers({ shipments, setShipments, branches,
         </div>
 
         {/* Real-time container fill widget */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
           <div>
             <p className="text-xs text-slate-400">Container Fill Capacity</p>
             <p className="text-lg font-bold text-emerald-400">{fillRatio}% Filled ({totalCBM.toFixed(2)} / {maxCBM} CBM)</p>
           </div>
           <button 
             type="submit" 
-            className="bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 rounded-xl font-bold text-sm shadow transition-colors text-white w-full sm:w-auto"
+            className="bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 rounded-xl font-bold text-sm shadow transition-colors text-white w-full sm:w-auto cursor-pointer"
           >
             Save Shipment Container
           </button>
         </div>
       </form>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-md">
-        <h3 className="font-bold text-emerald-400">Active Shipments & Packing Lists</h3>
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4 shadow-xl">
+        <h3 className="font-bold text-emerald-400 text-lg">Active Shipments & Packing Lists</h3>
         {shipments.length === 0 ? (
-          <p className="text-sm text-slate-400">No shipments created yet.</p>
+          <p className="text-sm text-slate-400 py-4 text-center">No shipments created yet.</p>
         ) : (
           <div className="space-y-4">
             {shipments.map(shp => (
-              <div key={shp.id} className="border border-slate-700 rounded-xl p-4 bg-slate-900/40 space-y-3">
+              <div key={shp.id} className="border border-slate-700 rounded-xl p-4 bg-slate-900/40 space-y-3 shadow-md">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                   <div>
-                    <h4 className="font-bold text-emerald-400">{shp.refNo} — Branch: <span className="text-white">{shp.branchName}</span></h4>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Container: {shp.containerType} | Fill Ratio: <span className="text-amber-400 font-semibold">{shp.fillRatio}%</span> ({shp.totalCBM} CBM)
+                    <h4 className="font-bold text-emerald-400 text-base">{shp.refNo} — Branch: <span className="text-white">{shp.branchName}</span></h4>
+                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                      <span>Container: {shp.containerType}</span>
+                      <span>•</span>
+                      <span>Fill Ratio: <span className="text-amber-400 font-semibold">{shp.fillRatio}%</span> ({shp.totalCBM} CBM)</span>
                     </p>
                   </div>
                   <button 
                     onClick={() => downloadPackingListCSV(shp)} 
-                    className="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg font-semibold transition-colors text-white"
+                    className="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg font-semibold transition-colors text-white cursor-pointer shadow"
                   >
                     Download Packing List (CSV)
                   </button>
