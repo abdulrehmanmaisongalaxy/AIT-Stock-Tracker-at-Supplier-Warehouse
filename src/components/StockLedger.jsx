@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 
-export default function StockLedger({ stockLedger = [], suppliers = [] }) {
+export default function StockLedger({ stockLedger = [], suppliers = [], setStockLedger = () => {} }) {
   const [selectedSupplier, setSelectedSupplier] = useState('All');
   const [selectedCountry, setSelectedCountry] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
   const filteredLedger = stockLedger.filter(row => {
     const supObj = suppliers.find(s => s.name?.toLowerCase() === row.supplier?.toLowerCase());
@@ -19,7 +21,6 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
     return countryMatch && supplierMatch && searchMatch;
   });
 
-  // Calculate summary metrics
   const totalItemsCount = filteredLedger.length;
   const totalUnitsInStock = filteredLedger.reduce((sum, r) => sum + Number(r.closingStock || 0), 0);
   const totalPortfolioUSD = filteredLedger.reduce((sum, r) => sum + (Number(r.closingStock || 0) * Number(r.unitPriceUSD || 0)), 0);
@@ -36,6 +37,41 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
     a.download = 'stock_ledger_report.csv'; 
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleStartEdit = (row, index) => {
+    setEditingIndex(index);
+    setEditForm({ ...row });
+  };
+
+  const handleSaveEdit = (code) => {
+    const updated = stockLedger.map(item => {
+      if (item.code === code) {
+        const closing = Number(editForm.closingStock || 0);
+        return {
+          ...item,
+          openingStock: Number(editForm.openingStock || 0),
+          orderedQty: Number(editForm.orderedQty || 0),
+          receivedQty: Number(editForm.receivedQty || 0),
+          shippedQty: Number(editForm.shippedQty || 0),
+          closingStock: closing,
+          unitPriceLCY: Number(editForm.unitPriceLCY || 0),
+          unitPriceUSD: Number(editForm.unitPriceUSD || 0)
+        };
+      }
+      return item;
+    });
+    setStockLedger(updated);
+    localStorage.setItem('ait_ledger', JSON.stringify(updated));
+    setEditingIndex(null);
+  };
+
+  const handleDeleteRow = (code) => {
+    if (window.confirm(`Are you sure you want to remove item ${code} from the stock ledger?`)) {
+      const updated = stockLedger.filter(item => item.code !== code);
+      setStockLedger(updated);
+      localStorage.setItem('ait_ledger', JSON.stringify(updated));
+    }
   };
 
   const availableCountries = [...new Set(suppliers.map(s => s.country).filter(Boolean))];
@@ -80,7 +116,6 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
         </div>
       </div>
 
-      {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-xl">
           <p className="text-xs text-slate-400 font-medium">Filtered SKUs</p>
@@ -109,7 +144,7 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
               <th className="p-3">Shipped</th>
               <th className="p-3">Closing Stock</th>
               <th className="p-3">Unit Price</th>
-              <th className="p-3 text-right">Total Value (USD)</th>
+              <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="text-xs">
@@ -121,7 +156,29 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
               </tr>
             ) : (
               filteredLedger.map((row, idx) => {
+                const isEditing = editingIndex === idx;
                 const totalValUSD = Number(row.closingStock || 0) * Number(row.unitPriceUSD || 0);
+
+                if (isEditing) {
+                  return (
+                    <tr key={row.code || idx} className="border-b border-slate-700 bg-slate-900/80">
+                      <td className="p-3 font-semibold text-white">{row.code}</td>
+                      <td className="p-3 text-slate-200">{row.name}</td>
+                      <td className="p-3 text-slate-300">{row.supplier}</td>
+                      <td className="p-3"><input type="number" value={editForm.openingStock} onChange={e => setEditForm({...editForm, openingStock: e.target.value})} className="w-16 bg-slate-950 border border-slate-700 p-1 rounded text-white" /></td>
+                      <td className="p-3"><input type="number" value={editForm.orderedQty} onChange={e => setEditForm({...editForm, orderedQty: e.target.value})} className="w-16 bg-slate-950 border border-slate-700 p-1 rounded text-white" /></td>
+                      <td className="p-3"><input type="number" value={editForm.receivedQty} onChange={e => setEditForm({...editForm, receivedQty: e.target.value})} className="w-16 bg-slate-950 border border-slate-700 p-1 rounded text-white" /></td>
+                      <td className="p-3"><input type="number" value={editForm.shippedQty} onChange={e => setEditForm({...editForm, shippedQty: e.target.value})} className="w-16 bg-slate-950 border border-slate-700 p-1 rounded text-white" /></td>
+                      <td className="p-3"><input type="number" value={editForm.closingStock} onChange={e => setEditForm({...editForm, closingStock: e.target.value})} className="w-16 bg-slate-950 border border-slate-700 p-1 rounded text-white font-bold text-emerald-400" /></td>
+                      <td className="p-3 text-slate-300">{row.unitPriceLCY} {row.currency}</td>
+                      <td className="p-3 text-right space-x-2">
+                        <button onClick={() => handleSaveEdit(row.code)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded font-semibold cursor-pointer">Save</button>
+                        <button onClick={() => setEditingIndex(null)} className="text-slate-400 hover:text-slate-200 cursor-pointer">Cancel</button>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 return (
                   <tr key={row.code || idx} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
                     <td className="p-3 font-semibold text-white">{row.code}</td>
@@ -132,8 +189,11 @@ export default function StockLedger({ stockLedger = [], suppliers = [] }) {
                     <td className="p-3 text-slate-300">{row.receivedQty || 0}</td>
                     <td className="p-3 text-slate-300">{row.shippedQty || 0}</td>
                     <td className="p-3 font-bold text-emerald-400">{row.closingStock || 0}</td>
-                    <td className="p-3 text-slate-300">{row.unitPriceLCY || 0} {row.currency || ''}</td>
-                    <td className="p-3 text-right font-semibold text-slate-100">${totalValUSD.toFixed(2)}</td>
+                    <td className="p-3 text-slate-300">{row.unitPriceLCY || 0} {row.currency || ''} (${totalValUSD.toFixed(2)})</td>
+                    <td className="p-3 text-right space-x-3">
+                      <button onClick={() => handleStartEdit(row, idx)} className="text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer">Edit</button>
+                      <button onClick={() => handleDeleteRow(row.code)} className="text-rose-400 hover:text-rose-300 font-semibold cursor-pointer">Delete</button>
+                    </td>
                   </tr>
                 );
               })
