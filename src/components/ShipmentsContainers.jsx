@@ -15,7 +15,6 @@ export default function ShipmentsContainers({
   const [itemToAddCode, setItemToAddCode] = useState('');
   const [addQty, setAddQty] = useState(100);
 
-  // Automatically load items from branch requisitions or stock ledger when branch changes
   useEffect(() => {
     if (!selectedBranch) {
       setSelectedItemsToShip([]);
@@ -29,7 +28,6 @@ export default function ShipmentsContainers({
 
     const aggregated = {};
     
-    // 1. Try pulling from requisitions first
     if (branchReqs.length > 0) {
       branchReqs.forEach(req => {
         const lineItems = req.items || req.lineItems || [];
@@ -56,7 +54,6 @@ export default function ShipmentsContainers({
       });
     }
 
-    // 2. Fallback or supplement with available stock ledger items if no active requisitions remain
     if (Object.keys(aggregated).length === 0 && stockLedger.length > 0) {
       stockLedger.forEach(stock => {
         const availableStock = Number(stock.closingStock || stock.receivedQty || 0);
@@ -88,7 +85,6 @@ export default function ShipmentsContainers({
     setSelectedItemsToShip(prev => prev.filter(i => i.code !== code));
   };
 
-  // Manual addition of extra items based on container space availability
   const handleAddItemManually = () => {
     if (!itemToAddCode) {
       alert('Please select an item to add.');
@@ -125,7 +121,6 @@ export default function ShipmentsContainers({
   const rawFillPercentage = (totalCBM / maxCBM) * 100;
   const fillPercentage = rawFillPercentage.toFixed(1);
 
-  // Progress Bar Color logic
   const getProgressColor = () => {
     if (rawFillPercentage > 100) return 'bg-rose-500';
     if (rawFillPercentage > 85) return 'bg-amber-500';
@@ -156,21 +151,49 @@ export default function ShipmentsContainers({
       fillPercentage,
       items: selectedItemsToShip,
       date: new Date().toISOString().split('T')[0],
-      status: 'Consolidated/Ordered'
+      status: 'Dispatched to Branch'
     };
 
-    setShipments(prev => [newShipment, ...prev]);
+    const updatedShipments = [newShipment, ...shipments];
+    setShipments(updatedShipments);
+    localStorage.setItem('ait_shipments', JSON.stringify(updatedShipments));
+
     setShipmentRef('');
     setSelectedBranch('');
     setSelectedItemsToShip([]);
     alert(`Shipment ${shipmentRef} saved and sent to branch portal successfully!`);
   };
 
+  const downloadPackingList = (shp) => {
+    let csv = `AIT Supplier & Inventory Control Portal\nShipment Packing List\n\nShipment Ref:,${shp.shipmentRef}\nDestination Branch:,${shp.branch}\nContainer Type:,${shp.containerType}\nDispatch Date:,${shp.date}\nTotal CBM:,${shp.totalCBM}\nTotal Weight (Kg):,${shp.totalWeight}\n\n`;
+    csv += "Item Code,Item Name,Quantity,Total CBM,Total Weight (Kg)\n";
+    
+    (shp.items || []).forEach(i => {
+      csv += `${i.code},"${(i.name || '').replace(/"/g, '""')}",${i.qty},${(i.qty * i.cbm).toFixed(3)},${(i.qty * i.weight).toFixed(1)}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PackingList_${shp.shipmentRef}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const deleteShipment = (ref) => {
+    if (window.confirm(`Are you sure you want to delete shipment ${ref}?`)) {
+      const updated = shipments.filter(s => s.shipmentRef !== ref);
+      setShipments(updated);
+      localStorage.setItem('ait_shipments', JSON.stringify(updated));
+    }
+  };
+
   return (
-    <div className="space-y-6 text-slate-100">
+    <div className="space-y-8 text-slate-100">
       <div>
         <h2 className="text-2xl font-bold">Shipments & Containers</h2>
-        <p className="text-sm text-slate-400">Create container loading plans for branch exports, calculate fill ratios, and manually add extra items based on container space.</p>
+        <p className="text-sm text-slate-400">Create container loading plans for branch exports, calculate fill ratios, and download formal packing lists.</p>
       </div>
 
       <form onSubmit={handleSaveShipment} className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-5 shadow-xl">
@@ -215,7 +238,6 @@ export default function ShipmentsContainers({
           </div>
         </div>
 
-        {/* Manual Item Addition for Container Space Optimization */}
         <div className="bg-slate-900/50 border border-slate-700/70 p-4 rounded-xl space-y-3">
           <h4 className="font-semibold text-xs text-emerald-400 uppercase tracking-wider">Add Extra Items to Container (Space Optimization)</h4>
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
@@ -255,7 +277,6 @@ export default function ShipmentsContainers({
           </div>
         </div>
 
-        {/* Requisition & Container Items Table */}
         <div className="space-y-3">
           <h4 className="font-semibold text-sm text-slate-300">Container Loading List for {selectedBranch || 'Selected Branch'}</h4>
           {selectedItemsToShip.length === 0 ? (
@@ -307,7 +328,6 @@ export default function ShipmentsContainers({
           )}
         </div>
 
-        {/* Container Capacity Summary & Progress Bar */}
         <div className="bg-slate-900/60 border border-slate-700 p-4 rounded-xl space-y-3">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -332,6 +352,72 @@ export default function ShipmentsContainers({
           </div>
         </div>
       </form>
+
+      {/* Saved Shipments Directory & Tracking Table */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold text-emerald-400">Dispatched Shipments & Packing Lists</h3>
+        {shipments.length === 0 ? (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-slate-400 shadow-xl">
+            No active shipments created yet. Fill out the container plan above to dispatch goods.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {shipments.map((shp, idx) => (
+              <div key={shp.shipmentRef || idx} className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-700 pb-3">
+                  <div>
+                    <h4 className="font-bold text-base text-white">
+                      Ref: <span className="text-emerald-400">{shp.shipmentRef}</span> • Destination: <span className="text-cyan-400">{shp.branch}</span>
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Date: {shp.date} • Container: {shp.containerType} • Status: <span className="text-emerald-400 font-semibold">{shp.status}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => downloadPackingList(shp)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-xs px-3.5 py-2 rounded-lg font-semibold shadow transition-colors text-white cursor-pointer"
+                    >
+                      📥 Download Packing List
+                    </button>
+                    <button 
+                      onClick={() => deleteShipment(shp.shipmentRef)}
+                      className="text-rose-400 hover:text-rose-300 text-xs font-semibold cursor-pointer px-2 py-1"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-700 text-slate-400 bg-slate-900/50">
+                        <th className="p-2.5">Item Code</th>
+                        <th className="p-2.5">Item Name</th>
+                        <th className="p-2.5">Quantity</th>
+                        <th className="p-2.5">Total CBM</th>
+                        <th className="p-2.5 text-right">Total Weight (Kg)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(shp.items || []).map((item, iIdx) => (
+                        <tr key={iIdx} className="border-b border-slate-700/30">
+                          <td className="p-2.5 font-semibold text-white">{item.code}</td>
+                          <td className="p-2.5 text-slate-200">{item.name}</td>
+                          <td className="p-2.5 font-bold text-emerald-400">{item.qty}</td>
+                          <td className="p-2.5 font-mono text-slate-300">{(item.qty * item.cbm).toFixed(3)} CBM</td>
+                          <td className="p-2.5 font-mono text-slate-300 text-right">{(item.qty * item.weight).toFixed(1)} Kg</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
