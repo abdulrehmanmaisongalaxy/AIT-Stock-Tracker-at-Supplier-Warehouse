@@ -239,22 +239,15 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
     allowedCatalog.forEach(item => {
       const qty = reqQuantities[item.code] || 0;
       if (qty > 0) {
-        // item.weight is typically per unit or pack, adjust based on standard data structure
-        const itemWeight = (item.weight || 0) * qty;
-        const itemCbm = (item.cbm || 0) * qty;
+        const itemWeight = (Number(item.weight) || 0) * qty;
+        const itemCbm = (Number(item.cbm) || 0) * qty;
         totalOrderWeight += itemWeight;
         totalOrderCbm += itemCbm;
       }
     });
 
-    // Standard Container Capacities (approximate benchmarks)
-    // 20FT Container: ~28 CBM, ~21,800 kg max
-    // 40FT Container: ~58 CBM, ~26,500 kg max
     const c20CbmMax = 28;
     const c40CbmMax = 58;
-    const c20WeightMax = 21800;
-    const c40WeightMax = 26500;
-
     const fill20Cbm = Math.min(100, (totalOrderCbm / c20CbmMax) * 100);
     const fill40Cbm = Math.min(100, (totalOrderCbm / c40CbmMax) * 100);
 
@@ -263,7 +256,15 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
         .filter(([code, qty]) => qty > 0)
         .map(([code, qty]) => {
           const item = items.find(i => i.code === code);
-          return { code, name: item?.name, quantity: qty, unitPrice: item?.price || 0, currency: item?.currency || 'USD' };
+          return { 
+            code, 
+            itemCode: code, // Fallback safety for property mapping 
+            name: item?.name, 
+            quantity: qty, 
+            qty: qty, // Fallback safety for property mapping
+            unitPrice: Number(item?.price || item?.unitPrice) || 0, 
+            currency: item?.currency || 'USD' 
+          };
         });
 
       if (orderItems.length === 0) {
@@ -271,20 +272,23 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
       }
 
       const newReq = {
+        reqNo: 'REQ-' + Math.floor(1000 + Math.random() * 9000),
         id: 'REQ-' + Date.now(),
         branchId: loggedInBranch.id,
         branchName: loggedInBranch.name,
         date: new Date().toISOString().split('T')[0],
         status: 'Pending',
         items: orderItems,
-        totalWeight: totalOrderWeight,
-        totalCbm: totalOrderCbm
+        totalWeight: Number(totalOrderWeight.toFixed(2)),
+        totalCBM: Number(totalOrderCbm.toFixed(3)), // Capitalized to sync with OrderConsolidation
+        totalCbm: Number(totalOrderCbm.toFixed(3))
       };
 
       if (onSubmitRequisition) {
         onSubmitRequisition(newReq);
       }
       setReqQuantities({});
+      alert(`Requisition ${newReq.reqNo} submitted successfully to Dubai HQ!`);
     };
 
     return (
@@ -346,8 +350,8 @@ export default function BranchPortal({ branch, branches, setBranches, items, isM
                 <tbody className="divide-y divide-slate-700 text-sm">
                   {allowedCatalog.map(item => {
                     const qty = reqQuantities[item.code] || 0;
-                    const lineWt = (item.weight || 0) * qty;
-                    const lineCbm = (item.cbm || 0) * qty;
+                    const lineWt = (Number(item.weight) || 0) * qty;
+                    const lineCbm = (Number(item.cbm) || 0) * qty;
 
                     return (
                       <tr key={item.code} className="hover:bg-slate-750">
