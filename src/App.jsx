@@ -1,3 +1,10 @@
+Yes, exactly! If your App.jsx wasn't updated to pass the correct props (or if it's still passing an older version of the component), or if the master items list doesn't have the exact supplier names linked to those item codes, the supplier cards will stay hidden.
+
+Let's double-check App.jsx to ensure it passes the full items, suppliers, and setProformaInvoices down into OrderConsolidation.
+
+Here is the clean, complete App.jsx code. Make sure your App.jsx looks like this so that data flows properly into the consolidation screen:
+
+JavaScript
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import MasterSetup from './components/MasterSetup';
@@ -59,19 +66,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [branchSession, setBranchSession] = useState(null);
 
-  // Robust URL query parameters check for direct branch link login
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const branchIdParam = params.get('branch');
     if (branchIdParam) {
       const foundBranch = branches.find(b => String(b.id) === String(branchIdParam));
-      if (foundBranch) {
-        setBranchSession(foundBranch);
-      }
+      if (foundBranch) setBranchSession(foundBranch);
     }
   }, [branches]);
 
-  // Persist state updates to localStorage
   useEffect(() => { localStorage.setItem('ait_items', JSON.stringify(items)); }, [items]);
   useEffect(() => { localStorage.setItem('ait_suppliers', JSON.stringify(suppliers)); }, [suppliers]);
   useEffect(() => { localStorage.setItem('ait_exchange_rates', JSON.stringify(exchangeRates)); }, [exchangeRates]);
@@ -81,7 +84,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem('ait_shipments', JSON.stringify(shipments)); }, [shipments]);
   useEffect(() => { localStorage.setItem('ait_ledger', JSON.stringify(stockLedger)); }, [stockLedger]);
 
-  // If accessed via a direct branch portal link, render the Branch Portal directly
   if (branchSession) {
     return (
       <BranchPortal 
@@ -105,7 +107,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
-      {/* Top Header */}
       <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-lg relative z-20">
         <div>
           <h1 className="text-xl font-bold tracking-wide text-emerald-400">AIT Supplier & Inventory Control Portal</h1>
@@ -116,7 +117,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
       <nav className="bg-slate-900 border-b border-slate-800 px-6 flex gap-2 overflow-x-auto py-3 shadow-md relative z-10">
         {[
           { id: 'dashboard', label: 'Dashboard' },
@@ -130,7 +130,7 @@ export default function App() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
               activeTab === tab.id 
                 ? 'bg-emerald-600 text-white shadow-md' 
                 : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -141,24 +141,23 @@ export default function App() {
         ))}
       </nav>
 
-      {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto mt-2">
         {activeTab === 'dashboard' && <Dashboard items={items} suppliers={suppliers} branches={branches} requisitions={requisitions} proformaInvoices={proformaInvoices} shipments={shipments} stockLedger={stockLedger} />}
-        {activeTab === 'master' && (
-          <MasterSetup 
+        {activeTab === 'master' && <MasterSetup items={items} setItems={setItems} suppliers={suppliers} setSuppliers={setSuppliers} branches={branches} setBranches={setBranches} exchangeRates={exchangeRates} setExchangeRates={setExchangeRates} />}
+        
+        {/* Order Consolidation correctly receives requisitions, items, suppliers, and proforma setter */}
+        {activeTab === 'consolidation' && (
+          <OrderConsolidation 
+            requisitions={requisitions} 
+            setRequisitions={setRequisitions} 
             items={items} 
-            setItems={setItems} 
             suppliers={suppliers} 
-            setSuppliers={setSuppliers} 
-            branches={branches} 
-            setBranches={setBranches} 
-            exchangeRates={exchangeRates}
-            setExchangeRates={setExchangeRates}
+            setProformaInvoices={setProformaInvoices} 
           />
         )}
-        {activeTab === 'consolidation' && <OrderConsolidation requisitions={requisitions} setRequisitions={setRequisitions} items={items} suppliers={suppliers} setProformaInvoices={setProformaInvoices} />}
+
         {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} stockLedger={stockLedger} setStockLedger={setStockLedger} />}
-        {activeTab === 'stock' && <StockLedger stockLedger={stockLedger} suppliers={suppliers} setItems={setItems} />}
+        {activeTab === 'stock' && <StockLedger stockledger={stockLedger} suppliers={suppliers} setItems={setItems} />}
         {activeTab === 'shipments' && <ShipmentsContainers shipments={shipments} setShipments={setShipments} branches={branches} items={items} stockLedger={stockLedger} />}
         {activeTab === 'branches' && <BranchPortal branches={branches} setBranches={setBranches} items={items} requisitions={requisitions} onSubmitRequisition={(newReq) => setRequisitions(prev => [newReq, ...prev])} isManagementMode={true} />}
       </main>
