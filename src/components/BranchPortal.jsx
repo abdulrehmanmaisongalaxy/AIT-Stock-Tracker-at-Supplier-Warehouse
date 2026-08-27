@@ -16,7 +16,7 @@ export default function BranchPortal({
   
   const [reqQuantities, setReqQuantities] = useState({});
 
-  // Management Mode States (Moved to top-level to prevent Render build errors)
+  // Management Mode States
   const [newBranchName, setNewBranchName] = useState('');
   const [newLocation, setNewLocation] = useState('');
   const [newCountry, setNewCountry] = useState('');
