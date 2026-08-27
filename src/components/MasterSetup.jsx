@@ -58,11 +58,24 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers, 
   const handleSaveRate = (e) => {
     e.preventDefault();
     if (!rateForm.currency) return;
+    const currKey = rateForm.currency.trim().toUpperCase();
     setExchangeRates({
       ...exchangeRates,
-      [rateForm.currency.toUpperCase()]: Number(rateForm.rateToUSD)
+      [currKey]: Number(rateForm.rateToUSD)
     });
     setRateForm({ currency: '', rateToUSD: 1 });
+  };
+
+  const handleEditRate = (curr, rate) => {
+    setRateForm({ currency: curr, rateToUSD: rate });
+  };
+
+  const handleDeleteRate = (curr) => {
+    if (confirm(`Are you sure you want to delete the exchange rate for ${curr}?`)) {
+      const updatedRates = { ...exchangeRates };
+      delete updatedRates[curr];
+      setExchangeRates(updatedRates);
+    }
   };
 
   // CSV Templates download
@@ -265,17 +278,21 @@ export default function MasterSetup({ items, setItems, suppliers, setSuppliers, 
             <table className="w-full text-left border-collapse text-sm text-slate-200">
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-900/50 text-slate-400">
-                  <th className="p-3">Currency</th><th className="p-3 text-right">Exchange Rate (to 1 USD)</th>
+                  <th className="p-3">Currency</th><th className="p-3">Exchange Rate (to 1 USD)</th><th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.keys(exchangeRates).length === 0 ? (
-                  <tr><td colSpan="2" className="p-6 text-center text-slate-400">No exchange rates added yet. Default USD conversion is 1.0.</td></tr>
+                  <tr><td colSpan="3" className="p-6 text-center text-slate-400">No exchange rates added yet.</td></tr>
                 ) : (
                   Object.entries(exchangeRates).map(([curr, rate]) => (
                     <tr key={curr} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                       <td className="p-3 font-semibold text-white">{curr}</td>
-                      <td className="p-3 text-right font-mono">{rate}</td>
+                      <td className="p-3 font-mono">{rate}</td>
+                      <td className="p-3 text-right space-x-3">
+                        <button onClick={() => handleEditRate(curr, rate)} className="text-amber-400 hover:underline">Edit</button>
+                        <button onClick={() => handleDeleteRate(curr)} className="text-rose-400 hover:underline">Delete</button>
+                      </td>
                     </tr>
                   ))
                 )}
