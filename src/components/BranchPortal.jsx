@@ -28,7 +28,6 @@ export default function BranchPortal({
   }, [branches, loggedInBranch]);
 
   const handleSecureLogout = () => {
-    // Completely wipe the query string from the browser address bar
     const cleanUrl = window.location.origin + window.location.pathname;
     window.history.replaceState({}, document.title, cleanUrl);
 
@@ -50,8 +49,8 @@ export default function BranchPortal({
     const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
     const [selectedAllowedItems, setSelectedAllowedItems] = useState([]);
 
-    const availableSuppliers = [...new Set(items.map(i => i.supplier))];
-    const availableCountries = [...new Set(items.map(i => i.country))];
+    const availableSuppliers = [...new Set(items.map(i => i.supplier).filter(Boolean))];
+    const availableCountries = [...new Set(items.map(i => i.country).filter(Boolean))];
 
     const filteredCatalog = items.filter(item => {
       const matchSupplier = selectedSupplierFilter === 'ALL' || item.supplier === selectedSupplierFilter;
@@ -164,8 +163,8 @@ export default function BranchPortal({
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h4 className="font-medium text-slate-200 text-sm">Select Permitted Items ({selectedAllowedItems.length} selected)</h4>
                 <div className="flex gap-2">
-                  <button type="button" onClick={handleSelectAllFiltered} className="bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs px-3 py-1.5 rounded border border-slate-700 transition">Select Filtered</button>
-                  <button type="button" onClick={handleDeselectAllFiltered} className="bg-slate-800 hover:bg-slate-700 text-red-400 text-xs px-3 py-1.5 rounded border border-slate-700 transition">Deselect Filtered</button>
+                  <button type="button" onClick={handleSelectAllFiltered} className="bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs px-3 py-1.5 rounded border border-slate-700 transition cursor-pointer">Select Filtered</button>
+                  <button type="button" onClick={handleDeselectAllFiltered} className="bg-slate-800 hover:bg-slate-700 text-red-400 text-xs px-3 py-1.5 rounded border border-slate-700 transition cursor-pointer">Deselect Filtered</button>
                 </div>
               </div>
 
@@ -201,18 +200,18 @@ export default function BranchPortal({
                       type="checkbox" 
                       checked={selectedAllowedItems.includes(item.code)}
                       onChange={() => handleToggleItem(item.code)}
-                      className="rounded bg-slate-900 border-slate-700 text-emerald-600 focus:ring-0"
+                      className="rounded bg-slate-900 border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
                     />
                     <span className="font-mono text-emerald-400">{item.code}</span>
                     <span className="truncate flex-1">{item.name}</span>
-                    <span className="text-slate-500">({item.supplier})</span>
+                    <span className="text-slate-500">({item.supplier || 'Unassigned'})</span>
                   </label>
                 ))}
                 {filteredCatalog.length === 0 && <p className="text-xs text-slate-500 text-center py-2">No items match the current filters.</p>}
               </div>
             </div>
 
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition shadow-md">
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition shadow-md cursor-pointer">
               Save Branch & Generate Secure Credentials
             </button>
           </form>
@@ -230,13 +229,13 @@ export default function BranchPortal({
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => copyPortalLink(b.id)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 cursor-pointer"
                   >
-                    <i className="fa-solid fa-link"></i> Copy Portal Link
+                    Copy Portal Link
                   </button>
                   <button 
                     onClick={() => setBranches(branches.filter(x => x.id !== b.id))}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition"
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
                   >
                     Delete
                   </button>
@@ -254,7 +253,6 @@ export default function BranchPortal({
   if (loggedInBranch) {
     const allowedCatalog = items.filter(i => loggedInBranch.allowedItems && loggedInBranch.allowedItems.includes(i.code));
     
-    // FIX: Case-insensitive match on branch ID or branch Name to properly capture records from HQ state
     const branchRequisitions = requisitions.filter(r => {
       const matchId = r.branchId && loggedInBranch.id && String(r.branchId).toLowerCase() === String(loggedInBranch.id).toLowerCase();
       const matchName = r.branchName && loggedInBranch.name && String(r.branchName).trim().toLowerCase() === String(loggedInBranch.name).trim().toLowerCase();
@@ -293,7 +291,8 @@ export default function BranchPortal({
             quantity: qty, 
             qty: qty, 
             unitPrice: Number(item?.price || item?.unitPrice) || 0, 
-            currency: item?.currency || 'USD' 
+            currency: item?.currency || 'USD',
+            supplier: item?.supplier || '' // Ensure supplier is embedded in requisition items
           };
         });
 
@@ -331,7 +330,7 @@ export default function BranchPortal({
             </div>
             <button 
               onClick={handleSecureLogout}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer"
             >
               Logout Securely
             </button>
@@ -362,7 +361,7 @@ export default function BranchPortal({
 
           <div className="bg-slate-900 p-5 rounded-xl border border-slate-700 space-y-3">
             <h3 className="text-md font-semibold text-emerald-400 flex items-center gap-2">
-              <i className="fa-solid fa-clock-rotate-left"></i> My Submitted Requisitions ({branchRequisitions.length})
+              My Submitted Requisitions ({branchRequisitions.length})
             </h3>
             <div className="overflow-x-auto max-h-56">
               <table className="w-full text-left border-collapse text-xs">
@@ -411,6 +410,7 @@ export default function BranchPortal({
                   <tr className="bg-slate-900 text-slate-400 text-xs border-b border-slate-700 sticky top-0">
                     <th className="p-3">Code</th>
                     <th className="p-3">Item Name</th>
+                    <th className="p-3">Supplier</th>
                     <th className="p-3">Pack Size</th>
                     <th className="p-3">Unit Weight (kg)</th>
                     <th className="p-3">Unit CBM (m³)</th>
@@ -429,6 +429,7 @@ export default function BranchPortal({
                       <tr key={item.code} className="hover:bg-slate-750">
                         <td className="p-3 font-medium text-emerald-400">{item.code}</td>
                         <td className="p-3 text-slate-200">{item.name}</td>
+                        <td className="p-3 text-slate-400 text-xs">{item.supplier || 'Unassigned'}</td>
                         <td className="p-3 text-slate-400">{item.packSize}</td>
                         <td className="p-3 text-slate-300">{item.weight || 0} kg</td>
                         <td className="p-3 text-slate-300">{item.cbm || 0} m³</td>
@@ -457,7 +458,7 @@ export default function BranchPortal({
                   })}
                   {allowedCatalog.length === 0 && (
                     <tr>
-                      <td colSpan="8" className="text-center py-6 text-slate-400">No items have been assigned to this branch yet. Please contact Dubai HQ.</td>
+                      <td colSpan="9" className="text-center py-6 text-slate-400">No items have been assigned to this branch yet. Please contact Dubai HQ.</td>
                     </tr>
                   )}
                 </tbody>
@@ -467,7 +468,7 @@ export default function BranchPortal({
             {allowedCatalog.length > 0 && (
               <button 
                 onClick={handleSendOrder}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition shadow-md w-full"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition shadow-md w-full cursor-pointer"
               >
                 Submit Order Requisition to Dubai HQ
               </button>
@@ -526,7 +527,7 @@ export default function BranchPortal({
           </div>
           <button 
             type="submit" 
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition shadow-lg"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition shadow-lg cursor-pointer"
           >
             Login to Secure Portal
           </button>
