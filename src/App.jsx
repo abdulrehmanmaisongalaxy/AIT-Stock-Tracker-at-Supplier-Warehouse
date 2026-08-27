@@ -148,9 +148,9 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} stockLedger={stockLedger} setStockLedger={setStockLedger} />}
+        {activeTab === 'pis' && <ProformaInvoices proformaInvoices={proformaInvoices} setProformaInvoices={setProformaInvoices} suppliers={suppliers} items={items} stockLedger={stockLedger} setStockLedger={setStockLedger} exchangeRates={exchangeRates} />}
         {activeTab === 'stock' && <StockLedger stockLedger={stockLedger} suppliers={suppliers} setItems={setItems} />}
-        {activeTab === 'shipments' && <ShipmentsContainers shipments={shipments} setShipments={setShipments} branches={branches} items={items} stockLedger={stockLedger} />}
+        {activeTab === 'shipments' && <ShipmentsContainers shipments={shipments} setShipments={setShipments} branches={branches} items={items} stockLedger={stockLedger} requisitions={requisitions} />}
         {activeTab === 'branches' && <BranchPortal branches={branches} setBranches={setBranches} items={items} requisitions={requisitions} onSubmitRequisition={(newReq) => setRequisitions(prev => [newReq, ...prev])} isManagementMode={true} />}
       </main>
     </div>
