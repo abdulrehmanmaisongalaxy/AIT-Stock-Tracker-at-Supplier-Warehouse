@@ -18,23 +18,26 @@ export default function OrderConsolidation({
   // Aggregate total ordered quantities across all requisitions by item code
   const consolidatedMap = {};
   requisitions.forEach(req => {
-    if (req.items && Array.isArray(req.items)) {
-      req.items.forEach(line => {
-        const itemCode = line.code || line.itemCode || line.name;
-        if (itemCode) {
-          if (!consolidatedMap[itemCode]) {
-            consolidatedMap[itemCode] = { 
-              code: itemCode, 
-              name: line.name || itemCode, 
+    const reqItems = req.items || req.lineItems || [];
+    if (Array.isArray(reqItems)) {
+      reqItems.forEach(line => {
+        const itemCode = line.code || line.itemCode || line.sku;
+        const itemName = line.name || line.itemName || itemCode;
+        if (itemCode || itemName) {
+          const mapKey = itemCode || itemName;
+          if (!consolidatedMap.hasOwnProperty(mapKey)) {
+            consolidatedMap[mapKey] = { 
+              code: itemCode || itemName, 
+              name: itemName, 
               totalOrdered: 0, 
               branchBreakdown: {} 
             };
           }
-          const qtyVal = Number(line.qty || line.quantity) || 0;
-          consolidatedMap[itemCode].totalOrdered += qtyVal;
-          const branchName = req.branchName || 'Branch';
-          consolidatedMap[itemCode].branchBreakdown[branchName] = 
-            (consolidatedMap[itemCode].branchBreakdown[branchName] || 0) + qtyVal;
+          const qtyVal = Number(line.qty || line.quantity || line.requestedQty) || 0;
+          consolidatedMap[mapKey].totalOrdered += qtyVal;
+          const branchName = req.branchName || req.branch || 'Branch';
+          consolidatedMap[mapKey].branchBreakdown[branchName] = 
+            (consolidatedMap[mapKey].branchBreakdown[branchName] || 0) + qtyVal;
         }
       });
     }
@@ -47,21 +50,28 @@ export default function OrderConsolidation({
   // Group by Supplier to generate Proforma Invoices
   const convertToPI = (supplierName) => {
     const supplierItems = Object.values(consolidatedMap).map(itemMeta => {
-      const itemMaster = items.find(i => i.code === itemMeta.code || i.name === itemMeta.name);
+      const itemMaster = items.find(i => 
+        (i.code && itemMeta.code && i.code.toLowerCase() === itemMeta.code.toLowerCase()) || 
+        (i.name && itemMeta.name && i.name.toLowerCase() === itemMeta.name.toLowerCase())
+      );
+      
       const itemSupplier = itemMaster ? itemMaster.supplier : null;
 
-      // Only include items belonging to this supplier
-      if (itemSupplier !== supplierName) return null;
+      // Match supplier case-insensitively or via exact match
+      const matchesSupplier = itemSupplier && supplierName && 
+        itemSupplier.trim().toLowerCase() === supplierName.trim().toLowerCase();
+
+      if (!matchesSupplier) return null;
       
       const finalQty = editedQtys[itemMeta.code] !== undefined ? Number(editedQtys[itemMeta.code]) : Number(itemMeta.totalOrdered);
-      const unitPrice = Number(itemMaster.price || itemMaster.unitPrice || 0);
+      const unitPrice = Number(itemMaster?.price || itemMaster?.unitPrice || 0);
       
       return {
         code: itemMeta.code,
         name: itemMeta.name,
         qty: finalQty,
         unitPrice: unitPrice,
-        currency: itemMaster.currency || 'USD',
+        currency: itemMaster?.currency || 'USD',
         totalLCY: finalQty * unitPrice
       };
     }).filter(Boolean);
@@ -72,7 +82,7 @@ export default function OrderConsolidation({
     }
 
     const totalLCYAmount = supplierItems.reduce((acc, curr) => acc + curr.totalLCY, 0);
-    const supObj = suppliers.find(s => s.name === supplierName);
+    const supObj = suppliers.find(s => s.name?.toLowerCase() === supplierName?.toLowerCase());
     const currency = supObj ? supObj.currency : (supplierItems[0]?.currency || 'USD');
     
     let rate = 1;
@@ -127,28 +137,32 @@ export default function OrderConsolidation({
                 </tr>
               </thead>
               <tbody>
-                {requisitions.map(req => (
-                  <tr key={req.reqNo} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="p-3 font-semibold text-white">{req.reqNo}</td>
-                    <td className="p-3">{req.branchName}</td>
-                    <td className="p-3">{req.items ? req.items.length : 0} items</td>
-                    <td className="p-3">{req.totalCBM}</td>
-                    <td className="p-3">{req.totalWeight}</td>
-                    <td className="p-3">
-                      <span className="bg-amber-950/80 text-amber-400 border border-amber-800/60 px-2.5 py-1 rounded-md text-xs font-semibold">
-                        {req.status || 'Pending'}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right">
-                      <button 
-                        onClick={() => handleDeleteReq(req.reqNo)} 
-                        className="text-rose-400 hover:text-rose-300 hover:underline text-xs font-medium cursor-pointer transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {requisitions.map(req => {
+                  const reqKey = req.reqNo || req.id;
+                  const reqItemsCount = (req.items || req.lineItems || []).length;
+                  return (
+                    <tr key={reqKey} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      <td className="p-3 font-semibold text-white">{reqKey}</td>
+                      <td className="p-3">{req.branchName || req.branch}</td>
+                      <td className="p-3">{reqItemsCount} items</td>
+                      <td className="p-3">{req.totalCBM || req.totalCbm || '0.00'}</td>
+                      <td className="p-3">{req.totalWeight || '0'}</td>
+                      <td className="p-3">
+                        <span className="bg-amber-950/80 text-amber-400 border border-amber-800/60 px-2.5 py-1 rounded-md text-xs font-semibold">
+                          {req.status || 'Pending'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <button 
+                          onClick={() => handleDeleteReq(reqKey)} 
+                          className="text-rose-400 hover:text-rose-300 hover:underline text-xs font-medium cursor-pointer transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -165,10 +179,14 @@ export default function OrderConsolidation({
           <p className="text-sm text-slate-400 py-4 text-center">No items available to consolidate from pending requisitions.</p>
         ) : (
           suppliers.map(sup => {
-            // Strictly filter items that belong to this specific supplier
+            // Strictly filter items that belong to this specific supplier using robust matching
             const supItems = Object.values(consolidatedMap).filter(meta => {
-              const master = items.find(i => i.code === meta.code || i.name === meta.name);
-              return master && master.supplier === sup.name;
+              const master = items.find(i => 
+                (i.code && meta.code && i.code.toLowerCase() === meta.code.toLowerCase()) || 
+                (i.name && meta.name && i.name.toLowerCase() === meta.name.toLowerCase())
+              );
+              return master && master.supplier && sup.name && 
+                master.supplier.trim().toLowerCase() === sup.name.trim().toLowerCase();
             });
 
             // If this supplier has no items in the current requisitions, hide their card
@@ -203,8 +221,11 @@ export default function OrderConsolidation({
                     </thead>
                     <tbody>
                       {supItems.map(meta => {
-                        const master = items.find(i => i.code === meta.code || i.name === meta.name);
-                        const moqLimit = master ? Number(master.moq) || 1000 : 1000;
+                        const master = items.find(i => 
+                          (i.code && meta.code && i.code.toLowerCase() === meta.code.toLowerCase()) || 
+                          (i.name && meta.name && i.name.toLowerCase() === meta.name.toLowerCase())
+                        );
+                        const moqLimit = master ? Number(master.moq || master.MOQ) || 1000 : 1000;
                         const currentQty = editedQtys[meta.code] !== undefined ? editedQtys[meta.code] : meta.totalOrdered;
                         const meetsMOQ = currentQty >= moqLimit;
                         const breakdownStr = Object.entries(meta.branchBreakdown).map(([b, q]) => `${b}: ${q}`).join(', ');
